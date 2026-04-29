@@ -79,15 +79,6 @@ const UserSchema = new Schema<IUser>(
       type: Schema.Types.ObjectId,
       ref: "Partner",
       default: null,
-      validate: {
-        validator: function (this: IUser, v: Types.ObjectId | null) {
-          // global_admin must NOT have a partnerId; everyone else must.
-          if (this.userType === "global_admin") return v === null;
-          return v !== null && v !== undefined;
-        },
-        message:
-          "partnerId is required for partner_admin/user, must be null for global_admin",
-      },
     },
     phone: { type: String, default: "", trim: true },
     state: { type: String, default: "", trim: true },
@@ -111,6 +102,19 @@ const UserSchema = new Schema<IUser>(
   },
   { timestamps: true }
 );
+
+// global_admin must NOT have a partnerId; everyone else must.
+// Implemented as an async pre-save hook because inline `validate` with a
+// typed `this` collides with Mongoose v9's stricter ValidateFn typings.
+UserSchema.pre("save", async function () {
+  if (this.userType === "global_admin") {
+    if (this.partnerId !== null && this.partnerId !== undefined) {
+      throw new Error("global_admin must not have a partnerId");
+    }
+  } else if (!this.partnerId) {
+    throw new Error("partnerId is required for partner_admin/user");
+  }
+});
 
 // Compound + secondary indexes (email's unique index is set on the field itself).
 UserSchema.index({ partnerId: 1, isDeleted: 1 });
