@@ -1,0 +1,169 @@
+@import "tailwindcss";
+
+@theme {
+  /* Marketing — Editorial Gravitas */
+  --color-paper: #f4ecda;
+  --color-paper-2: #ecdfc2;
+  --color-paper-3: #dfc9a0;
+  --color-ink: #0e1a2b;
+  --color-ink-2: #1b2d45;
+  --color-ink-soft: #4a5468;
+  --color-rule: #c7b894;
+  --color-brass: #b68b3c;
+  --color-brass-deep: #8e6a24;
+  --color-vermillion: #b43a2c;
+
+  /* Admin — Plex Modern */
+  --color-admin-bg: #fafaf7;
+  --color-admin-bg-sidebar: #f5f2eb;
+  --color-admin-surface: #ffffff;
+  --color-admin-border: #e8e6e0;
+  --color-admin-border-soft: #f0ede6;
+  --color-admin-fg: #0e1a1f;
+  --color-admin-fg-muted: #5a6470;
+  --color-admin-fg-soft: #8a929e;
+  --color-admin-accent: #0e7c4a;
+  --color-admin-accent-hover: #0a6238;
+  --color-admin-accent-soft: #e6f2ec;
+  --color-admin-saffron: #e5803a;
+  --color-admin-saffron-soft: #faefe3;
+  --color-admin-danger: #c9382f;
+  --color-admin-danger-soft: #fbeae7;
+  --color-admin-warning: #b7791f;
+  --color-admin-warning-soft: #fbf3e0;
+
+  /* Partner App — Midnight Counsel */
+  --color-app-canvas: #f4ede0;
+  --color-app-canvas-2: #efe5d0;
+  --color-app-paper: #ffffff;
+  --color-app-paper-2: #faf6ed;
+  --color-app-edge: #e3d9c0;
+  --color-app-edge-soft: #efe5d0;
+  --color-app-ink: #0a1124;
+  --color-app-ink-2: #141d33;
+  --color-app-ink-3: #1f2a45;
+  --color-app-ivory: #f5ebd6;
+  --color-app-ivory-soft: #c4baa3;
+  --color-app-ivory-dim: #7e7763;
+  --color-app-fg: #0a1124;
+  --color-app-fg-soft: #4d4538;
+  --color-app-fg-muted: #7a7060;
+  --color-app-copper: #c5853a;
+  --color-app-copper-warm: #d28a3c;
+  --color-app-copper-bright: #ddb074;
+  --color-app-copper-deep: #8a5821;
+  --color-app-copper-text: #2a1c08;
+  --color-app-aqua: #56a0a8;
+  --color-app-aqua-soft: #d2e6e7;
+  --color-app-danger: #c14a37;
+  --color-app-danger-soft: #f6dccd;
+  --color-app-success: #6c9858;
+  --color-app-success-soft: #e0e9d5;
+}
+
+@theme inline {
+  --font-display: var(--font-fraunces);
+  --font-body: var(--font-newsreader);
+  --font-mono: var(--font-jb-mono);
+  --font-sans: var(--font-newsreader);
+  --font-plex: var(--font-plex-sans);
+  --font-plex-mono: var(--font-plex-mono);
+  --font-app-display: var(--font-crimson);
+  --font-app-body: var(--font-manrope);
+  --font-app-mono: var(--font-dm-mono);
+}
+
+html,
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+body {
+  font-family: var(--font-newsreader), Georgia, "Times New Roman", serif;
+  font-feature-settings: "kern", "liga", "calt";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: var(--color-brass);
+  color: var(--color-paper);
+}
+
+/* Admin overrides — apply to anything inside .admin-shell */
+.admin-shell {
+  background: var(--color-admin-bg);
+  color: var(--color-admin-fg);
+  font-family: var(--font-plex-sans), system-ui, -apple-system, "Segoe UI",
+    sans-serif;
+  font-feature-settings: "ss01", "ss02", "kern", "liga";
+}
+
+.admin-shell ::selection {
+  background: var(--color-admin-accent);
+  color: #ffffff;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rise {
+  animation: rise 0.85s cubic-bezier(0.2, 0.7, 0.1, 1) both;
+}
+
+@keyframes drift {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-0.5deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(-0.7deg);
+  }
+}
+
+.drift {
+  animation: drift 9s ease-in-out infinite;
+}
+
+@keyframes fadeUpSm {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-up-sm {
+  animation: fadeUpSm 0.5s cubic-bezier(0.2, 0.7, 0.1, 1) both;
+}
+
+.paper-grain {
+  background-image: radial-gradient(rgba(14, 26, 43, 1) 1px, transparent 1px);
+  background-size: 3px 3px;
+}
+
+/* Partner app — Midnight Counsel — applies inside .app-shell */
+.app-shell {
+  background: var(--color-app-canvas);
+  color: var(--color-app-fg);
+  font-family: var(--font-manrope), system-ui, -apple-system, sans-serif;
+  font-feature-settings: "ss01", "kern", "liga", "calt";
+}
+
+.app-shell ::selection {
+  background: var(--color-app-copper);
+  color: var(--color-app-ink);
+}
+
