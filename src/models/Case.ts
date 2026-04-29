@@ -1,0 +1,106 @@
+import mongoose, { Schema, Types, type Model } from "mongoose";
+
+export interface ICaseHearing {
+  date: Date;
+  status: string;
+  outcome: string;
+  nextDate: Date | null;
+}
+
+export interface ICase {
+  _id: Types.ObjectId;
+  partnerId: Types.ObjectId;
+  caseNo: string;
+  fileNo: string;
+  cnr: string;
+  title: string;
+
+  // Parties
+  clientId: Types.ObjectId | null;
+  clientName: string;
+  clientPhone: string;
+  clientWhatsapp: string;
+  clientAddress: string;
+  oppositeParty: string;
+
+  // Representation
+  appearingFor: string;
+  oppositeAdvocate: string;
+  iaNumbers: string;
+
+  // Court
+  courtId: Types.ObjectId | null;
+  courtName: string;
+  courtHall: string;
+  courtPlace: string;
+
+  // Status & dates
+  status: string;
+  nextHearingDate: Date | null;
+  lastHearingDate: Date | null;
+  hearings: ICaseHearing[];
+
+  createdBy: Types.ObjectId | null;
+  createdAt: Date;
+  updatedAt: Date;
+  isDeleted: boolean;
+}
+
+const HearingSchema = new Schema<ICaseHearing>(
+  {
+    date: { type: Date, required: true },
+    status: { type: String, default: "" },
+    outcome: { type: String, default: "" },
+    nextDate: { type: Date, default: null },
+  },
+  { _id: false }
+);
+
+const CaseSchema = new Schema<ICase>(
+  {
+    partnerId: {
+      type: Schema.Types.ObjectId,
+      ref: "Partner",
+      required: true,
+    },
+    caseNo: { type: String, required: true, trim: true },
+    fileNo: { type: String, default: "", trim: true },
+    cnr: { type: String, default: "", trim: true },
+    title: { type: String, default: "", trim: true },
+
+    // Parties
+    clientId: { type: Schema.Types.ObjectId, ref: "Client", default: null },
+    clientName: { type: String, default: "", trim: true },
+    clientPhone: { type: String, default: "", trim: true },
+    clientWhatsapp: { type: String, default: "", trim: true },
+    clientAddress: { type: String, default: "", trim: true },
+    oppositeParty: { type: String, default: "", trim: true },
+
+    // Representation
+    appearingFor: { type: String, default: "", trim: true },
+    oppositeAdvocate: { type: String, default: "", trim: true },
+    iaNumbers: { type: String, default: "", trim: true },
+
+    // Court
+    courtId: { type: Schema.Types.ObjectId, ref: "Court", default: null },
+    courtName: { type: String, default: "", trim: true },
+    courtHall: { type: String, default: "", trim: true },
+    courtPlace: { type: String, default: "", trim: true },
+
+    status: { type: String, default: "Filed", trim: true },
+    nextHearingDate: { type: Date, default: null },
+    lastHearingDate: { type: Date, default: null },
+    hearings: { type: [HearingSchema], default: [] },
+    createdBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    isDeleted: { type: Boolean, default: false },
+  },
+  { timestamps: true }
+);
+
+CaseSchema.index({ partnerId: 1, isDeleted: 1, nextHearingDate: 1 });
+CaseSchema.index({ partnerId: 1, isDeleted: 1, createdAt: -1 });
+CaseSchema.index({ partnerId: 1, caseNo: 1 });
+
+export const Case: Model<ICase> =
+  (mongoose.models.Case as Model<ICase>) ||
+  mongoose.model<ICase>("Case", CaseSchema);
