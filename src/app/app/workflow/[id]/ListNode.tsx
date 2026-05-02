@@ -73,7 +73,8 @@ export default function ListNode(props: NodeProps & { data: ListNodeData }) {
   }
 
   const stripeColor = list.color || accent;
-  const showHandles = selected || canEdit;
+  // Always show handles for editors (so they can connect), hide for viewers.
+  const showHandles = canEdit;
 
   return (
     <div
@@ -327,84 +328,61 @@ export default function ListNode(props: NodeProps & { data: ListNodeData }) {
         </div>
       ) : null}
 
-      {/* Connection handles — copper dots on each side */}
-      {showHandles ? (
-        <>
-          <Handle
-            type="source"
-            position={Position.Top}
-            id="top"
-            style={{
-              ...HANDLE_BASE,
-              backgroundColor: stripeColor,
-              boxShadow: `0 0 0 4px ${stripeColor}33`,
-              top: -6,
-            }}
-          />
-          <Handle
-            type="source"
-            position={Position.Right}
-            id="right"
-            style={{
-              ...HANDLE_BASE,
-              backgroundColor: stripeColor,
-              boxShadow: `0 0 0 4px ${stripeColor}33`,
-              right: -6,
-            }}
-          />
-          <Handle
-            type="source"
-            position={Position.Bottom}
-            id="bottom"
-            style={{
-              ...HANDLE_BASE,
-              backgroundColor: stripeColor,
-              boxShadow: `0 0 0 4px ${stripeColor}33`,
-              bottom: -6,
-            }}
-          />
-          <Handle
-            type="source"
-            position={Position.Left}
-            id="left"
-            style={{
-              ...HANDLE_BASE,
-              backgroundColor: stripeColor,
-              boxShadow: `0 0 0 4px ${stripeColor}33`,
-              left: -6,
-            }}
-          />
-        </>
-      ) : null}
-
-      {/* Target handles (always present, invisible until used) */}
+      {/* Connection handles — copper dots on each side. The canvas runs
+          in ConnectionMode.Loose, so each handle is BOTH source and target.
+          Always rendered (so connections can land on them when dragged in)
+          but only visually visible on hover/selection. */}
       <Handle
-        type="target"
+        type="source"
         position={Position.Top}
-        id="top-t"
-        style={{ background: "transparent", border: "none", top: 0 }}
+        id="top"
         isConnectable={canEdit}
+        style={{
+          ...HANDLE_BASE,
+          backgroundColor: stripeColor,
+          boxShadow: `0 0 0 4px ${stripeColor}33`,
+          top: -6,
+          opacity: showHandles ? 1 : 0,
+        }}
       />
       <Handle
-        type="target"
+        type="source"
         position={Position.Right}
-        id="right-t"
-        style={{ background: "transparent", border: "none", right: 0 }}
+        id="right"
         isConnectable={canEdit}
+        style={{
+          ...HANDLE_BASE,
+          backgroundColor: stripeColor,
+          boxShadow: `0 0 0 4px ${stripeColor}33`,
+          right: -6,
+          opacity: showHandles ? 1 : 0,
+        }}
       />
       <Handle
-        type="target"
+        type="source"
         position={Position.Bottom}
-        id="bottom-t"
-        style={{ background: "transparent", border: "none", bottom: 0 }}
+        id="bottom"
         isConnectable={canEdit}
+        style={{
+          ...HANDLE_BASE,
+          backgroundColor: stripeColor,
+          boxShadow: `0 0 0 4px ${stripeColor}33`,
+          bottom: -6,
+          opacity: showHandles ? 1 : 0,
+        }}
       />
       <Handle
-        type="target"
+        type="source"
         position={Position.Left}
-        id="left-t"
-        style={{ background: "transparent", border: "none", left: 0 }}
+        id="left"
         isConnectable={canEdit}
+        style={{
+          ...HANDLE_BASE,
+          backgroundColor: stripeColor,
+          boxShadow: `0 0 0 4px ${stripeColor}33`,
+          left: -6,
+          opacity: showHandles ? 1 : 0,
+        }}
       />
     </div>
   );

@@ -10,6 +10,7 @@ import {
   BackgroundVariant,
   Controls,
   MiniMap,
+  ConnectionMode,
   useNodesState,
   useEdgesState,
   addEdge,
@@ -289,7 +290,7 @@ function Inner({
           source: e.sourceListId,
           target: e.targetListId,
           sourceHandle: e.sourceHandle,
-          targetHandle: e.targetHandle + "-t",
+          targetHandle: e.targetHandle,
           type: "connection",
           data: data as unknown as Record<string, unknown>,
         };
@@ -392,7 +393,7 @@ function Inner({
   const onConnect = useCallback(
     async (conn: Connection) => {
       if (!conn.source || !conn.target || conn.source === conn.target) return;
-      const targetHandle = (conn.targetHandle || "left").replace(/-t$/, "");
+      const targetHandle = conn.targetHandle || "left";
       const sourceHandle = conn.sourceHandle || "right";
 
       // Optimistic add
@@ -611,6 +612,7 @@ function Inner({
           minZoom={0.3}
           maxZoom={2}
           proOptions={proOptions}
+          connectionMode={ConnectionMode.Loose}
           panOnScroll
           selectionOnDrag={false}
           deleteKeyCode={null}
@@ -665,12 +667,11 @@ function Inner({
           onAddList={onAddList}
         />
 
-        <DragOverlay
-          dropAnimation={{
-            duration: 220,
-            easing: "cubic-bezier(0.2, 0.7, 0.1, 1)",
-          }}
-        >
+        {/* dropAnimation={null} — kills the snap-back glitch where the
+            card flies back to its origin before reappearing in the new
+            list. We want it to vanish at drop point and re-render in the
+            destination list (optimistic update has already placed it). */}
+        <DragOverlay dropAnimation={null}>
           {activeCardTask ? (
             <div style={{ width: 304 }}>
               <CardPreview
