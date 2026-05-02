@@ -26,6 +26,49 @@ export type ActivityBoardOption = {
   color: string;
 };
 
+type DateRangeKey = "any" | "today" | "7d" | "30d" | "month" | "custom";
+
+const DATE_RANGE_PRESETS: { key: DateRangeKey; label: string }[] = [
+  { key: "any", label: "Any time" },
+  { key: "today", label: "Today" },
+  { key: "7d", label: "Last 7 days" },
+  { key: "30d", label: "Last 30 days" },
+  { key: "month", label: "This month" },
+  { key: "custom", label: "Custom" },
+];
+
+// Returns yyyy-mm-dd ISO date strings for the from/to bounds of a preset.
+function computeDateRange(
+  key: DateRangeKey,
+  customFrom?: string,
+  customTo?: string
+): { from: string; to: string } {
+  const today = new Date();
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  switch (key) {
+    case "any":
+      return { from: "", to: "" };
+    case "today":
+      return { from: iso(today), to: iso(today) };
+    case "7d": {
+      const start = new Date(today);
+      start.setDate(start.getDate() - 6);
+      return { from: iso(start), to: iso(today) };
+    }
+    case "30d": {
+      const start = new Date(today);
+      start.setDate(start.getDate() - 29);
+      return { from: iso(start), to: iso(today) };
+    }
+    case "month": {
+      const start = new Date(today.getFullYear(), today.getMonth(), 1);
+      return { from: iso(start), to: iso(today) };
+    }
+    case "custom":
+      return { from: customFrom ?? "", to: customTo ?? "" };
+  }
+}
+
 const ACTION_FAMILIES: { key: string; label: string; prefix: string }[] = [
   { key: "all", label: "Everything", prefix: "" },
   { key: "task", label: "Cards", prefix: "task." },
@@ -66,6 +109,15 @@ export default function ActivityClient({
   const [view, setView] = useState<"activity" | "requests">("activity");
   const [selectedRow, setSelectedRow] = useState<ActivityRow | null>(null);
 
+  // Date-range filter. `dateRange` is a preset key the user clicked
+  // ("any", "today", "7d", "30d", "custom"); `dateFrom` and `dateTo` hold
+  // the actual ISO dates (yyyy-mm-dd) sent to the server. Presets compute
+  // the dates on the fly so the user doesn't deal with picker fields
+  // unless they want a custom window.
+  const [dateRange, setDateRange] = useState<DateRangeKey>("any");
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
+
   // Partner-wide live feed: anything new (across cases, clients, boards,
   // hearings, profile, users) prepends to the visible feed without
   // requiring a page refresh. Filters apply at render time so live rows
@@ -102,6 +154,8 @@ export default function ActivityClient({
       board?: string;
       family?: string;
       before?: string | null;
+      from?: string;
+      to?: string;
       reset?: boolean;
     }) => {
       setLoading(true);
@@ -113,6 +167,8 @@ export default function ActivityClient({
           qs.set("actionPrefix", familyToPrefix(params.family));
         }
         if (params.before) qs.set("before", params.before);
+        if (params.from) qs.set("from", params.from);
+        if (params.to) qs.set("to", params.to);
         qs.set("limit", "50");
         const res = await fetch(`/api/app/activity?${qs.toString()}`);
         const data = await res.json();
@@ -131,11 +187,32 @@ export default function ActivityClient({
     []
   );
 
+  // Apply a date preset. Computes the from/to ISO dates and refetches.
+  const applyDateRange = useCallback(
+    (key: DateRangeKey, customFrom?: string, customTo?: string) => {
+      setDateRange(key);
+      const { from, to } = computeDateRange(key, customFrom, customTo);
+      setDateFrom(from);
+      setDateTo(to);
+      fetchPage({
+        actor: actorId,
+        board: boardId,
+        family: actionFamily,
+        from,
+        to,
+        reset: true,
+      });
+    },
+    [actorId, boardId, actionFamily, fetchPage]
+  );
+
   function applyFilters() {
     fetchPage({
       actor: actorId,
       board: boardId,
       family: actionFamily,
+      from: dateFrom,
+      to: dateTo,
       reset: true,
     });
   }
@@ -144,6 +221,9 @@ export default function ActivityClient({
     setActorId("");
     setBoardId("");
     setActionFamily("all");
+    setDateRange("any");
+    setDateFrom("");
+    setDateTo("");
     fetchPage({ reset: true });
   }
 
@@ -153,6 +233,8 @@ export default function ActivityClient({
       actor: actorId,
       board: boardId,
       family: actionFamily,
+      from: dateFrom,
+      to: dateTo,
       before: cursor,
     });
   }
@@ -333,7 +415,7 @@ export default function ActivityClient({
                 </option>
               ))}
             </select>
-            {(actorId || boardId || actionFamily !== "all") && (
+            {(actorId || boardId || actionFamily !== "all" || dateRange !== "any") && (
               <button
                 onClick={clearFilters}
                 className="text-[11px] uppercase"
@@ -347,6 +429,102 @@ export default function ActivityClient({
               </button>
             )}
           </div>
+        </div>
+
+        {/* Date-range row — preset chips + custom range pickers when chosen */}
+        <div
+          className="mt-3 flex flex-wrap items-center gap-2 rounded-xl px-3 py-2.5"
+          style={{
+            backgroundColor: "var(--color-app-paper)",
+            boxShadow: "0 1px 0 var(--color-app-edge)",
+          }}
+        >
+          <span
+            className="text-[10px] font-semibold uppercase tracking-[0.18em] mr-1.5"
+            style={{
+              fontFamily: "var(--font-dm-mono), monospace",
+              color: "var(--color-app-fg-muted)",
+            }}
+          >
+            When
+          </span>
+          {DATE_RANGE_PRESETS.map((p) => {
+            const active = dateRange === p.key;
+            return (
+              <button
+                key={p.key}
+                onClick={() => applyDateRange(p.key)}
+                className="rounded-md px-3 py-1.5 text-[12px] font-medium transition-all"
+                style={{
+                  fontFamily: "var(--font-manrope), sans-serif",
+                  backgroundColor: active
+                    ? "var(--color-app-copper)"
+                    : "var(--color-app-canvas-2)",
+                  color: active
+                    ? "var(--color-app-copper-text)"
+                    : "var(--color-app-fg-soft)",
+                  boxShadow: active
+                    ? "0 6px 14px -8px rgba(197,133,58,0.55)"
+                    : undefined,
+                }}
+              >
+                {p.label}
+              </button>
+            );
+          })}
+          {dateRange === "custom" ? (
+            <div className="flex items-center gap-1.5 ml-1">
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) =>
+                  applyDateRange("custom", e.target.value, dateTo)
+                }
+                className="rounded-md border px-2.5 py-1 text-[12px] outline-none"
+                style={{
+                  fontFamily: "var(--font-manrope), sans-serif",
+                  borderColor: "var(--color-app-edge)",
+                  backgroundColor: "var(--color-app-paper)",
+                  color: "var(--color-app-ink)",
+                }}
+              />
+              <span
+                style={{
+                  fontFamily: "var(--font-dm-mono), monospace",
+                  color: "var(--color-app-fg-muted)",
+                  fontSize: 12,
+                }}
+              >
+                →
+              </span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) =>
+                  applyDateRange("custom", dateFrom, e.target.value)
+                }
+                className="rounded-md border px-2.5 py-1 text-[12px] outline-none"
+                style={{
+                  fontFamily: "var(--font-manrope), sans-serif",
+                  borderColor: "var(--color-app-edge)",
+                  backgroundColor: "var(--color-app-paper)",
+                  color: "var(--color-app-ink)",
+                }}
+              />
+            </div>
+          ) : dateFrom && dateTo ? (
+            <span
+              className="ml-1 text-[11px]"
+              style={{
+                fontFamily: "var(--font-dm-mono), monospace",
+                color: "var(--color-app-fg-muted)",
+              }}
+            >
+              {dateFrom === dateTo
+                ? dateFrom
+                : `${dateFrom} → ${dateTo}`}
+            </span>
+          ) : null}
         </div>
       </div>
 

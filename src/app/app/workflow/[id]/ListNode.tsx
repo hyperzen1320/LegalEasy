@@ -30,11 +30,22 @@ export type ListNodeData = {
   onTaskAdd: (listId: string, title: string) => void;
 };
 
+// Connection handles. The visible dot is rendered inside a much larger
+// element so the actual hit area is generous; we draw the dot with a
+// `background` that fills only a small inner circle while the
+// transparent outer area still receives pointer events. Pair this with
+// the canvas-level connectionRadius=50 to get forgiving "near a handle"
+// snap detection.
+const HANDLE_HIT = 32; // total clickable size
+const HANDLE_DOT = 16; // visible dot size
 const HANDLE_BASE: React.CSSProperties = {
-  width: 12,
-  height: 12,
+  width: HANDLE_HIT,
+  height: HANDLE_HIT,
   borderRadius: 999,
-  border: "2px solid var(--color-app-paper)",
+  border: "none",
+  background: "transparent",
+  // Cursor flips to crosshair so the affordance is obvious.
+  cursor: "crosshair",
   transition: "transform 150ms, box-shadow 150ms",
 };
 
@@ -333,10 +344,11 @@ export default function ListNode(props: NodeProps & { data: ListNodeData }) {
         </div>
       ) : null}
 
-      {/* Connection handles — copper dots on each side. The canvas runs
-          in ConnectionMode.Loose, so each handle is BOTH source and target.
-          Always rendered (so connections can land on them when dragged in)
-          but only visually visible on hover/selection. */}
+      {/* Connection handles — generous 32×32 hit areas with a 16×16
+          visible dot rendered via radial-gradient. Canvas runs in
+          ConnectionMode.Loose so each handle is BOTH source and target.
+          Always rendered (so dragged connections can land on them) but
+          only visible on hover/selection. */}
       <Handle
         type="source"
         position={Position.Top}
@@ -344,9 +356,8 @@ export default function ListNode(props: NodeProps & { data: ListNodeData }) {
         isConnectable={canEdit}
         style={{
           ...HANDLE_BASE,
-          backgroundColor: stripeColor,
-          boxShadow: `0 0 0 4px ${stripeColor}33`,
-          top: -6,
+          background: `radial-gradient(circle, ${stripeColor} 0 ${HANDLE_DOT / 2}px, ${stripeColor}33 ${HANDLE_DOT / 2}px ${HANDLE_DOT / 2 + 4}px, transparent ${HANDLE_DOT / 2 + 4}px)`,
+          top: -HANDLE_HIT / 2,
           opacity: showHandles ? 1 : 0,
         }}
       />
@@ -357,9 +368,8 @@ export default function ListNode(props: NodeProps & { data: ListNodeData }) {
         isConnectable={canEdit}
         style={{
           ...HANDLE_BASE,
-          backgroundColor: stripeColor,
-          boxShadow: `0 0 0 4px ${stripeColor}33`,
-          right: -6,
+          background: `radial-gradient(circle, ${stripeColor} 0 ${HANDLE_DOT / 2}px, ${stripeColor}33 ${HANDLE_DOT / 2}px ${HANDLE_DOT / 2 + 4}px, transparent ${HANDLE_DOT / 2 + 4}px)`,
+          right: -HANDLE_HIT / 2,
           opacity: showHandles ? 1 : 0,
         }}
       />
@@ -370,9 +380,8 @@ export default function ListNode(props: NodeProps & { data: ListNodeData }) {
         isConnectable={canEdit}
         style={{
           ...HANDLE_BASE,
-          backgroundColor: stripeColor,
-          boxShadow: `0 0 0 4px ${stripeColor}33`,
-          bottom: -6,
+          background: `radial-gradient(circle, ${stripeColor} 0 ${HANDLE_DOT / 2}px, ${stripeColor}33 ${HANDLE_DOT / 2}px ${HANDLE_DOT / 2 + 4}px, transparent ${HANDLE_DOT / 2 + 4}px)`,
+          bottom: -HANDLE_HIT / 2,
           opacity: showHandles ? 1 : 0,
         }}
       />
@@ -383,9 +392,8 @@ export default function ListNode(props: NodeProps & { data: ListNodeData }) {
         isConnectable={canEdit}
         style={{
           ...HANDLE_BASE,
-          backgroundColor: stripeColor,
-          boxShadow: `0 0 0 4px ${stripeColor}33`,
-          left: -6,
+          background: `radial-gradient(circle, ${stripeColor} 0 ${HANDLE_DOT / 2}px, ${stripeColor}33 ${HANDLE_DOT / 2}px ${HANDLE_DOT / 2 + 4}px, transparent ${HANDLE_DOT / 2 + 4}px)`,
+          left: -HANDLE_HIT / 2,
           opacity: showHandles ? 1 : 0,
         }}
       />

@@ -47,7 +47,9 @@ export async function GET(request: Request) {
     Math.max(parseInt(url.searchParams.get("limit") || "50", 10) || 50, 1),
     200
   );
-  const before = url.searchParams.get("before"); // ISO date — older-than cursor
+  const before = url.searchParams.get("before"); // ISO date — pagination cursor (older-than)
+  const from = url.searchParams.get("from"); // ISO date — lower bound (>=)
+  const to = url.searchParams.get("to"); // ISO date — upper bound (<= end of day)
   const actorId = url.searchParams.get("actor"); // userId
   const boardId = url.searchParams.get("board"); // boardId
   const targetId = url.searchParams.get("target"); // any target
@@ -58,11 +60,27 @@ export async function GET(request: Request) {
   await maybePrune(partnerId);
 
   const filter: Record<string, unknown> = { partnerId };
+  // Compose createdAt bounds. `from` and `to` give a range; `before` is
+  // the pagination cursor and tightens the upper bound further when set.
+  const createdAt: Record<string, Date> = {};
+  if (from) {
+    const d = new Date(from);
+    if (!Number.isNaN(d.getTime())) createdAt.$gte = d;
+  }
+  if (to) {
+    const d = new Date(to);
+    if (!Number.isNaN(d.getTime())) {
+      // Treat `to` as inclusive: capture the entire day.
+      d.setHours(23, 59, 59, 999);
+      createdAt.$lte = d;
+    }
+  }
   if (before) {
     const d = new Date(before);
-    if (!Number.isNaN(d.getTime())) {
-      filter.createdAt = { $lt: d };
-    }
+    if (!Number.isNaN(d.getTime())) createdAt.$lt = d;
+  }
+  if (Object.keys(createdAt).length > 0) {
+    filter.createdAt = createdAt;
   }
   if (actorId && mongoose.isValidObjectId(actorId)) {
     filter.actorUserId = new mongoose.Types.ObjectId(actorId);
