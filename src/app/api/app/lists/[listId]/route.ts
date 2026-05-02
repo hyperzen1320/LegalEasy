@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Task } from "@/models/Task";
 import { Board } from "@/models/Board";
+import { BoardEdge } from "@/models/BoardEdge";
 import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
 import { canPerform, workflowDeny } from "@/lib/workflow-rbac";
@@ -47,6 +48,23 @@ export async function PATCH(
   const oldTitle = list.title;
   if (typeof body.title === "string" && body.title.trim()) {
     list.title = body.title.trim();
+  }
+  if (typeof body.color === "string" || body.color === null) {
+    list.color = body.color || null;
+  }
+  if (typeof body.width === "number" && Number.isFinite(body.width)) {
+    list.width = Math.max(240, Math.min(560, body.width));
+  }
+  if (
+    body.position &&
+    typeof body.position === "object" &&
+    typeof (body.position as { x: unknown }).x === "number" &&
+    typeof (body.position as { y: unknown }).y === "number"
+  ) {
+    list.position = {
+      x: (body.position as { x: number }).x,
+      y: (body.position as { y: number }).y,
+    };
   }
 
   await list.save();
@@ -104,6 +122,15 @@ export async function DELETE(
     {
       partnerId: list.partnerId,
       listId: list._id,
+      isDeleted: false,
+    },
+    { $set: { isDeleted: true } }
+  );
+  // Cascade-soft-delete any edges that touch this list.
+  await BoardEdge.updateMany(
+    {
+      partnerId: list.partnerId,
+      $or: [{ sourceListId: list._id }, { targetListId: list._id }],
       isDeleted: false,
     },
     { $set: { isDeleted: true } }

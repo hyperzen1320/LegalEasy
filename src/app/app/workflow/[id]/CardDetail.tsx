@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { BoardMember, CanvasTask } from "./BoardCanvas";
+import type { BoardMember } from "./BoardCanvas";
+import type { PreviewTask as CanvasTask } from "./CardPreview";
 
 type ChecklistItem = {
   id: string;
