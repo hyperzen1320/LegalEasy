@@ -30,24 +30,26 @@ export type ListNodeData = {
   onTaskAdd: (listId: string, title: string) => void;
 };
 
-// Connection handles. The visible dot is rendered inside a much larger
-// element so the actual hit area is generous; we draw the dot with a
-// `background` that fills only a small inner circle while the
-// transparent outer area still receives pointer events. Pair this with
-// the canvas-level connectionRadius=50 to get forgiving "near a handle"
-// snap detection.
-const HANDLE_HIT = 32; // total clickable size
-const HANDLE_DOT = 16; // visible dot size
-const HANDLE_BASE: React.CSSProperties = {
-  width: HANDLE_HIT,
-  height: HANDLE_HIT,
-  borderRadius: 999,
-  border: "none",
-  background: "transparent",
-  // Cursor flips to crosshair so the affordance is obvious.
-  cursor: "crosshair",
-  transition: "transform 150ms, box-shadow 150ms",
-};
+// Connection handles. Pattern borrowed from ScopeOut's MindMap canvas:
+//
+//  • An INVISIBLE React Flow <Handle> at each side, sized 1×1 — these are
+//    the actual connection anchor points used for snap-on-drop.
+//  • A VISIBLE 28×28 "+" connector pill positioned 18px outside the node
+//    that doubles as the drag handle (it sits inside the React Flow
+//    handle's stacking context with pointerEvents pass-through).
+//  • The pill scales up + glows on hover so the user gets unmistakable
+//    feedback that this is what they grab to draw a connection.
+//  • Only renders on hover/selection of the node — a clean canvas at
+//    rest, an obvious affordance the moment the cursor enters.
+//
+// The pill is also a real <Handle> with the same id as the invisible
+// dot, so React Flow accepts a connection drag started on it. We render
+// both for redundancy: the invisible dot keeps the snap radius working
+// when a connection is dropped near the node edge, and the visible pill
+// is what the user actually grabs.
+
+const CONNECTOR_SIZE = 28;
+const CONNECTOR_OFFSET = 18; // distance from the node edge to the pill center
 
 export default function ListNode(props: NodeProps & { data: ListNodeData }) {
   const { data, selected, id: nodeId } = props;
@@ -84,8 +86,6 @@ export default function ListNode(props: NodeProps & { data: ListNodeData }) {
   }
 
   const stripeColor = list.color || accent;
-  // Always show handles for editors (so they can connect), hide for viewers.
-  const showHandles = canEdit;
   // Lists with a temp:* id are still being saved server-side. We mark
   // them so the global pending styles (dim + blinking dot) apply.
   const isPending = list.id.startsWith("tmp:");
@@ -105,15 +105,23 @@ export default function ListNode(props: NodeProps & { data: ListNodeData }) {
           ? `0 0 0 2px ${stripeColor}80, 0 24px 48px -16px rgba(10,17,36,0.25), 0 4px 12px -4px rgba(10,17,36,0.10)`
           : "0 16px 32px -12px rgba(10,17,36,0.18), 0 2px 6px -2px rgba(10,17,36,0.08)",
         border: "1px solid rgba(10,17,36,0.06)",
-        overflow: "hidden",
+        // overflow stays VISIBLE so the list-menu dropdown (color swatches,
+        // delete) can escape the wrapper. Earlier this was hidden, which
+        // clipped the bottom row of swatches. The top accent stripe now
+        // self-clips via its own border-top radii.
+        overflow: "visible",
         transition: "box-shadow 200ms, transform 200ms",
       }}
     >
-      {/* Top stripe */}
+      {/* Top stripe — self-clipped with the same top-corner radii as the
+          wrapper, so removing the wrapper's overflow:hidden doesn't leave
+          a visible square edge. */}
       <div
         style={{
           height: 4,
           background: `linear-gradient(90deg, ${stripeColor}, ${stripeColor}cc)`,
+          borderTopLeftRadius: 14,
+          borderTopRightRadius: 14,
         }}
       />
 
@@ -344,60 +352,112 @@ export default function ListNode(props: NodeProps & { data: ListNodeData }) {
         </div>
       ) : null}
 
-      {/* Connection handles — generous 32×32 hit areas with a 16×16
-          visible dot rendered via radial-gradient. Canvas runs in
-          ConnectionMode.Loose so each handle is BOTH source and target.
-          Always rendered (so dragged connections can land on them) but
-          only visible on hover/selection. */}
-      <Handle
-        type="source"
-        position={Position.Top}
-        id="top"
-        isConnectable={canEdit}
-        style={{
-          ...HANDLE_BASE,
-          background: `radial-gradient(circle, ${stripeColor} 0 ${HANDLE_DOT / 2}px, ${stripeColor}33 ${HANDLE_DOT / 2}px ${HANDLE_DOT / 2 + 4}px, transparent ${HANDLE_DOT / 2 + 4}px)`,
-          top: -HANDLE_HIT / 2,
-          opacity: showHandles ? 1 : 0,
-        }}
-      />
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="right"
-        isConnectable={canEdit}
-        style={{
-          ...HANDLE_BASE,
-          background: `radial-gradient(circle, ${stripeColor} 0 ${HANDLE_DOT / 2}px, ${stripeColor}33 ${HANDLE_DOT / 2}px ${HANDLE_DOT / 2 + 4}px, transparent ${HANDLE_DOT / 2 + 4}px)`,
-          right: -HANDLE_HIT / 2,
-          opacity: showHandles ? 1 : 0,
-        }}
-      />
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        id="bottom"
-        isConnectable={canEdit}
-        style={{
-          ...HANDLE_BASE,
-          background: `radial-gradient(circle, ${stripeColor} 0 ${HANDLE_DOT / 2}px, ${stripeColor}33 ${HANDLE_DOT / 2}px ${HANDLE_DOT / 2 + 4}px, transparent ${HANDLE_DOT / 2 + 4}px)`,
-          bottom: -HANDLE_HIT / 2,
-          opacity: showHandles ? 1 : 0,
-        }}
-      />
-      <Handle
-        type="source"
-        position={Position.Left}
-        id="left"
-        isConnectable={canEdit}
-        style={{
-          ...HANDLE_BASE,
-          background: `radial-gradient(circle, ${stripeColor} 0 ${HANDLE_DOT / 2}px, ${stripeColor}33 ${HANDLE_DOT / 2}px ${HANDLE_DOT / 2 + 4}px, transparent ${HANDLE_DOT / 2 + 4}px)`,
-          left: -HANDLE_HIT / 2,
-          opacity: showHandles ? 1 : 0,
-        }}
-      />
+      {/* Connection pills. One <Handle> per side, sized 28×28 with a
+          bold "+" inside and a clear coloured fill so it reads as a
+          button rather than a vague dot. Centered on the node edge so
+          the edge endpoint snaps cleanly. Visible at 0.5 opacity at
+          rest (subtle but discoverable), and pops to 1.0 + a small
+          scale on hover. */}
+      {(["top", "right", "bottom", "left"] as const).map((side) => (
+        <ConnectionPill
+          key={side}
+          side={side}
+          color={stripeColor}
+          canEdit={canEdit}
+        />
+      ))}
     </div>
+  );
+}
+
+function ConnectionPill({
+  side,
+  color,
+  canEdit,
+}: {
+  side: "top" | "right" | "bottom" | "left";
+  color: string;
+  canEdit: boolean;
+}) {
+  const sideToPos: Record<typeof side, Position> = {
+    top: Position.Top,
+    right: Position.Right,
+    bottom: Position.Bottom,
+    left: Position.Left,
+  };
+
+  // Pill is half inside / half outside the node so the connection
+  // endpoint snaps onto the node edge while the visible affordance
+  // extends outside, away from the cards/header where the user might
+  // accidentally try to drag-pan.
+  const pos: React.CSSProperties = {};
+  switch (side) {
+    case "top":
+      pos.top = -CONNECTOR_SIZE / 2;
+      pos.left = "50%";
+      pos.transform = "translateX(-50%)";
+      break;
+    case "right":
+      pos.right = -CONNECTOR_SIZE / 2;
+      pos.top = "50%";
+      pos.transform = "translateY(-50%)";
+      break;
+    case "bottom":
+      pos.bottom = -CONNECTOR_SIZE / 2;
+      pos.left = "50%";
+      pos.transform = "translateX(-50%)";
+      break;
+    case "left":
+      pos.left = -CONNECTOR_SIZE / 2;
+      pos.top = "50%";
+      pos.transform = "translateY(-50%)";
+      break;
+  }
+
+  return (
+    <Handle
+      type="source"
+      position={sideToPos[side]}
+      id={side}
+      isConnectable={canEdit}
+      className="le-connection-pill"
+      style={{
+        ...pos,
+        width: CONNECTOR_SIZE,
+        height: CONNECTOR_SIZE,
+        minWidth: CONNECTOR_SIZE,
+        minHeight: CONNECTOR_SIZE,
+        borderRadius: 999,
+        backgroundColor: color,
+        border: "2px solid #fff",
+        boxShadow: `0 4px 10px -2px ${color}66`,
+        cursor: "crosshair",
+        opacity: canEdit ? 0.55 : 0,
+        transition:
+          "opacity 160ms ease, transform 160ms ease, box-shadow 160ms ease",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: "#fff",
+        fontSize: 15,
+        fontWeight: 700,
+        lineHeight: 1,
+        fontFamily: "system-ui, -apple-system, sans-serif",
+        // Make sure the pill is above sibling content so it's grabbable
+        // even when a card extends to the list edge.
+        zIndex: 5,
+      }}
+    >
+      <span
+        aria-hidden
+        style={{
+          transform: "translateY(-1px)",
+          pointerEvents: "none",
+        }}
+      >
+        +
+      </span>
+    </Handle>
   );
 }
 
