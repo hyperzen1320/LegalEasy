@@ -5,6 +5,7 @@ import { Board } from "@/models/Board";
 import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
 import { BOARD_DEFAULTS } from "@/lib/board-defaults";
+import { logWorkflowActivity } from "@/lib/activity";
 
 export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders() });
@@ -128,6 +129,16 @@ export async function POST(request: Request) {
     createdBy: guard.ctx.user.id
       ? new mongoose.Types.ObjectId(guard.ctx.user.id)
       : null,
+  });
+
+  await logWorkflowActivity(guard.ctx, {
+    action: "board.created",
+    targetType: "board",
+    targetId: String(doc._id),
+    targetName: doc.title,
+    boardId: String(doc._id),
+    message: `created board **${doc.title}**`,
+    metadata: { color: doc.color, description: doc.description },
   });
 
   return NextResponse.json(

@@ -6,7 +6,6 @@ import { BoardList } from "@/models/BoardList";
 import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
 import { canPerform, workflowDeny } from "@/lib/workflow-rbac";
-import { logWorkflowActivity } from "@/lib/activity";
 import { loadTask } from "@/lib/workflow-helpers";
 
 export async function OPTIONS() {
@@ -77,9 +76,6 @@ export async function POST(
     );
   }
 
-  const fromList = await BoardList.findById(task.listId).select("title").lean();
-  const fromListTitle = fromList?.title ?? "another list";
-
   // Pull all destination tasks (excluding the one being moved) ordered;
   // we'll reinsert this task at toIndex and rewrite sortOrders for the lot.
   const destTasks = await Task.find({
@@ -112,33 +108,10 @@ export async function POST(
     );
   }
 
-  if (String(fromList?._id) !== String(dest._id)) {
-    await logWorkflowActivity(guard.ctx, {
-      action: "task.moved",
-      targetType: "task",
-      targetId: String(task._id),
-      targetName: task.title,
-      boardId: String(task.boardId),
-      message: `moved **${task.title}** from **${fromListTitle}** → **${dest.title}**`,
-      metadata: {
-        fromListId: String(fromList?._id ?? ""),
-        fromListTitle,
-        toListId: String(dest._id),
-        toListTitle: dest.title,
-        toIndex: insertAt,
-      },
-    });
-  } else {
-    await logWorkflowActivity(guard.ctx, {
-      action: "task.reordered",
-      targetType: "task",
-      targetId: String(task._id),
-      targetName: task.title,
-      boardId: String(task.boardId),
-      message: `reordered **${task.title}** in **${dest.title}**`,
-      metadata: { listId: String(dest._id), toIndex: insertAt },
-    });
-  }
+  // Card movements (cross-list move + intra-list reorder) are intentionally
+  // NOT written to the activity log — they would dominate the feed and the
+  // user explicitly asked to leave them out. The card's new listId is
+  // still observable via the next state fetch / live-feed reconcile.
 
   return NextResponse.json(
     { ok: true, listId: String(task.listId), sortOrder: task.sortOrder },

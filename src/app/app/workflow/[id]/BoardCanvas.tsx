@@ -160,11 +160,25 @@ function Inner({
         };
         // Preserve any in-flight optimistic entities (temp:* ids) so we
         // don't yank a card the user just added but the server hasn't
-        // returned for yet.
+        // returned for yet. ALSO preserve the local list position +
+        // width — those mutate via drag, save asynchronously, and a
+        // resync that overwrites them while a drag-save is in flight
+        // makes lists snap back. Server is canonical for content
+        // (title, color, sortOrder); client is canonical for layout
+        // until the next mount.
         setLists((prev) => {
           const fromServer = data.lists ?? [];
           const optimistic = prev.filter((l) => isTempId(l.id));
-          return [...fromServer, ...optimistic];
+          const merged = fromServer.map((server) => {
+            const local = prev.find((l) => l.id === server.id);
+            if (!local || isTempId(local.id)) return server;
+            return {
+              ...server,
+              position: local.position,
+              width: local.width,
+            };
+          });
+          return [...merged, ...optimistic];
         });
         setTasks((prev) => {
           const fromServer = data.tasks ?? [];
@@ -523,6 +537,13 @@ function Inner({
   }, [lists, tasks]);
 
   /* ─── Position auto-save ─── */
+  //
+  // Earlier this used an 800ms debounce regardless of context, which meant
+  // refreshing the page within 800ms of releasing a drag silently dropped
+  // the save and the list snapped back to its previous position on reload.
+  // Now we flush in three places: (a) immediately on drag-end, (b) on the
+  // sendBeacon path during `beforeunload` so refresh/close still saves,
+  // and (c) the legacy debounce as a safety net for any non-drag callers.
 
   const positionSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingPositions = useRef<
@@ -542,11 +563,49 @@ function Inner({
     });
   }, [boardId]);
 
+  // Final-chance flush on tab close / refresh: fetch may not finish, but
+  // sendBeacon is designed for exactly this — fire-and-forget on unload.
+  useEffect(() => {
+    const handler = () => {
+      if (pendingPositions.current.size === 0) return;
+      const positions = Array.from(pendingPositions.current.entries()).map(
+        ([listId, p]) => ({ listId, ...p })
+      );
+      pendingPositions.current.clear();
+      try {
+        const blob = new Blob([JSON.stringify({ positions })], {
+          type: "application/json",
+        });
+        navigator.sendBeacon(
+          `/api/app/boards/${boardId}/lists/positions`,
+          blob
+        );
+      } catch {
+        /* unloading — nothing else we can do */
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    window.addEventListener("pagehide", handler);
+    return () => {
+      window.removeEventListener("beforeunload", handler);
+      window.removeEventListener("pagehide", handler);
+    };
+  }, [boardId]);
+
   const queuePositionSave = useCallback(
-    (listId: string, x: number, y: number) => {
+    (listId: string, x: number, y: number, opts?: { immediate?: boolean }) => {
       pendingPositions.current.set(listId, { x, y });
-      if (positionSaveTimer.current) clearTimeout(positionSaveTimer.current);
-      positionSaveTimer.current = setTimeout(flushPositions, 800);
+      if (positionSaveTimer.current) {
+        clearTimeout(positionSaveTimer.current);
+        positionSaveTimer.current = null;
+      }
+      if (opts?.immediate) {
+        // Drag-end fires this — save right away rather than debouncing,
+        // so a quick refresh after release still persists.
+        flushPositions();
+        return;
+      }
+      positionSaveTimer.current = setTimeout(flushPositions, 600);
     },
     [flushPositions]
   );
@@ -584,7 +643,9 @@ function Inner({
           (ch as { position?: { x: number; y: number } }).position
         ) {
           const pos = (ch as { position: { x: number; y: number } }).position;
-          queuePositionSave(ch.id, pos.x, pos.y);
+          // Drag just ended — flush immediately, no debounce. If the user
+          // refreshes a beat later the position is already on the server.
+          queuePositionSave(ch.id, pos.x, pos.y, { immediate: true });
           setLists((prev) =>
             prev.map((l) =>
               l.id === ch.id ? { ...l, position: { x: pos.x, y: pos.y } } : l
@@ -753,9 +814,8 @@ function Inner({
 
   /* ─── Add list ─── */
 
-  const onAddList = useCallback(async () => {
-    const title = window.prompt("Name the new list");
-    const trimmed = title?.trim();
+  const onAddList = useCallback(async (titleInput: string) => {
+    const trimmed = titleInput.trim();
     if (!trimmed) return;
 
     const tempId = `${TEMP_ID_PREFIX}${Date.now().toString(36)}`;
@@ -842,6 +902,7 @@ function Inner({
           maxZoom={2}
           proOptions={proOptions}
           connectionMode={ConnectionMode.Loose}
+          connectionRadius={50}
           panOnScroll
           selectionOnDrag={false}
           deleteKeyCode={null}
@@ -1009,7 +1070,7 @@ function CanvasTopBar({
   gradient: [string, string];
   members: BoardMember[];
   canEdit: boolean;
-  onAddList: () => void;
+  onAddList: (title: string) => void;
   totalLists: number;
   totalCards: number;
   boardId: string;
@@ -1198,20 +1259,120 @@ function CanvasTopBar({
         </button>
 
         {canEdit ? (
-          <button
-            onClick={onAddList}
-            className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-semibold transition-transform hover:-translate-y-0.5"
-            style={{
-              fontFamily: "var(--font-manrope), sans-serif",
-              background: `linear-gradient(135deg, ${gradient[0]}, ${gradient[1]})`,
-              color: "#fff",
-              boxShadow: `0 8px 20px -8px ${accent}80`,
-            }}
-          >
-            <span style={{ fontSize: 14, lineHeight: 1 }}>+</span> Add list
-          </button>
+          <AddListComposer
+            accent={accent}
+            gradient={gradient}
+            onSubmit={onAddList}
+          />
         ) : null}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Inline composer for "+ Add list". Earlier this was a window.prompt
+ * call which is jarring on a canvas — now it inflates into a small
+ * input + Add/Cancel pill right inside the top bar. Enter submits, Esc
+ * cancels. Matches the visual weight of the original button.
+ */
+function AddListComposer({
+  accent,
+  gradient,
+  onSubmit,
+}: {
+  accent: string;
+  gradient: [string, string];
+  onSubmit: (title: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open && inputRef.current) inputRef.current.focus();
+  }, [open]);
+
+  function commit() {
+    const t = title.trim();
+    if (!t) {
+      setOpen(false);
+      setTitle("");
+      return;
+    }
+    onSubmit(t);
+    setTitle("");
+    setOpen(false);
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-semibold transition-transform hover:-translate-y-0.5"
+        style={{
+          fontFamily: "var(--font-manrope), sans-serif",
+          background: `linear-gradient(135deg, ${gradient[0]}, ${gradient[1]})`,
+          color: "#fff",
+          boxShadow: `0 8px 20px -8px ${accent}80`,
+        }}
+      >
+        <span style={{ fontSize: 14, lineHeight: 1 }}>+</span> Add list
+      </button>
+    );
+  }
+
+  return (
+    <div
+      className="flex items-center gap-1 rounded-md px-1.5 py-1"
+      style={{
+        background: `linear-gradient(135deg, ${gradient[0]}, ${gradient[1]})`,
+        boxShadow: `0 8px 20px -8px ${accent}80`,
+      }}
+    >
+      <input
+        ref={inputRef}
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            commit();
+          }
+          if (e.key === "Escape") {
+            setOpen(false);
+            setTitle("");
+          }
+        }}
+        placeholder="Name this list…"
+        className="rounded-sm bg-white/95 px-2 py-1 text-[12px] outline-none"
+        style={{
+          fontFamily: "var(--font-manrope), sans-serif",
+          color: "var(--color-app-ink)",
+          width: 180,
+        }}
+      />
+      <button
+        onClick={commit}
+        className="rounded-sm bg-white/95 px-2.5 py-1 text-[11px] font-semibold"
+        style={{
+          fontFamily: "var(--font-manrope), sans-serif",
+          color: "var(--color-app-ink)",
+        }}
+      >
+        Add
+      </button>
+      <button
+        onClick={() => {
+          setOpen(false);
+          setTitle("");
+        }}
+        aria-label="Cancel"
+        className="rounded-sm px-2 py-1 text-[14px] leading-none text-white/85"
+        style={{ fontFamily: "var(--font-dm-mono), monospace" }}
+      >
+        ×
+      </button>
     </div>
   );
 }
