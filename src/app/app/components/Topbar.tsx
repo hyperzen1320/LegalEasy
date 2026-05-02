@@ -9,6 +9,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/app/clients": "Client Crew",
   "/app/hearings": "Hearing Track",
   "/app/courts": "Court Hub",
+  "/app/workflow": "Work Flow",
+  "/app/activity": "Activity",
   "/app/ai": "AI Assistant",
   "/app/profile": "My Profile",
   "/app/users": "Users / Advocates",

@@ -30,6 +30,11 @@ export interface IPartner {
     officeName: string | null;
     letterhead: string | null;
   };
+  settings: {
+    // Activity log retention. null = keep forever; otherwise the number of
+    // days after which entries are auto-pruned (90 or 365 typically).
+    activityRetentionDays: number | null;
+  };
   isDeleted: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -78,6 +83,12 @@ const PartnerSchema = new Schema<IPartner>(
     branding: {
       officeName: { type: String, default: null },
       letterhead: { type: String, default: null },
+    },
+    settings: {
+      activityRetentionDays: {
+        type: Number,
+        default: null,
+      },
     },
     isDeleted: { type: Boolean, default: false },
   },

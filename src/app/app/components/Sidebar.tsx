@@ -18,6 +18,7 @@ const NAV: NavItem[] = [
   { name: "Hearing Track", href: "/app/hearings", icon: IconHearings },
   { name: "Court Hub", href: "/app/courts", icon: IconCourts },
   { name: "Work Flow", href: "/app/workflow", icon: IconBoards },
+  { name: "Activity", href: "/app/activity", icon: IconActivity },
   { name: "AI Assistant", href: "/app/ai", icon: IconAI },
   { name: "My Profile", href: "/app/profile", icon: IconProfile },
   { name: "Users / Advocates", href: "/app/users", icon: IconUsers },
@@ -287,6 +288,19 @@ function IconBoards() {
       <rect x="3" y="4" width="7" height="16" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
       <rect x="14" y="4" width="7" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
       <rect x="14" y="16" width="7" height="4" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  );
+}
+function IconActivity() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M3 12h4l2-7 4 14 2-7h6"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }

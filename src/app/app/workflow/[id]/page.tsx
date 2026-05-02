@@ -4,7 +4,12 @@ import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/db";
 import { Board } from "@/models/Board";
+import { BoardList } from "@/models/BoardList";
+import { Task } from "@/models/Task";
+import { User } from "@/models/User";
 import { BOARD_COLOR_STYLES } from "@/lib/board-defaults";
+import { summarizeChecklists } from "@/lib/workflow-helpers";
+import BoardCanvas from "./BoardCanvas";
 
 export const dynamic = "force-dynamic";
 
@@ -18,24 +23,63 @@ export default async function BoardDetail({
 
   const session = await auth();
   if (!session?.user?.partnerId) notFound();
+  const partnerId = new mongoose.Types.ObjectId(session.user.partnerId);
+  const boardObjId = new mongoose.Types.ObjectId(id);
 
   await connectDB();
-  const board = await Board.findOne({
-    _id: new mongoose.Types.ObjectId(id),
-    partnerId: new mongoose.Types.ObjectId(session.user.partnerId),
-    isDeleted: false,
-  }).lean();
+
+  const [board, lists, tasks, members] = await Promise.all([
+    Board.findOne({
+      _id: boardObjId,
+      partnerId,
+      isDeleted: false,
+    }).lean(),
+    BoardList.find({
+      partnerId,
+      boardId: boardObjId,
+      isDeleted: false,
+    })
+      .sort({ sortOrder: 1, createdAt: 1 })
+      .lean(),
+    Task.find({
+      partnerId,
+      boardId: boardObjId,
+      isDeleted: false,
+    })
+      .sort({ listId: 1, sortOrder: 1, createdAt: 1 })
+      .lean(),
+    User.find({ partnerId, isDeleted: false, active: true })
+      .select("firstName lastName role userType")
+      .sort({ firstName: 1 })
+      .lean(),
+  ]);
 
   if (!board) notFound();
 
-  const styles = BOARD_COLOR_STYLES[board.color] ?? BOARD_COLOR_STYLES.copper;
+  const memberById = new Map<
+    string,
+    { id: string; name: string; role: string }
+  >();
+  for (const m of members) {
+    memberById.set(String(m._id), {
+      id: String(m._id),
+      name: `${m.firstName} ${m.lastName}`.trim(),
+      role: m.role || (m.userType === "partner_admin" ? "admin" : "junior"),
+    });
+  }
+
+  const role =
+    session.user.userType === "partner_admin" ? "admin" : "junior";
+
+  const styles =
+    BOARD_COLOR_STYLES[board.color] ?? BOARD_COLOR_STYLES.copper;
 
   return (
     <div className="px-10 py-8">
-      <div className="mx-auto max-w-[1280px]">
+      <div className="mx-auto max-w-[1500px]">
         <Link
           href="/app/workflow"
-          className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.18em]"
+          className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.18em] transition-colors hover:opacity-70"
           style={{
             fontFamily: "var(--font-dm-mono), monospace",
             color: "var(--color-app-fg-muted)",
@@ -44,12 +88,12 @@ export default async function BoardDetail({
           <span aria-hidden>&larr;</span> All boards
         </Link>
 
+        {/* Hero strip */}
         <div
-          className="fade-up-sm relative mt-5 overflow-hidden rounded-2xl px-9 py-9"
+          className="fade-up-sm relative mt-5 overflow-hidden rounded-2xl px-9 py-7"
           style={{
             background: `linear-gradient(135deg, ${styles.gradient[0]}, ${styles.gradient[1]})`,
             color: styles.text,
-            minHeight: 200,
           }}
         >
           <span
@@ -57,16 +101,14 @@ export default async function BoardDetail({
             style={{ backgroundColor: styles.accent }}
           />
           <h1
-            className="text-[44px] font-semibold leading-[1.05] tracking-tight"
-            style={{
-              fontFamily: "var(--font-crimson), Georgia, serif",
-            }}
+            className="text-[36px] font-semibold leading-[1.05] tracking-tight"
+            style={{ fontFamily: "var(--font-crimson), Georgia, serif" }}
           >
             {board.title}
           </h1>
           {board.description ? (
             <p
-              className="mt-3 max-w-[640px] text-[14px] leading-[1.55]"
+              className="mt-1.5 max-w-[640px] text-[13px] leading-[1.55]"
               style={{
                 fontFamily: "var(--font-manrope), sans-serif",
                 color: styles.text,
@@ -78,33 +120,34 @@ export default async function BoardDetail({
           ) : null}
         </div>
 
-        <div
-          className="mt-6 rounded-xl px-6 py-12 text-center"
-          style={{
-            backgroundColor: "var(--color-app-paper)",
-            border: "1px dashed var(--color-app-edge)",
-          }}
-        >
-          <h3
-            className="text-[24px] font-semibold tracking-tight"
-            style={{
-              fontFamily: "var(--font-crimson), Georgia, serif",
-              color: "var(--color-app-ink)",
-            }}
-          >
-            Kanban columns coming next.
-          </h3>
-          <p
-            className="mx-auto mt-2 max-w-md text-[13px] leading-7"
-            style={{
-              fontFamily: "var(--font-manrope), sans-serif",
-              color: "var(--color-app-fg-muted)",
-            }}
-          >
-            This board is created and saved. Lists, task cards, drag-and-drop
-            and assignment land in the next iteration.
-          </p>
-        </div>
+        <BoardCanvas
+          boardId={String(board._id)}
+          accent={styles.accent}
+          initialLists={lists.map((l) => ({
+            id: String(l._id),
+            title: l.title,
+            sortOrder: l.sortOrder,
+          }))}
+          initialTasks={tasks.map((t) => ({
+            id: String(t._id),
+            listId: String(t.listId),
+            title: t.title,
+            description: t.description || "",
+            sortOrder: t.sortOrder,
+            assignee: t.assignedToUserId
+              ? memberById.get(String(t.assignedToUserId)) || null
+              : null,
+            dueDate: t.dueDate ? t.dueDate.toISOString() : null,
+            priority: t.priority,
+            checklistSummary: summarizeChecklists(t.checklists || []),
+            hasDescription: Boolean(
+              t.description && t.description.trim().length > 0
+            ),
+            updatedAt: t.updatedAt.toISOString(),
+          }))}
+          members={Array.from(memberById.values())}
+          role={role}
+        />
       </div>
     </div>
   );

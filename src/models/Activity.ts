@@ -1,6 +1,7 @@
 import mongoose, { Schema, Types, type Model } from "mongoose";
 
-export type ActivityAction =
+// Global admin / system actions (existing)
+export type AdminActivityAction =
   | "partner_created"
   | "partner_updated"
   | "partner_password_reset"
@@ -12,6 +13,47 @@ export type ActivityAction =
   | "user_login"
   | "system";
 
+// Partner-side workflow actions (new)
+export type WorkflowActivityAction =
+  | "board.created"
+  | "board.renamed"
+  | "board.recolored"
+  | "board.deleted"
+  | "list.created"
+  | "list.renamed"
+  | "list.reordered"
+  | "list.deleted"
+  | "task.created"
+  | "task.renamed"
+  | "task.described"
+  | "task.assigned"
+  | "task.unassigned"
+  | "task.due_set"
+  | "task.due_cleared"
+  | "task.priority_set"
+  | "task.moved"
+  | "task.reordered"
+  | "task.deleted"
+  | "checklist.added"
+  | "checklist.renamed"
+  | "checklist.removed"
+  | "checklist_item.added"
+  | "checklist_item.checked"
+  | "checklist_item.unchecked"
+  | "checklist_item.renamed"
+  | "checklist_item.removed";
+
+export type ActivityAction = AdminActivityAction | WorkflowActivityAction;
+
+export type ActivityTargetType =
+  | "partner"
+  | "user"
+  | "system"
+  | "board"
+  | "list"
+  | "task"
+  | "checklist";
+
 export interface IActivity {
   _id: Types.ObjectId;
   actorUserId: Types.ObjectId | null;
@@ -19,12 +61,15 @@ export interface IActivity {
   actorEmail: string;
   actorType: "global_admin" | "partner_admin" | "user" | "system";
   action: ActivityAction;
-  targetType: "partner" | "user" | "system";
+  targetType: ActivityTargetType;
   targetId: Types.ObjectId | null;
   targetName: string;
   message: string;
   metadata: Record<string, unknown>;
   partnerId: Types.ObjectId | null;
+  // For workflow events: which board this happened in (so we can scope
+  // a feed to one board cheaply). Null for non-workflow events.
+  boardId: Types.ObjectId | null;
   createdAt: Date;
 }
 
@@ -45,7 +90,15 @@ const ActivitySchema = new Schema<IActivity>(
     action: { type: String, required: true },
     targetType: {
       type: String,
-      enum: ["partner", "user", "system"],
+      enum: [
+        "partner",
+        "user",
+        "system",
+        "board",
+        "list",
+        "task",
+        "checklist",
+      ],
       required: true,
     },
     targetId: { type: Schema.Types.ObjectId, default: null },
@@ -57,6 +110,11 @@ const ActivitySchema = new Schema<IActivity>(
       ref: "Partner",
       default: null,
     },
+    boardId: {
+      type: Schema.Types.ObjectId,
+      ref: "Board",
+      default: null,
+    },
   },
   { timestamps: { createdAt: true, updatedAt: false } }
 );
@@ -65,6 +123,9 @@ ActivitySchema.index({ createdAt: -1 });
 ActivitySchema.index({ partnerId: 1, createdAt: -1 });
 ActivitySchema.index({ actorUserId: 1, createdAt: -1 });
 ActivitySchema.index({ action: 1, createdAt: -1 });
+// Quick "history of this card / list / board" queries
+ActivitySchema.index({ partnerId: 1, targetType: 1, targetId: 1, createdAt: -1 });
+ActivitySchema.index({ partnerId: 1, boardId: 1, createdAt: -1 });
 
 export const Activity: Model<IActivity> =
   (mongoose.models.Activity as Model<IActivity>) ||
