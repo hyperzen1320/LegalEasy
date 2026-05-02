@@ -5,6 +5,7 @@ import { Court } from "@/models/Court";
 import { Case } from "@/models/Case";
 import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
+import { logWorkflowActivity } from "@/lib/activity";
 
 export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders() });
@@ -104,6 +105,15 @@ export async function POST(request: Request) {
     createdBy: guard.ctx.user.id
       ? new mongoose.Types.ObjectId(guard.ctx.user.id)
       : null,
+  });
+
+  await logWorkflowActivity(guard.ctx, {
+    action: "court.created",
+    targetType: "court",
+    targetId: String(doc._id),
+    targetName: doc.name,
+    message: `added court **${doc.name}**${doc.place ? `, ${doc.place}` : ""}`,
+    metadata: { number: doc.number, place: doc.place },
   });
 
   return NextResponse.json(

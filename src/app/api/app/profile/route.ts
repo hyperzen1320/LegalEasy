@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/db";
 import { User } from "@/models/User";
 import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
+import { logWorkflowActivity } from "@/lib/activity";
 
 export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders() });
@@ -99,6 +100,12 @@ export async function PATCH(request: Request) {
     "profilePhoto",
   ] as const;
 
+  const beforeSnapshot: Record<string, string> = {};
+  for (const f of updatableFields) {
+    beforeSnapshot[f] = user[f] || "";
+  }
+  const beforeName = `${user.firstName} ${user.lastName}`.trim();
+
   for (const f of updatableFields) {
     if (typeof body[f] === "string") {
       user[f] = (body[f] as string).trim();
@@ -106,6 +113,25 @@ export async function PATCH(request: Request) {
   }
 
   await user.save();
+
+  const changed: string[] = [];
+  for (const f of updatableFields) {
+    if ((user[f] || "") !== (beforeSnapshot[f] || "")) {
+      changed.push(f);
+    }
+  }
+  const newName = `${user.firstName} ${user.lastName}`.trim();
+  if (newName !== beforeName) changed.push("name");
+  if (changed.length > 0) {
+    await logWorkflowActivity(guard.ctx, {
+      action: "profile.updated",
+      targetType: "profile",
+      targetId: String(user._id),
+      targetName: newName || user.email,
+      message: `updated profile (${changed.join(", ")})`,
+      metadata: { fields: changed },
+    });
+  }
 
   return NextResponse.json(
     { ok: true, profile: serialize(user) },

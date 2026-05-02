@@ -5,6 +5,7 @@ import { connectDB } from "@/lib/db";
 import { User } from "@/models/User";
 import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
+import { logWorkflowActivity } from "@/lib/activity";
 
 export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders() });
@@ -155,6 +156,16 @@ export async function POST(request: Request) {
     phone,
     designation,
     active: true,
+  });
+
+  const newName = `${doc.firstName} ${doc.lastName}`.trim() || doc.email;
+  await logWorkflowActivity(guard.ctx, {
+    action: "user.invited",
+    targetType: "user",
+    targetId: String(doc._id),
+    targetName: newName,
+    message: `invited **${newName}** as ${doc.role}`,
+    metadata: { email: doc.email, role: doc.role },
   });
 
   return NextResponse.json(

@@ -5,6 +5,9 @@ import { Case } from "@/models/Case";
 import { Partner } from "@/models/Partner";
 import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
+import { logWorkflowActivity } from "@/lib/activity";
+import { canDirectDeleteGeneric } from "@/lib/delete-eligibility";
+import { DeleteRequest } from "@/models/DeleteRequest";
 
 const VALID_STATUSES = [
   "Filed",
@@ -124,6 +127,30 @@ export async function PATCH(
     );
   }
 
+  const before = {
+    caseNo: doc.caseNo,
+    status: doc.status,
+    nextHearingDate: doc.nextHearingDate
+      ? doc.nextHearingDate.toISOString()
+      : null,
+    fieldsSnapshot: {
+      fileNo: doc.fileNo,
+      cnr: doc.cnr,
+      title: doc.title,
+      clientName: doc.clientName,
+      clientPhone: doc.clientPhone,
+      clientWhatsapp: doc.clientWhatsapp,
+      clientAddress: doc.clientAddress,
+      oppositeParty: doc.oppositeParty,
+      appearingFor: doc.appearingFor,
+      oppositeAdvocate: doc.oppositeAdvocate,
+      iaNumbers: doc.iaNumbers,
+      courtName: doc.courtName,
+      courtHall: doc.courtHall,
+      courtPlace: doc.courtPlace,
+    } as Record<string, string>,
+  };
+
   const stringFields = [
     "caseNo",
     "fileNo",
@@ -181,6 +208,49 @@ export async function PATCH(
 
   await doc.save();
 
+  // Activity logs — emit specific events for the noteworthy bits
+  const changedFields: string[] = [];
+  for (const f of stringFields) {
+    if ((doc[f] || "") !== (before.fieldsSnapshot[f] || "")) {
+      changedFields.push(f);
+    }
+  }
+  if (changedFields.length > 0) {
+    await logWorkflowActivity(guard.ctx, {
+      action: "case.updated",
+      targetType: "case",
+      targetId: String(doc._id),
+      targetName: doc.caseNo,
+      message: `updated case **${doc.caseNo}** (${changedFields.join(", ")})`,
+      metadata: { fields: changedFields },
+    });
+  }
+  if (before.status !== doc.status) {
+    await logWorkflowActivity(guard.ctx, {
+      action: "case.status_changed",
+      targetType: "case",
+      targetId: String(doc._id),
+      targetName: doc.caseNo,
+      message: `set status of **${doc.caseNo}** to **${doc.status}**`,
+      metadata: { from: before.status, to: doc.status },
+    });
+  }
+  const newNextIso = doc.nextHearingDate
+    ? doc.nextHearingDate.toISOString()
+    : null;
+  if (before.nextHearingDate !== newNextIso) {
+    await logWorkflowActivity(guard.ctx, {
+      action: "case.hearing_updated",
+      targetType: "case",
+      targetId: String(doc._id),
+      targetName: doc.caseNo,
+      message: newNextIso
+        ? `set next hearing for **${doc.caseNo}** to ${doc.nextHearingDate!.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`
+        : `cleared the next hearing on **${doc.caseNo}**`,
+      metadata: { from: before.nextHearingDate, to: newNextIso },
+    });
+  }
+
   return NextResponse.json(
     { ok: true, case: serialize(doc) },
     { headers: guard.ctx.isMobile ? corsHeaders() : undefined }
@@ -203,8 +273,48 @@ export async function DELETE(
     );
   }
 
+  // Cases are top-level — admin always; non-admin must raise a delete request.
+  const eligibility = canDirectDeleteGeneric({
+    isAdmin: guard.ctx.user.role === "admin",
+    userId: guard.ctx.user.id,
+  });
+  if (!eligibility.ok) {
+    return NextResponse.json(
+      {
+        error: eligibility.reason,
+        code: "delete_request_required",
+        targetType: "case",
+        targetId: String(doc._id),
+        targetName: doc.caseNo,
+      },
+      {
+        status: 403,
+        headers: guard.ctx.isMobile ? corsHeaders() : undefined,
+      }
+    );
+  }
+
+  await DeleteRequest.updateMany(
+    {
+      partnerId: doc.partnerId,
+      targetType: "case",
+      targetId: doc._id,
+      status: "pending",
+    },
+    { $set: { status: "obsolete", reviewerNote: "Target deleted directly." } }
+  );
+
   doc.isDeleted = true;
   await doc.save();
+
+  await logWorkflowActivity(guard.ctx, {
+    action: "case.deleted",
+    targetType: "case",
+    targetId: String(doc._id),
+    targetName: doc.caseNo,
+    message: `deleted case **${doc.caseNo}**`,
+    metadata: { caseNo: doc.caseNo, fileNo: doc.fileNo, cnr: doc.cnr },
+  });
 
   return NextResponse.json(
     { ok: true },

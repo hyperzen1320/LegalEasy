@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/db";
 import { Case } from "@/models/Case";
 import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
+import { logWorkflowActivity } from "@/lib/activity";
 
 export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders() });
@@ -118,6 +119,22 @@ export async function POST(request: Request) {
     createdBy: guard.ctx.user.id
       ? new mongoose.Types.ObjectId(guard.ctx.user.id)
       : null,
+  });
+
+  await logWorkflowActivity(guard.ctx, {
+    action: "case.created",
+    targetType: "case",
+    targetId: String(doc._id),
+    targetName: doc.caseNo,
+    message: `filed case **${doc.caseNo}**${doc.title ? ` — ${doc.title}` : ""}`,
+    metadata: {
+      caseNo: doc.caseNo,
+      fileNo: doc.fileNo,
+      cnr: doc.cnr,
+      clientName: doc.clientName,
+      oppositeParty: doc.oppositeParty,
+      courtName: doc.courtName,
+    },
   });
 
   return NextResponse.json(

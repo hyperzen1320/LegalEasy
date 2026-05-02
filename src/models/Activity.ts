@@ -43,7 +43,34 @@ export type WorkflowActivityAction =
   | "checklist_item.renamed"
   | "checklist_item.removed";
 
-export type ActivityAction = AdminActivityAction | WorkflowActivityAction;
+// Cross-module actions (cases, clients, courts, prompts, profile, users)
+export type CrossModuleActivityAction =
+  | "case.created"
+  | "case.updated"
+  | "case.hearing_updated"
+  | "case.status_changed"
+  | "case.deleted"
+  | "client.created"
+  | "client.updated"
+  | "client.deleted"
+  | "court.created"
+  | "court.updated"
+  | "court.deleted"
+  | "prompt.created"
+  | "prompt.updated"
+  | "prompt.deleted"
+  | "profile.updated"
+  | "user.invited"
+  | "user.updated"
+  | "user.role_changed"
+  | "user.activated"
+  | "user.deactivated"
+  | "user.removed";
+
+export type ActivityAction =
+  | AdminActivityAction
+  | WorkflowActivityAction
+  | CrossModuleActivityAction;
 
 export type ActivityTargetType =
   | "partner"
@@ -52,7 +79,13 @@ export type ActivityTargetType =
   | "board"
   | "list"
   | "task"
-  | "checklist";
+  | "checklist"
+  | "case"
+  | "client"
+  | "court"
+  | "hearing"
+  | "prompt"
+  | "profile";
 
 export interface IActivity {
   _id: Types.ObjectId;
@@ -98,6 +131,12 @@ const ActivitySchema = new Schema<IActivity>(
         "list",
         "task",
         "checklist",
+        "case",
+        "client",
+        "court",
+        "hearing",
+        "prompt",
+        "profile",
       ],
       required: true,
     },

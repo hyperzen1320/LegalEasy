@@ -13,12 +13,9 @@ export const dynamic = "force-dynamic";
 const STATUS_OPTIONS = [
   "Filed",
   "Notice",
-  "Pleadings",
-  "Issues",
   "Evidence",
   "Arguments",
   "Reserved",
-  "Judgment",
   "Disposed",
 ];
 

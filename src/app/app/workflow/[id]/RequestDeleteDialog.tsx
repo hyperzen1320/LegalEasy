@@ -2,11 +2,32 @@
 
 import { useEffect, useRef, useState } from "react";
 
+export type RequestTargetType =
+  | "list"
+  | "task"
+  | "board"
+  | "case"
+  | "client"
+  | "court"
+  | "prompt"
+  | "user";
+
 export type RequestTarget = {
-  type: "list" | "task" | "board";
+  type: RequestTargetType;
   id: string;
   name: string;
   hint?: string; // server-provided reason why direct delete was blocked
+};
+
+const TYPE_LABEL: Record<RequestTargetType, string> = {
+  list: "list",
+  task: "card",
+  board: "board",
+  case: "case",
+  client: "client",
+  court: "court",
+  prompt: "prompt",
+  user: "user",
 };
 
 export default function RequestDeleteDialog({
@@ -62,12 +83,7 @@ export default function RequestDeleteDialog({
     }
   }
 
-  const targetLabel =
-    target.type === "list"
-      ? "list"
-      : target.type === "task"
-        ? "card"
-        : "board";
+  const targetLabel = TYPE_LABEL[target.type] ?? target.type;
 
   return (
     <div
