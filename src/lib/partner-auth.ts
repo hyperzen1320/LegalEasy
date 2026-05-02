@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import { auth } from "@/auth";
 import { verifyMobileJWT } from "@/lib/jwt";
 import { connectDB } from "@/lib/db";
 import { Partner } from "@/models/Partner";
+import { User } from "@/models/User";
 import { corsHeaders } from "@/lib/cors";
+
+export type PartnerRole =
+  | "admin"
+  | "advocate"
+  | "junior"
+  | "clerk"
+  | "viewer";
 
 export type PartnerContext = {
   user: {
@@ -12,6 +21,7 @@ export type PartnerContext = {
     firstName: string;
     lastName: string;
     userType: "partner_admin" | "user";
+    role: PartnerRole;
     partnerId: string;
   };
   isMobile: boolean;
@@ -122,6 +132,33 @@ export async function requirePartner(
     };
   }
 
+  // Look up the within-office role (admin/advocate/junior/clerk/viewer).
+  // Partner admin always carries the admin role; staff default to junior.
+  let role: PartnerRole = userType === "partner_admin" ? "admin" : "junior";
+  if (userId && mongoose.isValidObjectId(userId)) {
+    const u = await User.findById(userId).select("role active").lean();
+    if (u) {
+      if (u.active === false) {
+        return {
+          error: NextResponse.json(
+            { error: "Account deactivated" },
+            { status: 403, headers: isMobile ? corsHeaders() : undefined }
+          ),
+        };
+      }
+      const VALID: PartnerRole[] = [
+        "admin",
+        "advocate",
+        "junior",
+        "clerk",
+        "viewer",
+      ];
+      if (u.role && VALID.includes(u.role as PartnerRole)) {
+        role = u.role as PartnerRole;
+      }
+    }
+  }
+
   return {
     ctx: {
       user: {
@@ -130,6 +167,7 @@ export async function requirePartner(
         firstName,
         lastName,
         userType: userType as "partner_admin" | "user",
+        role,
         partnerId,
       },
       isMobile,

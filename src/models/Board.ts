@@ -17,6 +17,11 @@ export interface IBoard {
   color: BoardColor;
   sortOrder: number;
   isSeeded: boolean;
+  // Last canvas pan/zoom — persisted so the user picks up where they left off
+  viewport: { x: number; y: number; zoom: number };
+  // Whether the canvas has been touched at least once. Used to gate the
+  // initial auto-layout pass on first open.
+  layoutInitialized: boolean;
   createdBy: Types.ObjectId | null;
   createdAt: Date;
   updatedAt: Date;
@@ -40,6 +45,12 @@ const BoardSchema = new Schema<IBoard>(
     },
     sortOrder: { type: Number, default: 0 },
     isSeeded: { type: Boolean, default: false },
+    viewport: {
+      x: { type: Number, default: 0 },
+      y: { type: Number, default: 0 },
+      zoom: { type: Number, default: 1 },
+    },
+    layoutInitialized: { type: Boolean, default: false },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
     isDeleted: { type: Boolean, default: false },
   },

@@ -1,14 +1,19 @@
-import Link from "next/link";
 import mongoose from "mongoose";
 import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/db";
 import { Board } from "@/models/Board";
+import { BoardList } from "@/models/BoardList";
+import { BoardEdge } from "@/models/BoardEdge";
+import { Task } from "@/models/Task";
+import { User } from "@/models/User";
 import { BOARD_COLOR_STYLES } from "@/lib/board-defaults";
+import { summarizeChecklists } from "@/lib/workflow-helpers";
+import BoardCanvas from "./BoardCanvas";
 
 export const dynamic = "force-dynamic";
 
-export default async function BoardDetail({
+export default async function BoardCanvasPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -18,94 +23,131 @@ export default async function BoardDetail({
 
   const session = await auth();
   if (!session?.user?.partnerId) notFound();
+  const partnerId = new mongoose.Types.ObjectId(session.user.partnerId);
+  const boardObjId = new mongoose.Types.ObjectId(id);
 
   await connectDB();
-  const board = await Board.findOne({
-    _id: new mongoose.Types.ObjectId(id),
-    partnerId: new mongoose.Types.ObjectId(session.user.partnerId),
-    isDeleted: false,
-  }).lean();
+
+  const [board, lists, edgeDocs, tasks, members] = await Promise.all([
+    Board.findOne({ _id: boardObjId, partnerId, isDeleted: false }),
+    BoardList.find({
+      partnerId,
+      boardId: boardObjId,
+      isDeleted: false,
+    })
+      .sort({ sortOrder: 1, createdAt: 1 })
+      .lean(),
+    BoardEdge.find({
+      partnerId,
+      boardId: boardObjId,
+      isDeleted: false,
+    }).lean(),
+    Task.find({
+      partnerId,
+      boardId: boardObjId,
+      isDeleted: false,
+    })
+      .sort({ listId: 1, sortOrder: 1, createdAt: 1 })
+      .lean(),
+    User.find({ partnerId, isDeleted: false, active: true })
+      .select("firstName lastName role userType")
+      .sort({ firstName: 1 })
+      .lean(),
+  ]);
 
   if (!board) notFound();
 
-  const styles = BOARD_COLOR_STYLES[board.color] ?? BOARD_COLOR_STYLES.copper;
+  // ─── Auto-layout on first open ──────────────────────────────────────────
+  // Lists created before the canvas existed have position {0,0}. Spread
+  // them into a tidy grid then mark the board so we don't redo it.
+  const PADDING_X = 360;
+  const PADDING_Y = 460;
+  const PER_ROW = 4;
+  if (!board.layoutInitialized) {
+    for (let i = 0; i < lists.length; i++) {
+      const x = (i % PER_ROW) * PADDING_X + 60;
+      const y = Math.floor(i / PER_ROW) * PADDING_Y + 80;
+      lists[i].position = { x, y };
+      lists[i].width = lists[i].width || 320;
+      await BoardList.updateOne(
+        { _id: lists[i]._id },
+        { $set: { position: { x, y }, width: lists[i].width } }
+      );
+    }
+    board.layoutInitialized = true;
+    await board.save();
+  }
+
+  const memberById = new Map<
+    string,
+    { id: string; name: string; role: string }
+  >();
+  for (const m of members) {
+    memberById.set(String(m._id), {
+      id: String(m._id),
+      name: `${m.firstName} ${m.lastName}`.trim(),
+      role: m.role || (m.userType === "partner_admin" ? "admin" : "junior"),
+    });
+  }
+
+  const role = session.user.userType === "partner_admin" ? "admin" : "junior";
+  const styles =
+    BOARD_COLOR_STYLES[board.color] ?? BOARD_COLOR_STYLES.copper;
 
   return (
-    <div className="px-10 py-8">
-      <div className="mx-auto max-w-[1280px]">
-        <Link
-          href="/app/workflow"
-          className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.18em]"
-          style={{
-            fontFamily: "var(--font-dm-mono), monospace",
-            color: "var(--color-app-fg-muted)",
-          }}
-        >
-          <span aria-hidden>&larr;</span> All boards
-        </Link>
-
-        <div
-          className="fade-up-sm relative mt-5 overflow-hidden rounded-2xl px-9 py-9"
-          style={{
-            background: `linear-gradient(135deg, ${styles.gradient[0]}, ${styles.gradient[1]})`,
-            color: styles.text,
-            minHeight: 200,
-          }}
-        >
-          <span
-            className="absolute top-6 left-6 h-2.5 w-2.5 rounded-full opacity-90"
-            style={{ backgroundColor: styles.accent }}
-          />
-          <h1
-            className="text-[44px] font-semibold leading-[1.05] tracking-tight"
-            style={{
-              fontFamily: "var(--font-crimson), Georgia, serif",
-            }}
-          >
-            {board.title}
-          </h1>
-          {board.description ? (
-            <p
-              className="mt-3 max-w-[640px] text-[14px] leading-[1.55]"
-              style={{
-                fontFamily: "var(--font-manrope), sans-serif",
-                color: styles.text,
-                opacity: 0.85,
-              }}
-            >
-              {board.description}
-            </p>
-          ) : null}
-        </div>
-
-        <div
-          className="mt-6 rounded-xl px-6 py-12 text-center"
-          style={{
-            backgroundColor: "var(--color-app-paper)",
-            border: "1px dashed var(--color-app-edge)",
-          }}
-        >
-          <h3
-            className="text-[24px] font-semibold tracking-tight"
-            style={{
-              fontFamily: "var(--font-crimson), Georgia, serif",
-              color: "var(--color-app-ink)",
-            }}
-          >
-            Kanban columns coming next.
-          </h3>
-          <p
-            className="mx-auto mt-2 max-w-md text-[13px] leading-7"
-            style={{
-              fontFamily: "var(--font-manrope), sans-serif",
-              color: "var(--color-app-fg-muted)",
-            }}
-          >
-            This board is created and saved. Lists, task cards, drag-and-drop
-            and assignment land in the next iteration.
-          </p>
-        </div>
-      </div>
-    </div>
+    <BoardCanvas
+      boardId={String(board._id)}
+      board={{
+        id: String(board._id),
+        title: board.title,
+        description: board.description,
+        color: board.color,
+      }}
+      accent={styles.gradient[0]}
+      accentSoft={styles.accent}
+      gradient={styles.gradient as [string, string]}
+      initialViewport={{
+        x: board.viewport?.x ?? 0,
+        y: board.viewport?.y ?? 0,
+        zoom: board.viewport?.zoom ?? 1,
+      }}
+      initialLists={lists.map((l) => ({
+        id: String(l._id),
+        title: l.title,
+        sortOrder: l.sortOrder,
+        position: l.position || { x: 0, y: 0 },
+        width: l.width || 320,
+        color: l.color ?? null,
+      }))}
+      initialEdges={edgeDocs.map((e) => ({
+        id: String(e._id),
+        sourceListId: String(e.sourceListId),
+        targetListId: String(e.targetListId),
+        sourceHandle: e.sourceHandle,
+        targetHandle: e.targetHandle,
+        label: e.label,
+        color: e.color,
+        style: e.style,
+      }))}
+      initialTasks={tasks.map((t) => ({
+        id: String(t._id),
+        listId: String(t.listId),
+        title: t.title,
+        description: t.description || "",
+        sortOrder: t.sortOrder,
+        assignee: t.assignedToUserId
+          ? memberById.get(String(t.assignedToUserId)) || null
+          : null,
+        dueDate: t.dueDate ? t.dueDate.toISOString() : null,
+        priority: t.priority,
+        checklistSummary: summarizeChecklists(t.checklists || []),
+        hasDescription: Boolean(
+          t.description && t.description.trim().length > 0
+        ),
+        updatedAt: t.updatedAt.toISOString(),
+      }))}
+      members={Array.from(memberById.values())}
+      role={role}
+    />
   );
 }
