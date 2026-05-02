@@ -5,6 +5,7 @@ import { Client } from "@/models/Client";
 import { Case } from "@/models/Case";
 import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
+import { logWorkflowActivity } from "@/lib/activity";
 
 export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders() });
@@ -111,6 +112,15 @@ export async function POST(request: Request) {
     createdBy: guard.ctx.user.id
       ? new mongoose.Types.ObjectId(guard.ctx.user.id)
       : null,
+  });
+
+  await logWorkflowActivity(guard.ctx, {
+    action: "client.created",
+    targetType: "client",
+    targetId: String(doc._id),
+    targetName: doc.name,
+    message: `added client **${doc.name}**`,
+    metadata: { phone: doc.phone, email: doc.email },
   });
 
   return NextResponse.json(

@@ -133,6 +133,7 @@ export default function UpdateHearingForm({
 
       <div className="mt-5">
         <label
+          htmlFor="caseStatus"
           className="text-[10px] font-semibold uppercase tracking-[0.18em]"
           style={{
             fontFamily: "var(--font-dm-mono), monospace",
@@ -141,32 +142,49 @@ export default function UpdateHearingForm({
         >
           Status / Stage
         </label>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {statusOptions.map((opt) => {
-            const isActive = status === opt;
-            return (
-              <button
-                key={opt}
-                type="button"
-                onClick={() => setStatus(opt)}
-                className="rounded-md border-2 px-3 py-1.5 text-[12px] font-medium transition-all"
-                style={{
-                  fontFamily: "var(--font-manrope), sans-serif",
-                  borderColor: isActive
-                    ? "var(--color-app-copper)"
-                    : "var(--color-app-edge)",
-                  backgroundColor: isActive
-                    ? "rgba(197,133,58,0.12)"
-                    : "var(--color-app-paper)",
-                  color: isActive
-                    ? "var(--color-app-copper-deep)"
-                    : "var(--color-app-fg-soft)",
-                }}
-              >
+        <div className="relative mt-2">
+          <select
+            id="caseStatus"
+            value={statusOptions.includes(status) ? status : statusOptions[0]}
+            onChange={(e) => setStatus(e.target.value)}
+            className="block w-full appearance-none rounded-md border px-3.5 py-2.5 pr-10 text-[14px] outline-none transition-colors"
+            style={{
+              fontFamily: "var(--font-manrope), sans-serif",
+              borderColor: "var(--color-app-edge)",
+              backgroundColor: "var(--color-app-paper)",
+              color: "var(--color-app-ink)",
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = "var(--color-app-copper)";
+              e.currentTarget.style.boxShadow =
+                "0 0 0 3px rgba(197,133,58,0.15)";
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = "var(--color-app-edge)";
+              e.currentTarget.style.boxShadow = "none";
+            }}
+          >
+            {statusOptions.map((opt) => (
+              <option key={opt} value={opt}>
                 {opt}
-              </button>
-            );
-          })}
+              </option>
+            ))}
+          </select>
+          <span
+            aria-hidden
+            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2"
+            style={{ color: "var(--color-app-fg-muted)" }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M6 9l6 6 6-6"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
         </div>
       </div>
 

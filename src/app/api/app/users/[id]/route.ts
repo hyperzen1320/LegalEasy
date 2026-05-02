@@ -5,6 +5,7 @@ import { connectDB } from "@/lib/db";
 import { User } from "@/models/User";
 import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
+import { logWorkflowActivity } from "@/lib/activity";
 
 export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders() });
@@ -86,6 +87,15 @@ export async function PATCH(
   }
 
   const isSelf = String(doc._id) === guard.ctx.user.id;
+  const before = {
+    firstName: doc.firstName,
+    lastName: doc.lastName,
+    designation: doc.designation,
+    phone: doc.phone,
+    role: doc.role,
+    active: doc.active,
+    passwordReset: false,
+  };
 
   // Name
   if (typeof body.firstName === "string" && body.firstName.trim()) {
@@ -164,9 +174,52 @@ export async function PATCH(
       );
     }
     doc.passwordHash = await bcrypt.hash(body.password, 10);
+    before.passwordReset = true;
   }
 
   await doc.save();
+
+  const targetName =
+    `${doc.firstName} ${doc.lastName}`.trim() || doc.email;
+
+  if (before.role !== doc.role) {
+    await logWorkflowActivity(guard.ctx, {
+      action: "user.role_changed",
+      targetType: "user",
+      targetId: String(doc._id),
+      targetName,
+      message: `changed **${targetName}**'s role from ${before.role} to ${doc.role}`,
+      metadata: { from: before.role, to: doc.role },
+    });
+  }
+  if (before.active !== doc.active) {
+    await logWorkflowActivity(guard.ctx, {
+      action: doc.active ? "user.activated" : "user.deactivated",
+      targetType: "user",
+      targetId: String(doc._id),
+      targetName,
+      message: doc.active
+        ? `reactivated **${targetName}**`
+        : `deactivated **${targetName}**`,
+      metadata: {},
+    });
+  }
+  const profileChanged: string[] = [];
+  if (before.firstName !== doc.firstName) profileChanged.push("firstName");
+  if (before.lastName !== doc.lastName) profileChanged.push("lastName");
+  if (before.designation !== doc.designation) profileChanged.push("designation");
+  if (before.phone !== doc.phone) profileChanged.push("phone");
+  if (before.passwordReset) profileChanged.push("password");
+  if (profileChanged.length > 0) {
+    await logWorkflowActivity(guard.ctx, {
+      action: "user.updated",
+      targetType: "user",
+      targetId: String(doc._id),
+      targetName,
+      message: `updated **${targetName}** (${profileChanged.join(", ")})`,
+      metadata: { fields: profileChanged },
+    });
+  }
 
   return NextResponse.json(
     { ok: true, user: serialize(doc) },
@@ -214,6 +267,16 @@ export async function DELETE(
   doc.isDeleted = true;
   doc.active = false;
   await doc.save();
+
+  const targetName = `${doc.firstName} ${doc.lastName}`.trim() || doc.email;
+  await logWorkflowActivity(guard.ctx, {
+    action: "user.removed",
+    targetType: "user",
+    targetId: String(doc._id),
+    targetName,
+    message: `removed **${targetName}** from the office`,
+    metadata: { email: doc.email },
+  });
 
   return NextResponse.json(
     { ok: true },

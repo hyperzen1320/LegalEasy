@@ -5,6 +5,7 @@ import { PromptTemplate } from "@/models/PromptTemplate";
 import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
 import { PROMPT_DEFAULTS } from "@/lib/prompt-defaults";
+import { logWorkflowActivity } from "@/lib/activity";
 
 export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders() });
@@ -105,6 +106,15 @@ export async function POST(request: Request) {
     createdBy: guard.ctx.user.id
       ? new mongoose.Types.ObjectId(guard.ctx.user.id)
       : null,
+  });
+
+  await logWorkflowActivity(guard.ctx, {
+    action: "prompt.created",
+    targetType: "prompt",
+    targetId: String(doc._id),
+    targetName: doc.title,
+    message: `added prompt **${doc.title}**`,
+    metadata: { category: doc.category },
   });
 
   return NextResponse.json(

@@ -31,6 +31,12 @@ const ACTION_FAMILIES: { key: string; label: string; prefix: string }[] = [
   { key: "list", label: "Lists", prefix: "list." },
   { key: "board", label: "Boards", prefix: "board." },
   { key: "checklist", label: "Checklists", prefix: "checklist" }, // catches both checklist. and checklist_item.
+  { key: "case", label: "Cases", prefix: "case." },
+  { key: "client", label: "Clients", prefix: "client." },
+  { key: "court", label: "Courts", prefix: "court." },
+  { key: "prompt", label: "Prompts", prefix: "prompt." },
+  { key: "user", label: "People", prefix: "user." },
+  { key: "profile", label: "Profile", prefix: "profile." },
 ];
 
 export default function ActivityClient({
