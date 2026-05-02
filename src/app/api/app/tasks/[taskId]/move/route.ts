@@ -7,6 +7,7 @@ import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
 import { canPerform, workflowDeny } from "@/lib/workflow-rbac";
 import { loadTask } from "@/lib/workflow-helpers";
+import { logWorkflowActivity } from "@/lib/activity";
 
 export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders() });
@@ -76,6 +77,18 @@ export async function POST(
     );
   }
 
+  // Snapshot the source list before we mutate the task. We only log
+  // cross-list moves; intra-list reorders stay out of the audit feed
+  // because they're noise (every drag would fire one).
+  const fromListIdBefore = task.listId;
+  const isCrossListMove =
+    String(fromListIdBefore) !== String(dest._id);
+  const fromList = isCrossListMove
+    ? await BoardList.findOne({ _id: fromListIdBefore })
+        .select("title")
+        .lean()
+    : null;
+
   // Pull all destination tasks (excluding the one being moved) ordered;
   // we'll reinsert this task at toIndex and rewrite sortOrders for the lot.
   const destTasks = await Task.find({
@@ -108,10 +121,26 @@ export async function POST(
     );
   }
 
-  // Card movements (cross-list move + intra-list reorder) are intentionally
-  // NOT written to the activity log — they would dominate the feed and the
-  // user explicitly asked to leave them out. The card's new listId is
-  // still observable via the next state fetch / live-feed reconcile.
+  // Cross-list moves are real workflow events and DO fire activity.
+  // Intra-list reorders are noise and stay out of the feed.
+  if (isCrossListMove) {
+    const fromTitle = fromList?.title ?? "another list";
+    await logWorkflowActivity(guard.ctx, {
+      action: "task.moved",
+      targetType: "task",
+      targetId: String(task._id),
+      targetName: task.title,
+      boardId: String(task.boardId),
+      message: `moved **${task.title}** from **${fromTitle}** → **${dest.title}**`,
+      metadata: {
+        fromListId: String(fromListIdBefore),
+        fromListTitle: fromTitle,
+        toListId: String(dest._id),
+        toListTitle: dest.title,
+        toIndex: insertAt,
+      },
+    });
+  }
 
   return NextResponse.json(
     { ok: true, listId: String(task.listId), sortOrder: task.sortOrder },

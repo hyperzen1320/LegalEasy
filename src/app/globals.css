@@ -149,6 +149,33 @@ body {
   animation: fadeUpSm 0.5s cubic-bezier(0.2, 0.7, 0.1, 1) both;
 }
 
+/* Connection pills on list nodes. The base style is set inline (per-list
+   colour), and these rules add the hover bump + group-hover discovery so
+   the pills stay subtle at rest but fly to the user's eye the moment
+   they approach a list. */
+.le-connection-pill {
+  /* Inline `opacity` is the default 0.55. We push it to full opacity +
+     scale on hover, and also when ANY descendant of the list-node
+     wrapper is hovered (so hovering the card title still surfaces the
+     pills). */
+}
+.le-connection-pill:hover {
+  opacity: 1 !important;
+  transform-origin: center;
+  box-shadow:
+    0 8px 18px -4px currentColor,
+    0 0 0 6px rgba(255, 255, 255, 0.65) !important;
+  /* Slightly bigger on hover so it visibly invites a click. The
+     existing translate transform (set inline by side) is preserved by
+     React Flow's own transform handling — we just animate the hover
+     pop via filter to avoid clobbering positioning. */
+  filter: brightness(1.06);
+}
+.react-flow__node:hover .le-connection-pill,
+.react-flow__node.selected .le-connection-pill {
+  opacity: 1 !important;
+}
+
 /* Live-feed highlights. Set [data-le-pulse="task" | "list" | "edge"] on
    any element to play a 2.5s copper glow that draws the eye without
    blocking interaction. The animation auto-removes the attribute via JS
