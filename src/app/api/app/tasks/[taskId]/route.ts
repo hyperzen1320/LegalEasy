@@ -8,6 +8,8 @@ import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
 import { canPerform, workflowDeny } from "@/lib/workflow-rbac";
 import { logWorkflowActivity } from "@/lib/activity";
+import { canDirectDeleteTask } from "@/lib/delete-eligibility";
+import { DeleteRequest } from "@/models/DeleteRequest";
 import {
   loadTask,
   summarizeChecklists,
@@ -298,10 +300,6 @@ export async function DELETE(
   const guard = await requirePartner(request);
   if ("error" in guard) return guard.error;
 
-  if (!canPerform(guard.ctx.user.role, "taskEdit")) {
-    return workflowDeny("taskEdit", guard.ctx.isMobile, corsHeaders);
-  }
-
   await connectDB();
   const task = await loadTask(taskId, guard.ctx.user.partnerId);
   if (!task) {
@@ -310,6 +308,40 @@ export async function DELETE(
       { status: 404, headers: guard.ctx.isMobile ? corsHeaders() : undefined }
     );
   }
+
+  // Smart-delete: admins always allowed; non-admins only if they created
+  // the card AND it has no description and no checklist items. Otherwise
+  // the client must raise a delete request.
+  const eligibility = canDirectDeleteTask(task, {
+    isAdmin: guard.ctx.user.role === "admin",
+    userId: guard.ctx.user.id,
+  });
+  if (!eligibility.ok) {
+    return NextResponse.json(
+      {
+        error: eligibility.reason,
+        code: "delete_request_required",
+        targetType: "task",
+        targetId: String(task._id),
+        targetName: task.title,
+      },
+      {
+        status: 403,
+        headers: guard.ctx.isMobile ? corsHeaders() : undefined,
+      }
+    );
+  }
+
+  // Auto-mark any pending delete requests for this card as obsolete
+  await DeleteRequest.updateMany(
+    {
+      partnerId: task.partnerId,
+      targetType: "task",
+      targetId: task._id,
+      status: "pending",
+    },
+    { $set: { status: "obsolete", reviewerNote: "Target deleted directly." } }
+  );
 
   task.isDeleted = true;
   await task.save();

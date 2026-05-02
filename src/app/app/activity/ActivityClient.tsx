@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -56,6 +56,8 @@ export default function ActivityClient({
   const [actorId, setActorId] = useState("");
   const [boardId, setBoardId] = useState("");
   const [actionFamily, setActionFamily] = useState("all");
+  const [view, setView] = useState<"activity" | "requests">("activity");
+  const [selectedRow, setSelectedRow] = useState<ActivityRow | null>(null);
 
   const grouped = useMemo(() => groupByDay(rows), [rows]);
 
@@ -148,7 +150,66 @@ export default function ActivityClient({
         {isAdmin ? <RetentionPill current={retentionDays} /> : null}
       </div>
 
-      {/* Filters */}
+      {/* View toggle: Activity vs Delete Requests */}
+      <div className="mt-7 flex items-center gap-2">
+        <button
+          onClick={() => setView("activity")}
+          className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-[13px] font-semibold transition-all"
+          style={{
+            fontFamily: "var(--font-manrope), sans-serif",
+            backgroundColor:
+              view === "activity"
+                ? "var(--color-app-ink)"
+                : "var(--color-app-paper)",
+            color:
+              view === "activity"
+                ? "var(--color-app-ivory)"
+                : "var(--color-app-fg-soft)",
+            boxShadow:
+              view === "activity"
+                ? "0 6px 16px -10px rgba(10,17,36,0.45)"
+                : "0 1px 0 var(--color-app-edge)",
+          }}
+        >
+          Activity
+        </button>
+        <button
+          onClick={() => setView("requests")}
+          className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-[13px] font-semibold transition-all"
+          style={{
+            fontFamily: "var(--font-manrope), sans-serif",
+            backgroundColor:
+              view === "requests"
+                ? "var(--color-app-ink)"
+                : "var(--color-app-paper)",
+            color:
+              view === "requests"
+                ? "var(--color-app-ivory)"
+                : "var(--color-app-fg-soft)",
+            boxShadow:
+              view === "requests"
+                ? "0 6px 16px -10px rgba(10,17,36,0.45)"
+                : "0 1px 0 var(--color-app-edge)",
+          }}
+        >
+          {isAdmin ? "Delete requests" : "My requests"}
+          <PendingRequestsBadge isAdmin={isAdmin} />
+        </button>
+      </div>
+
+      {view === "requests" ? (
+        <DeleteRequestsPanel isAdmin={isAdmin} />
+      ) : null}
+
+      {selectedRow ? (
+        <ActivityDetailModal
+          row={selectedRow}
+          onClose={() => setSelectedRow(null)}
+        />
+      ) : null}
+
+      {/* Activity feed (action filters + grouped feed + load more) */}
+      <div style={{ display: view === "activity" ? "block" : "none" }}>
       <div className="mt-7">
         <div className="flex flex-wrap items-center gap-2">
           {ACTION_FAMILIES.map((f) => {
@@ -297,7 +358,8 @@ export default function ActivityClient({
                 {g.rows.map((a, i) => (
                   <li
                     key={a.id}
-                    className="fade-up-sm px-5 py-3.5 flex items-start gap-3"
+                    onClick={() => setSelectedRow(a)}
+                    className="fade-up-sm px-5 py-3.5 flex items-start gap-3 cursor-pointer transition-colors hover:bg-[var(--color-app-canvas-2)]"
                     style={{
                       animationDelay: `${Math.min(i, 12) * 25 + gi * 30}ms`,
                       borderColor: "var(--color-app-edge-soft)",
@@ -382,6 +444,7 @@ export default function ActivityClient({
           ) : null}
         </div>
       )}
+      </div>{/* end legacy hidden wrapper */}
     </>
   );
 }
@@ -667,5 +730,676 @@ function ChevronIcon() {
         strokeLinejoin="round"
       />
     </svg>
+  );
+}
+
+/* ─── Pending requests badge ─── */
+
+function PendingRequestsBadge({ isAdmin }: { isAdmin: boolean }) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    const fetchCount = async () => {
+      try {
+        const res = await fetch("/api/app/delete-requests/count");
+        if (!res.ok || !alive) return;
+        const data = await res.json();
+        setCount(data.count || 0);
+      } catch {
+        // ignore
+      }
+    };
+    fetchCount();
+    const t = setInterval(fetchCount, 8000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [isAdmin]);
+  if (count === 0) return null;
+  return (
+    <span
+      className="rounded-full px-1.5 text-[10px] font-semibold tabular-nums"
+      style={{
+        fontFamily: "var(--font-dm-mono), monospace",
+        backgroundColor: "var(--color-app-danger)",
+        color: "white",
+        minWidth: 18,
+        textAlign: "center",
+      }}
+    >
+      {count}
+    </span>
+  );
+}
+
+/* ─── Activity detail modal ─── */
+
+function ActivityDetailModal({
+  row,
+  onClose,
+}: {
+  row: ActivityRow;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const meta = row.metadata as Record<string, unknown>;
+  const metaEntries = Object.entries(meta).filter(
+    ([, v]) => v !== null && v !== undefined && v !== ""
+  );
+
+  const targetHref = row.boardId
+    ? `/app/workflow/${row.boardId}`
+    : null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center px-4"
+      style={{ backgroundColor: "rgba(10,17,36,0.55)" }}
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-[560px] rounded-2xl overflow-hidden"
+        style={{
+          backgroundColor: "var(--color-app-paper)",
+          boxShadow:
+            "0 32px 64px -16px rgba(10,17,36,0.40), 0 0 0 1px rgba(10,17,36,0.06)",
+          animation:
+            "act-pop 220ms cubic-bezier(0.2, 0.7, 0.1, 1) both",
+        }}
+      >
+        <style>{`
+          @keyframes act-pop {
+            from { opacity: 0; transform: translateY(8px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+          }
+        `}</style>
+        <div className="px-6 pt-5 pb-4 flex items-start gap-4">
+          <span
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-[14px] font-semibold"
+            style={{
+              fontFamily: "var(--font-crimson), Georgia, serif",
+              backgroundColor: "var(--color-app-ink)",
+              color: "var(--color-app-ivory)",
+              boxShadow: "0 6px 16px -8px rgba(10,17,36,0.30)",
+            }}
+          >
+            {initials(row.actorName)}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div
+              className="text-[13px] uppercase tracking-[0.18em]"
+              style={{
+                fontFamily: "var(--font-dm-mono), monospace",
+                color: "var(--color-app-copper-deep)",
+              }}
+            >
+              {actionToFamily(row.action)}
+            </div>
+            <h3
+              className="mt-1 text-[20px] font-semibold leading-tight tracking-tight"
+              style={{
+                fontFamily: "var(--font-crimson), Georgia, serif",
+                color: "var(--color-app-ink)",
+              }}
+            >
+              {row.actorName}
+            </h3>
+            <p
+              className="mt-2 text-[13px] leading-[1.5]"
+              style={{
+                fontFamily: "var(--font-manrope), sans-serif",
+                color: "var(--color-app-fg-soft)",
+              }}
+              dangerouslySetInnerHTML={{
+                __html: renderInline(row.message),
+              }}
+            />
+            <div
+              className="mt-2 text-[11px]"
+              style={{
+                fontFamily: "var(--font-dm-mono), monospace",
+                color: "var(--color-app-fg-muted)",
+                letterSpacing: 0.3,
+              }}
+            >
+              {new Date(row.createdAt).toLocaleString("en-IN", {
+                weekday: "short",
+                day: "2-digit",
+                month: "short",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+              {" · "}
+              <span style={{ color: "var(--color-app-copper-deep)" }}>
+                {row.action}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-[var(--color-app-canvas-2)]"
+            style={{ color: "var(--color-app-fg-muted)" }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M6 6l12 12M6 18L18 6"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+        </div>
+
+        {metaEntries.length > 0 ? (
+          <div
+            className="mx-6 mb-4 rounded-xl p-4"
+            style={{
+              backgroundColor: "var(--color-app-canvas-2)",
+            }}
+          >
+            <div
+              className="text-[10px] uppercase tracking-[0.18em] mb-2"
+              style={{
+                fontFamily: "var(--font-dm-mono), monospace",
+                color: "var(--color-app-fg-muted)",
+                fontWeight: 600,
+              }}
+            >
+              Details
+            </div>
+            <dl className="grid grid-cols-[120px_1fr] gap-x-4 gap-y-1.5 text-[12px]">
+              {metaEntries.map(([k, v]) => (
+                <div key={k} className="contents">
+                  <dt
+                    style={{
+                      fontFamily: "var(--font-dm-mono), monospace",
+                      color: "var(--color-app-fg-muted)",
+                    }}
+                  >
+                    {humanizeKey(k)}
+                  </dt>
+                  <dd
+                    style={{
+                      fontFamily: "var(--font-manrope), sans-serif",
+                      color: "var(--color-app-ink)",
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    {formatValue(v)}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        ) : null}
+
+        {targetHref ? (
+          <div
+            className="px-6 py-4 flex items-center justify-end"
+            style={{
+              backgroundColor: "var(--color-app-canvas-2)",
+              borderTop: "1px solid var(--color-app-edge-soft)",
+            }}
+          >
+            <Link
+              href={targetHref}
+              className="inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-[13px] font-semibold transition-all"
+              style={{
+                fontFamily: "var(--font-manrope), sans-serif",
+                backgroundColor: "var(--color-app-copper)",
+                color: "var(--color-app-copper-text)",
+                boxShadow: "0 6px 16px -8px rgba(197,133,58,0.55)",
+              }}
+            >
+              Open board →
+            </Link>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function actionToFamily(action: string): string {
+  if (action.startsWith("task.") || action.startsWith("checklist"))
+    return "Card";
+  if (action.startsWith("list.")) return "List";
+  if (action.startsWith("board.")) return "Board";
+  if (action.startsWith("delete_request")) return "Delete request";
+  return "System";
+}
+
+function humanizeKey(k: string): string {
+  return k
+    .replace(/([A-Z])/g, " $1")
+    .replace(/_/g, " ")
+    .replace(/^./, (s) => s.toUpperCase())
+    .trim();
+}
+
+function formatValue(v: unknown): string {
+  if (v === null || v === undefined) return "—";
+  if (typeof v === "boolean") return v ? "yes" : "no";
+  if (typeof v === "string") return v;
+  if (typeof v === "number") return String(v);
+  if (Array.isArray(v)) return v.map((x) => formatValue(x)).join(", ");
+  try {
+    return JSON.stringify(v);
+  } catch {
+    return String(v);
+  }
+}
+
+function renderInline(message: string): string {
+  const escape = (s: string) =>
+    s
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  return escape(message).replace(
+    /\*\*([^*]+)\*\*/g,
+    (_, inner) =>
+      `<strong style="color:var(--color-app-ink);font-weight:600">${inner}</strong>`
+  );
+}
+
+/* ─── Delete requests panel ─── */
+
+type DRRow = {
+  id: string;
+  requesterUserId: string;
+  requesterName: string;
+  requesterEmail: string;
+  targetType: string;
+  targetId: string;
+  targetName: string;
+  boardId: string | null;
+  reason: string;
+  status: "pending" | "approved" | "rejected" | "obsolete";
+  reviewedByName: string;
+  reviewedAt: string | null;
+  reviewerNote: string;
+  createdAt: string;
+};
+
+function DeleteRequestsPanel({ isAdmin }: { isAdmin: boolean }) {
+  const router = useRouter();
+  const [status, setStatus] = useState<
+    "pending" | "approved" | "rejected" | "obsolete"
+  >("pending");
+  const [rows, setRows] = useState<DRRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [noteOpen, setNoteOpen] = useState<{ id: string; mode: "approve" | "reject" } | null>(
+    null
+  );
+  const [note, setNote] = useState("");
+
+  const load = useCallback(
+    async (s: typeof status) => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/app/delete-requests?status=${s}&limit=100`);
+        if (res.ok) {
+          const data = await res.json();
+          setRows(data.requests);
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    load(status);
+  }, [status, load]);
+
+  async function decide(
+    id: string,
+    mode: "approve" | "reject",
+    noteText: string
+  ) {
+    setBusyId(id);
+    try {
+      const res = await fetch(`/api/app/delete-requests/${id}/${mode}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note: noteText }),
+      });
+      if (res.ok) {
+        setRows((prev) => prev.filter((r) => r.id !== id));
+        setNoteOpen(null);
+        setNote("");
+        router.refresh();
+      }
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <div className="mt-7">
+      <div className="flex items-center gap-1.5 mb-5">
+        {(["pending", "approved", "rejected", "obsolete"] as const).map(
+          (s) => (
+            <button
+              key={s}
+              onClick={() => setStatus(s)}
+              className="rounded-md px-3 py-1.5 text-[12px] font-medium uppercase tracking-[0.14em] transition-all"
+              style={{
+                fontFamily: "var(--font-dm-mono), monospace",
+                backgroundColor:
+                  status === s
+                    ? "var(--color-app-paper)"
+                    : "transparent",
+                color:
+                  status === s
+                    ? "var(--color-app-ink)"
+                    : "var(--color-app-fg-muted)",
+                boxShadow:
+                  status === s ? "0 1px 0 var(--color-app-edge)" : "none",
+                fontWeight: status === s ? 600 : 500,
+              }}
+            >
+              {s}
+            </button>
+          )
+        )}
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <div
+            className="h-6 w-6 animate-spin rounded-full"
+            style={{
+              borderWidth: 2.5,
+              borderStyle: "solid",
+              borderColor: "var(--color-app-edge)",
+              borderTopColor: "var(--color-app-copper)",
+            }}
+          />
+        </div>
+      ) : rows.length === 0 ? (
+        <div
+          className="rounded-xl px-5 py-12 text-center"
+          style={{
+            backgroundColor: "var(--color-app-paper)",
+            border: "1px dashed var(--color-app-edge)",
+          }}
+        >
+          <p
+            className="text-[14px]"
+            style={{
+              fontFamily: "var(--font-manrope), sans-serif",
+              color: "var(--color-app-fg-muted)",
+            }}
+          >
+            {status === "pending"
+              ? isAdmin
+                ? "No pending delete requests. Inbox zero."
+                : "You haven't sent any delete requests."
+              : `No ${status} requests.`}
+          </p>
+        </div>
+      ) : (
+        <ul className="space-y-3">
+          {rows.map((r) => (
+            <li
+              key={r.id}
+              className="rounded-xl p-5"
+              style={{
+                backgroundColor: "var(--color-app-paper)",
+                boxShadow: "0 1px 0 var(--color-app-edge)",
+              }}
+            >
+              <div className="flex items-start gap-3">
+                <span
+                  className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold"
+                  style={{
+                    fontFamily: "var(--font-crimson), Georgia, serif",
+                    backgroundColor: "var(--color-app-ink)",
+                    color: "var(--color-app-ivory)",
+                  }}
+                  title={r.requesterName}
+                >
+                  {initials(r.requesterName)}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span
+                      className="text-[14px] font-semibold"
+                      style={{
+                        fontFamily: "var(--font-manrope), sans-serif",
+                        color: "var(--color-app-ink)",
+                      }}
+                    >
+                      {r.requesterName}
+                    </span>
+                    <span
+                      className="rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.18em]"
+                      style={{
+                        fontFamily: "var(--font-dm-mono), monospace",
+                        backgroundColor: "var(--color-app-canvas-2)",
+                        color: "var(--color-app-fg-soft)",
+                      }}
+                    >
+                      {r.targetType}
+                    </span>
+                    <span
+                      className="rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.18em]"
+                      style={{
+                        fontFamily: "var(--font-dm-mono), monospace",
+                        backgroundColor:
+                          r.status === "pending"
+                            ? "rgba(197,133,58,0.18)"
+                            : r.status === "approved"
+                              ? "var(--color-app-aqua-soft)"
+                              : r.status === "rejected"
+                                ? "var(--color-app-danger-soft)"
+                                : "var(--color-app-canvas-2)",
+                        color:
+                          r.status === "pending"
+                            ? "var(--color-app-copper-deep)"
+                            : r.status === "approved"
+                              ? "var(--color-app-aqua)"
+                              : r.status === "rejected"
+                                ? "var(--color-app-danger)"
+                                : "var(--color-app-fg-muted)",
+                      }}
+                    >
+                      {r.status}
+                    </span>
+                  </div>
+                  <p
+                    className="mt-1 text-[13px]"
+                    style={{
+                      fontFamily: "var(--font-manrope), sans-serif",
+                      color: "var(--color-app-fg-soft)",
+                    }}
+                  >
+                    requested deletion of{" "}
+                    <span
+                      style={{
+                        color: "var(--color-app-ink)",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {r.targetName}
+                    </span>
+                  </p>
+                  <div
+                    className="mt-2 rounded-md px-3 py-2 text-[12.5px] leading-[1.55] italic"
+                    style={{
+                      fontFamily: "var(--font-manrope), sans-serif",
+                      backgroundColor: "var(--color-app-canvas-2)",
+                      color: "var(--color-app-fg-soft)",
+                    }}
+                  >
+                    “{r.reason}”
+                  </div>
+                  {r.reviewedAt ? (
+                    <div
+                      className="mt-2 text-[11px]"
+                      style={{
+                        fontFamily: "var(--font-dm-mono), monospace",
+                        color: "var(--color-app-fg-muted)",
+                        letterSpacing: 0.3,
+                      }}
+                    >
+                      {r.status} by {r.reviewedByName} ·{" "}
+                      {new Date(r.reviewedAt).toLocaleDateString("en-IN", {
+                        day: "2-digit",
+                        month: "short",
+                      })}
+                      {r.reviewerNote
+                        ? ` · "${r.reviewerNote}"`
+                        : ""}
+                    </div>
+                  ) : null}
+                  <div
+                    className="mt-1 text-[11px]"
+                    style={{
+                      fontFamily: "var(--font-dm-mono), monospace",
+                      color: "var(--color-app-fg-muted)",
+                      letterSpacing: 0.3,
+                    }}
+                  >
+                    {new Date(r.createdAt).toLocaleDateString("en-IN", {
+                      day: "2-digit",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </div>
+                </div>
+                {r.boardId ? (
+                  <Link
+                    href={`/app/workflow/${r.boardId}`}
+                    className="text-[11px] uppercase"
+                    style={{
+                      fontFamily: "var(--font-dm-mono), monospace",
+                      color: "var(--color-app-copper-deep)",
+                      letterSpacing: 1.2,
+                      fontWeight: 600,
+                    }}
+                  >
+                    Open
+                  </Link>
+                ) : null}
+              </div>
+
+              {/* Actions for admin on pending */}
+              {isAdmin && r.status === "pending" ? (
+                noteOpen?.id === r.id ? (
+                  <div
+                    className="mt-4 rounded-md p-3"
+                    style={{
+                      backgroundColor: "var(--color-app-canvas-2)",
+                    }}
+                  >
+                    <textarea
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                      placeholder="Optional note for the requester…"
+                      rows={2}
+                      className="block w-full resize-none rounded border bg-app-paper px-3 py-2 text-[12px] outline-none"
+                      style={{
+                        fontFamily: "var(--font-manrope), sans-serif",
+                        borderColor: "var(--color-app-edge)",
+                        color: "var(--color-app-ink)",
+                        backgroundColor: "var(--color-app-paper)",
+                      }}
+                    />
+                    <div className="mt-2 flex gap-2 justify-end">
+                      <button
+                        onClick={() => {
+                          setNoteOpen(null);
+                          setNote("");
+                        }}
+                        className="rounded-md border px-3 py-1.5 text-[11px] font-medium"
+                        style={{
+                          fontFamily: "var(--font-manrope), sans-serif",
+                          borderColor: "var(--color-app-edge)",
+                          color: "var(--color-app-fg-soft)",
+                          backgroundColor: "var(--color-app-paper)",
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => decide(r.id, noteOpen.mode, note)}
+                        disabled={busyId === r.id}
+                        className="rounded-md px-3 py-1.5 text-[11px] font-semibold"
+                        style={{
+                          fontFamily: "var(--font-manrope), sans-serif",
+                          backgroundColor:
+                            noteOpen.mode === "approve"
+                              ? "var(--color-app-danger)"
+                              : "var(--color-app-fg-soft)",
+                          color: "white",
+                          opacity: busyId === r.id ? 0.6 : 1,
+                        }}
+                      >
+                        {busyId === r.id
+                          ? "…"
+                          : noteOpen.mode === "approve"
+                            ? "Approve & delete"
+                            : "Reject"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-4 flex justify-end gap-2">
+                    <button
+                      onClick={() => {
+                        setNoteOpen({ id: r.id, mode: "reject" });
+                        setNote("");
+                      }}
+                      className="rounded-md border px-4 py-1.5 text-[12px] font-semibold"
+                      style={{
+                        fontFamily: "var(--font-manrope), sans-serif",
+                        borderColor: "var(--color-app-edge)",
+                        backgroundColor: "var(--color-app-paper)",
+                        color: "var(--color-app-fg-soft)",
+                      }}
+                    >
+                      Reject
+                    </button>
+                    <button
+                      onClick={() => {
+                        setNoteOpen({ id: r.id, mode: "approve" });
+                        setNote("");
+                      }}
+                      className="rounded-md px-4 py-1.5 text-[12px] font-semibold transition-all"
+                      style={{
+                        fontFamily: "var(--font-manrope), sans-serif",
+                        backgroundColor: "var(--color-app-danger)",
+                        color: "white",
+                        boxShadow:
+                          "0 6px 16px -8px rgba(193,74,55,0.5)",
+                      }}
+                    >
+                      Approve & delete
+                    </button>
+                  </div>
+                )
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
