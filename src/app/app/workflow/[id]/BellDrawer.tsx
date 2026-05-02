@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import type { LiveActivityRow } from "@/lib/use-board-live-feed";
 
 type ActivityRow = {
   id: string;
@@ -32,6 +33,8 @@ export default function BellDrawer({
   totalCards,
   perListBreakdown,
   onClose,
+  liveRows,
+  onMarkSeen,
 }: {
   boardId: string;
   isAdmin: boolean;
@@ -39,42 +42,78 @@ export default function BellDrawer({
   totalCards: number;
   perListBreakdown: { id: string; title: string; count: number }[];
   onClose: () => void;
+  // Rows that have arrived via the canvas-level live feed since this
+  // session began. We merge them with the historical rows we fetch on
+  // open so the drawer is always live without running its own poll.
+  liveRows?: LiveActivityRow[];
+  onMarkSeen?: () => void;
 }) {
   const [tab, setTab] = useState<"activity" | "requests">("activity");
-  const [activity, setActivity] = useState<ActivityRow[]>([]);
+  const [history, setHistory] = useState<ActivityRow[]>([]);
   const [requests, setRequests] = useState<RequestRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [reviewNote, setReviewNote] = useState("");
   const [showBreakdown, setShowBreakdown] = useState(false);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const requestsPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const load = useCallback(async () => {
-    const [actRes, reqRes] = await Promise.all([
-      fetch(`/api/app/activity?board=${boardId}&limit=80`),
-      fetch(
-        `/api/app/delete-requests?status=pending&boardId=${boardId}&limit=80`
-      ),
-    ]);
-    if (actRes.ok) {
-      const data = await actRes.json();
-      setActivity(data.activity);
+  // Merge: historical rows from the initial fetch + live rows arriving
+  // afterwards. Dedupe by id so a live row that arrived after the fetch
+  // started doesn't show twice. Newest first for the drawer feed.
+  const activity = useMemo<ActivityRow[]>(() => {
+    const seen = new Set<string>();
+    const merged: ActivityRow[] = [];
+    const live = (liveRows ?? []).slice().reverse();
+    for (const r of live) {
+      if (seen.has(r.id)) continue;
+      seen.add(r.id);
+      merged.push(r as unknown as ActivityRow);
     }
-    if (reqRes.ok) {
-      const data = await reqRes.json();
-      setRequests(data.requests);
+    for (const r of history) {
+      if (seen.has(r.id)) continue;
+      seen.add(r.id);
+      merged.push(r);
+    }
+    return merged;
+  }, [liveRows, history]);
+
+  const loadHistory = useCallback(async () => {
+    const res = await fetch(`/api/app/activity?board=${boardId}&limit=80`, {
+      cache: "no-store",
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setHistory(data.activity ?? []);
+    }
+  }, [boardId]);
+
+  const loadRequests = useCallback(async () => {
+    const res = await fetch(
+      `/api/app/delete-requests?status=pending&boardId=${boardId}&limit=80`,
+      { cache: "no-store" }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      setRequests(data.requests ?? []);
     }
   }, [boardId]);
 
   useEffect(() => {
     setLoading(true);
-    load().finally(() => setLoading(false));
-    // Poll every 3s while drawer is open
-    pollRef.current = setInterval(load, 3000);
+    Promise.all([loadHistory(), loadRequests()]).finally(() =>
+      setLoading(false)
+    );
+    // Mark the activity tab as seen on open so the bell badge clears.
+    onMarkSeen?.();
+
+    // Pending delete requests are state, not events — keep a slow poll
+    // on them so the admin's review changes propagate without forcing a
+    // page reload. Activity rides the live feed and doesn't need polling.
+    requestsPollRef.current = setInterval(loadRequests, 8000);
     return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
+      if (requestsPollRef.current) clearInterval(requestsPollRef.current);
     };
-  }, [load]);
+  }, [loadHistory, loadRequests, onMarkSeen]);
 
   // ESC closes
   useEffect(() => {

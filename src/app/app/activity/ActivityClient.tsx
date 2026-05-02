@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useBoardLiveFeed } from "@/lib/use-board-live-feed";
 
 export type ActivityRow = {
   id: string;
@@ -64,6 +65,34 @@ export default function ActivityClient({
   const [actionFamily, setActionFamily] = useState("all");
   const [view, setView] = useState<"activity" | "requests">("activity");
   const [selectedRow, setSelectedRow] = useState<ActivityRow | null>(null);
+
+  // Partner-wide live feed: anything new (across cases, clients, boards,
+  // hearings, profile, users) prepends to the visible feed without
+  // requiring a page refresh. Filters apply at render time so live rows
+  // respect the user's current actor/board/family selections.
+  const live = useBoardLiveFeed({
+    boardId: null,
+    initialSinceId: initialActivity[0]?.id ?? null,
+  });
+
+  // Keep track of which live rows we've already merged into `rows` so
+  // pagination + filter changes don't replay them.
+  const mergedLiveIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (live.newRows.length === 0) return;
+    const fresh = live.newRows.filter((r) => !mergedLiveIdsRef.current.has(r.id));
+    if (fresh.length === 0) return;
+    for (const r of fresh) mergedLiveIdsRef.current.add(r.id);
+    setRows((prev) => {
+      // Live rows arrive ascending; the feed renders newest-first so we
+      // reverse before prepending.
+      const ascending = fresh.slice().reverse();
+      // Drop any existing rows that share an id with a fresh live row
+      // (defence against duplicates from a re-fetch + live race).
+      const filtered = prev.filter((p) => !mergedLiveIdsRef.current.has(p.id) || ascending.every((a) => a.id !== p.id));
+      return [...ascending, ...filtered];
+    });
+  }, [live.newRows]);
 
   const grouped = useMemo(() => groupByDay(rows), [rows]);
 

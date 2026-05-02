@@ -97,12 +97,19 @@ export default function CardPreview({
       : "card-pop 260ms cubic-bezier(0.2, 0.7, 0.1, 1) both",
   };
 
+  // Cards with a temp:* id are optimistic — local-only until the server
+  // confirms. We mark them with data attributes so the global pending
+  // styles (dim + blinking dot) apply automatically.
+  const isPending = task.id.startsWith("tmp:");
+
   return (
     <div
-      onClick={onClick}
+      onClick={isPending ? undefined : onClick}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       className="nodrag"
+      data-le-id={task.id}
+      data-le-pending={isPending ? "true" : undefined}
       style={cardStyle}
     >
       <style>{`
