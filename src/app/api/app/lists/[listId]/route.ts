@@ -3,11 +3,13 @@ import { connectDB } from "@/lib/db";
 import { Task } from "@/models/Task";
 import { Board } from "@/models/Board";
 import { BoardEdge } from "@/models/BoardEdge";
+import { DeleteRequest } from "@/models/DeleteRequest";
 import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
 import { canPerform, workflowDeny } from "@/lib/workflow-rbac";
 import { logWorkflowActivity } from "@/lib/activity";
 import { loadList } from "@/lib/workflow-helpers";
+import { canDirectDeleteList } from "@/lib/delete-eligibility";
 
 export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders() });
@@ -102,10 +104,6 @@ export async function DELETE(
   const guard = await requirePartner(request);
   if ("error" in guard) return guard.error;
 
-  if (!canPerform(guard.ctx.user.role, "listEdit")) {
-    return workflowDeny("listEdit", guard.ctx.isMobile, corsHeaders);
-  }
-
   await connectDB();
   const list = await loadList(listId, guard.ctx.user.partnerId);
   if (!list) {
@@ -114,6 +112,39 @@ export async function DELETE(
       { status: 404, headers: guard.ctx.isMobile ? corsHeaders() : undefined }
     );
   }
+
+  // Smart-delete: admins always allowed; non-admins only if they created
+  // the list AND it's empty. Otherwise the client must raise a delete request.
+  const eligibility = await canDirectDeleteList(list, {
+    isAdmin: guard.ctx.user.role === "admin",
+    userId: guard.ctx.user.id,
+  });
+  if (!eligibility.ok) {
+    return NextResponse.json(
+      {
+        error: eligibility.reason,
+        code: "delete_request_required",
+        targetType: "list",
+        targetId: String(list._id),
+        targetName: list.title,
+      },
+      {
+        status: 403,
+        headers: guard.ctx.isMobile ? corsHeaders() : undefined,
+      }
+    );
+  }
+
+  // Auto-mark any pending delete requests for this list as obsolete
+  await DeleteRequest.updateMany(
+    {
+      partnerId: list.partnerId,
+      targetType: "list",
+      targetId: list._id,
+      status: "pending",
+    },
+    { $set: { status: "obsolete", reviewerNote: "Target deleted directly." } }
+  );
 
   // Soft delete the list and every task currently inside it.
   list.isDeleted = true;

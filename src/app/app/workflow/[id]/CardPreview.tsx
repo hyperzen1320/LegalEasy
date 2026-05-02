@@ -92,6 +92,9 @@ export default function CardPreview({
     cursor: "pointer",
     position: "relative",
     border: "1px solid rgba(10,17,36,0.05)",
+    animation: isDraggingOverlay
+      ? undefined
+      : "card-pop 260ms cubic-bezier(0.2, 0.7, 0.1, 1) both",
   };
 
   return (
@@ -102,6 +105,12 @@ export default function CardPreview({
       className="nodrag"
       style={cardStyle}
     >
+      <style>{`
+        @keyframes card-pop {
+          from { opacity: 0; transform: translateY(6px) scale(0.96); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+      `}</style>
       <div className="px-3.5 py-3">
         {/* Title row with priority dot */}
         <div className="flex items-start gap-2">
