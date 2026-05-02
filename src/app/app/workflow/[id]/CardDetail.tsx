@@ -34,6 +34,7 @@ export default function CardDetail({
   onClose,
   onUpdated,
   onDeleted,
+  onRequestDelete,
 }: {
   taskId: string;
   members: BoardMember[];
@@ -41,6 +42,12 @@ export default function CardDetail({
   onClose: () => void;
   onUpdated: (t: Partial<CanvasTask> & { id: string }) => void;
   onDeleted: () => void;
+  onRequestDelete?: (target: {
+    type: "task";
+    id: string;
+    name: string;
+    hint?: string;
+  }) => void;
 }) {
   const router = useRouter();
   const [task, setTask] = useState<FullTask | null>(null);
@@ -99,6 +106,21 @@ export default function CardDetail({
     if (res.ok) {
       onDeleted();
       router.refresh();
+      return;
+    }
+    if (res.status === 403) {
+      const data = await res.json().catch(() => null);
+      if (data && data.code === "delete_request_required" && onRequestDelete) {
+        onRequestDelete({
+          type: "task",
+          id: data.targetId,
+          name: data.targetName,
+          hint: data.error,
+        });
+        // Close the detail panel so the dialog has the spotlight
+        onClose();
+        return;
+      }
     }
   }
 
