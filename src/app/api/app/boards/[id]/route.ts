@@ -105,6 +105,23 @@ export async function DELETE(
     );
   }
 
+  // Boards always require admin to delete (too consequential).
+  if (guard.ctx.user.role !== "admin") {
+    return NextResponse.json(
+      {
+        error: "Only the office admin can delete a board.",
+        code: "delete_request_required",
+        targetType: "board",
+        targetId: String(doc._id),
+        targetName: doc.title,
+      },
+      {
+        status: 403,
+        headers: guard.ctx.isMobile ? corsHeaders() : undefined,
+      }
+    );
+  }
+
   doc.isDeleted = true;
   await doc.save();
 

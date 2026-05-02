@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 
-// Caller role lifted from the partner-auth ctx via /api/app/me-style read.
-// Within an office, role drives what they can do inside Work Flow.
+// Within an office, EVERY role can interact with Workflow — pan, zoom,
+// move lists, create connections, add and edit cards. Only `partner_admin`
+// (role=admin) can DELETE: boards, lists, cards, edges. Non-admins use the
+// delete-request flow when they want to remove something.
 
 export type WorkflowAction =
   | "view"
@@ -9,41 +11,50 @@ export type WorkflowAction =
   | "boardEdit"
   | "boardDelete"
   | "listEdit"
-  | "taskEdit";
+  | "listDelete"
+  | "taskEdit"
+  | "taskDelete";
+
+const WRITE: WorkflowAction[] = [
+  "view",
+  "boardCreate",
+  "boardEdit",
+  "listEdit",
+  "taskEdit",
+];
+const ADMIN_ONLY: WorkflowAction[] = [
+  ...WRITE,
+  "boardDelete",
+  "listDelete",
+  "taskDelete",
+];
 
 const MATRIX: Record<string, Set<WorkflowAction>> = {
-  admin: new Set([
-    "view",
-    "boardCreate",
-    "boardEdit",
-    "boardDelete",
-    "listEdit",
-    "taskEdit",
-  ]),
-  advocate: new Set([
-    "view",
-    "boardCreate",
-    "boardEdit",
-    "boardDelete",
-    "listEdit",
-    "taskEdit",
-  ]),
-  junior: new Set(["view", "listEdit", "taskEdit"]),
-  clerk: new Set(["view", "listEdit", "taskEdit"]),
-  viewer: new Set(["view"]),
+  admin: new Set(ADMIN_ONLY),
+  advocate: new Set(WRITE),
+  junior: new Set(WRITE),
+  clerk: new Set(WRITE),
+  viewer: new Set(WRITE),
 };
 
 export function canPerform(role: string, action: WorkflowAction): boolean {
   return MATRIX[role]?.has(action) ?? false;
 }
 
+/** Helper: only admins can hard-delete in workflow. */
+export function isAdmin(role: string): boolean {
+  return role === "admin";
+}
+
 const MESSAGES: Record<WorkflowAction, string> = {
   view: "You don't have access to this board.",
-  boardCreate: "Only admins and advocates can create boards.",
-  boardEdit: "Only admins and advocates can rename or recolour boards.",
-  boardDelete: "Only admins and advocates can delete boards.",
-  listEdit: "Viewers can't change cards. Ask the office admin to lift this.",
-  taskEdit: "Viewers can't change cards. Ask the office admin to lift this.",
+  boardCreate: "You don't have access to create boards.",
+  boardEdit: "You don't have access to edit this board.",
+  boardDelete: "Only the office admin can delete a board.",
+  listEdit: "You don't have access to edit lists.",
+  listDelete: "Only the office admin can delete a list.",
+  taskEdit: "You don't have access to edit cards.",
+  taskDelete: "Only the office admin can delete a card.",
 };
 
 export function workflowDeny(

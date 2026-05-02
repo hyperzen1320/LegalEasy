@@ -37,6 +37,8 @@ import ListNode, { type ListNodeData } from "./ListNode";
 import ConnectionEdge, { type ConnectionEdgeData } from "./ConnectionEdge";
 import CardPreview, { type PreviewTask } from "./CardPreview";
 import CardDetail from "./CardDetail";
+import BellDrawer from "./BellDrawer";
+import RequestDeleteDialog, { type RequestTarget } from "./RequestDeleteDialog";
 
 export type CanvasList = {
   id: string;
@@ -115,6 +117,7 @@ function Inner({
   const [lists, setLists] = useState<CanvasList[]>(initialLists);
   const [tasks, setTasks] = useState<PreviewTask[]>(initialTasks);
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
+  const [bellOpen, setBellOpen] = useState(false);
 
   // Group tasks by list
   const tasksByList = useMemo(() => {
@@ -164,6 +167,10 @@ function Inner({
     },
     []
   );
+  const [requestTarget, setRequestTarget] = useState<RequestTarget | null>(
+    null
+  );
+
   const onListDelete = useCallback(
     async (listId: string) => {
       const res = await fetch(`/api/app/lists/${listId}`, {
@@ -173,6 +180,19 @@ function Inner({
         setLists((prev) => prev.filter((l) => l.id !== listId));
         setTasks((prev) => prev.filter((t) => t.listId !== listId));
         router.refresh();
+        return;
+      }
+      if (res.status === 403) {
+        const data = await res.json().catch(() => null);
+        if (data && data.code === "delete_request_required") {
+          setRequestTarget({
+            type: "list",
+            id: data.targetId,
+            name: data.targetName,
+            hint: data.error,
+          });
+          return;
+        }
       }
     },
     [router]
@@ -665,6 +685,10 @@ function Inner({
           members={members}
           canEdit={canEdit}
           onAddList={onAddList}
+          totalLists={lists.length}
+          totalCards={tasks.length}
+          boardId={boardId}
+          onBellOpen={() => setBellOpen(true)}
         />
 
         {/* dropAnimation={null} — kills the snap-back glitch where the
@@ -700,6 +724,39 @@ function Inner({
             setTasks((prev) => prev.filter((t) => t.id !== openTaskId));
             setOpenTaskId(null);
           }}
+          onRequestDelete={(target) => setRequestTarget(target)}
+        />
+      ) : null}
+
+      {bellOpen ? (
+        <BellDrawer
+          boardId={boardId}
+          isAdmin={role === "admin"}
+          totalLists={lists.length}
+          totalCards={tasks.length}
+          perListBreakdown={lists
+            .slice()
+            .sort((a, b) => a.position.x - b.position.x)
+            .map((l) => ({
+              id: l.id,
+              title: l.title,
+              count: tasksByList.get(l.id)?.length ?? 0,
+            }))}
+          onClose={() => setBellOpen(false)}
+        />
+      ) : null}
+
+      {requestTarget ? (
+        <RequestDeleteDialog
+          target={requestTarget}
+          onClose={() => setRequestTarget(null)}
+          onSubmitted={() => {
+            setRequestTarget(null);
+            // Auto-open the bell drawer on the requests tab so the user
+            // can see their pending request immediately
+            setBellOpen(true);
+            router.refresh();
+          }}
         />
       ) : null}
     </div>
@@ -715,6 +772,10 @@ function CanvasTopBar({
   members,
   canEdit,
   onAddList,
+  totalLists,
+  totalCards,
+  boardId,
+  onBellOpen,
 }: {
   board: { id: string; title: string; description: string; color: string };
   accent: string;
@@ -722,7 +783,33 @@ function CanvasTopBar({
   members: BoardMember[];
   canEdit: boolean;
   onAddList: () => void;
+  totalLists: number;
+  totalCards: number;
+  boardId: string;
+  onBellOpen: () => void;
 }) {
+  const [bellCount, setBellCount] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    const fetchCount = async () => {
+      try {
+        const res = await fetch(
+          `/api/app/delete-requests/count?boardId=${boardId}`
+        );
+        if (!res.ok || !alive) return;
+        const data = await res.json();
+        setBellCount(data.count || 0);
+      } catch {
+        // ignore
+      }
+    };
+    fetchCount();
+    const t = setInterval(fetchCount, 5000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [boardId]);
   return (
     <div
       style={{
@@ -843,31 +930,98 @@ function CanvasTopBar({
           ) : null}
         </div>
 
-        {canEdit ? (
-          <>
-            <div
+        <div
+          style={{
+            width: 1,
+            height: 22,
+            backgroundColor: "var(--color-app-edge)",
+          }}
+        />
+
+        {/* Stats chip — total lists · total cards */}
+        <div
+          className="hidden md:flex items-center gap-2 px-2 py-1 rounded-md"
+          title="Lists · Cards"
+          style={{
+            backgroundColor: "var(--color-app-canvas-2)",
+          }}
+        >
+          <span
+            className="text-[11px] font-semibold tabular-nums"
+            style={{
+              fontFamily: "var(--font-dm-mono), monospace",
+              color: "var(--color-app-fg-soft)",
+              letterSpacing: 0.4,
+            }}
+          >
+            <span style={{ color: "var(--color-app-ink)" }}>{totalLists}</span> lists ·{" "}
+            <span style={{ color: "var(--color-app-ink)" }}>{totalCards}</span> cards
+          </span>
+        </div>
+
+        {/* Bell — opens drawer */}
+        <button
+          onClick={onBellOpen}
+          aria-label="Open board pulse"
+          className="relative flex h-8 w-8 items-center justify-center rounded-md transition-colors"
+          style={{
+            backgroundColor: "var(--color-app-canvas-2)",
+            color: "var(--color-app-copper-deep)",
+          }}
+        >
+          <BellIconStroke />
+          {bellCount > 0 ? (
+            <span
+              className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[9px] font-semibold tabular-nums"
               style={{
-                width: 1,
-                height: 22,
-                backgroundColor: "var(--color-app-edge)",
-              }}
-            />
-            <button
-              onClick={onAddList}
-              className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-semibold transition-transform hover:-translate-y-0.5"
-              style={{
-                fontFamily: "var(--font-manrope), sans-serif",
-                background: `linear-gradient(135deg, ${gradient[0]}, ${gradient[1]})`,
-                color: "#fff",
-                boxShadow: `0 8px 20px -8px ${accent}80`,
+                fontFamily: "var(--font-dm-mono), monospace",
+                backgroundColor: "var(--color-app-danger)",
+                color: "white",
+                border: "2px solid var(--color-app-paper)",
+                boxShadow: "0 2px 4px rgba(193,74,55,0.40)",
               }}
             >
-              <span style={{ fontSize: 14, lineHeight: 1 }}>+</span> Add list
-            </button>
-          </>
+              {bellCount}
+            </span>
+          ) : null}
+        </button>
+
+        {canEdit ? (
+          <button
+            onClick={onAddList}
+            className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-semibold transition-transform hover:-translate-y-0.5"
+            style={{
+              fontFamily: "var(--font-manrope), sans-serif",
+              background: `linear-gradient(135deg, ${gradient[0]}, ${gradient[1]})`,
+              color: "#fff",
+              boxShadow: `0 8px 20px -8px ${accent}80`,
+            }}
+          >
+            <span style={{ fontSize: 14, lineHeight: 1 }}>+</span> Add list
+          </button>
         ) : null}
       </div>
     </div>
+  );
+}
+
+function BellIconStroke() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M6 8a6 6 0 0 1 12 0c0 7 3 7 3 9H3c0-2 3-2 3-9z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M10 21a2 2 0 0 0 4 0"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }
 
