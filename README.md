@@ -1,6 +1,6 @@
 <div align="center">
 
-# LegalEasy
+# ⚖️ LegalEasy
 
 ### _The advocate office, finally on your screen._
 
@@ -22,28 +22,28 @@
 
 ---
 
-## What is this?
+## 🪶 What is this?
 
 A practising advocate's life is twelve open tabs, three diaries, a WhatsApp signal storm, and a stack of yellow files. **LegalEasy** collapses all of that into a single office workspace — designed for Indian legal practice, written like a love letter to good design.
 
 Two clients, one backend, one MongoDB:
 
-- **Web app** _(this repo)_ — Next.js 16 partner-side console
-- **Mobile app** — Expo SDK 54 → [`LegalEasyMobileApp`](https://github.com/hyperzen1320/LegalEasyMobileApp)
+- 🖥️ **Web app** _(this repo)_ — Next.js 16 partner-side console
+- 📱 **Mobile app** — Expo SDK 54 → [`LegalEasyMobileApp`](https://github.com/hyperzen1320/LegalEasyMobileApp)
 
 Both share the same Mongo, the same role-based access, the same advocate office.
 
 ---
 
-## The aesthetic — _Midnight Counsel_
+## 🎨 The aesthetic — _Midnight Counsel_
 
 | | |
 |---|---|
-| **Canvas** | `#f4ede0` — warm cream paper |
-| **Ink** | `#0a1124` — courtroom-navy |
-| **Copper** | `#c5853a` — gilded brass accents |
-| **Ivory** | `#f5ebd6` — soft highlight |
-| **Aqua** | `#56a0a8` — status pills |
+| 🟫 **Canvas** | `#f4ede0` — warm cream paper |
+| ⚫ **Ink** | `#0a1124` — courtroom-navy |
+| 🟠 **Copper** | `#c5853a` — gilded brass accents |
+| 🤍 **Ivory** | `#f5ebd6` — soft highlight |
+| 🌊 **Aqua** | `#56a0a8` — status pills |
 
 Typography: **Crimson Pro** (display) · **Manrope** (body) · **DM Mono** (caps & metadata)
 
@@ -51,9 +51,9 @@ Typography: **Crimson Pro** (display) · **Manrope** (body) · **DM Mono** (caps
 
 ---
 
-## Features
+## ✨ Features
 
-### Case Vault
+### 📁 Case Vault
 - Full case record: file no., case no., I.A. numbers, CNR, parties, court + hall + place, status, hearing dates
 - Six-stage hearing dropdown — **Filed · Notice · Evidence · Arguments · Reserved · Disposed**
 - Hearing history archive (auto-pushes the previous date when next-date changes)
@@ -61,65 +61,65 @@ Typography: **Crimson Pro** (display) · **Manrope** (body) · **DM Mono** (caps
 - Search across file / case / CNR / party / court · pre-fetched detail navigation
 - Tenant-scoped by `partnerId` — every query auto-filtered, zero cross-leak
 
-### Hearing Track
+### 🧑‍⚖️ Hearing Track
 - Today / Tomorrow / Pending tabs with live counts (IST-aware)
 - One-tap **Call**, **WhatsApp** (pre-written professional reminder), **Open**
 - Inline next-date update on the Pending tab → row exits the bucket on save
 
-### Client Crew
+### 👥 Client Crew
 - Client directory with phone, WhatsApp, email, address
 - Auto-counts cases per client (by `clientId` or fallback name match)
 - Call / WhatsApp / Email buttons baked into every card
 
-### Court Hub
+### 🏛️ Court Hub
 - Reusable court master — name, hall/court number, place
 - Case-count badges roll up automatically
 - 7 office defaults seeded on first visit
 
-### AI Assistant
+### 🪄 AI Assistant
 - 12 professionally drafted prompt templates (Plaints, Written Statements, Affidavits, Sec 482 quashing, Bail under 437/439, Anticipatory bail under 438, Vakalatnama, Adjournment, Cross-exam plan, Notice + reply, Judgment summary)
 - Editable per-partner library — every change persists to Mongo
 - Curated research-tools deck (Indian Kanoon, SCC Online, Manupatra, ChatGPT, Claude)
 
-### Work Flow — _Trello-grade canvas with live multiplayer_
-- **Full-bleed React Flow canvas** — lists are positionable nodes, cards drag freely between them, edges connect lists with editable labels
-- **Live updates within ~1 second** — when one user moves a card, everyone else watching the same board sees it pulse copper with a floating actor label: `Tejas · Junior · Civil — moved this card`
-- **Presence dock** — top bar shows a live avatar stack of who's currently on the board, hover to see role + designation
-- **Optimistic UI** — cards and lists appear the moment you press Enter, with a pending state until the server confirms; rollback on failure
-- **Designed canvas controls** — labelled bottom-left toolbar (Zoom · Fit · Lock · Map · Help) with keyboard shortcuts (`F` fit, `L` lock, `M` map, `+/−` zoom, `?` help)
-- **Bell drawer** — board-scoped activity feed + admin's delete-request inbox, all live
-- **7 office defaults** seeded on first visit (New Suits & Petitions, Notices, I.A.s / Petitions, C.A.s, Battas, Follow-ups, Instructions)
-- **7 colour presets** (forest · copper · sea · terracotta · ochre · plum · ink)
+### 🗂️ Work Flow — _Trello-grade canvas with live multiplayer_
+- 🎨 **Full-bleed React Flow canvas** — lists are positionable nodes, cards drag freely between them, edges connect lists with editable labels
+- ⚡ **Live updates within ~1 second** — when one user moves a card, everyone else watching the same board sees it pulse copper with a floating actor label: `Tejas · Junior · Civil — moved this card`
+- 👁️ **Presence dock** — top bar shows a live avatar stack of who's currently on the board, hover to see role + designation
+- ✨ **Optimistic UI** — cards and lists appear the moment you press Enter, with a pending state until the server confirms; rollback on failure
+- 🎛️ **Designed canvas controls** — labelled bottom-left toolbar (Zoom · Fit · Lock · Map · Help) with keyboard shortcuts (`F` fit, `L` lock, `M` map, `+/−` zoom, `?` help)
+- 🔔 **Bell drawer** — board-scoped activity feed + admin's delete-request inbox, all live
+- 🌱 **7 office defaults** seeded on first visit (New Suits & Petitions, Notices, I.A.s / Petitions, C.A.s, Battas, Follow-ups, Instructions)
+- 🎨 **7 colour presets** (forest · copper · sea · terracotta · ochre · plum · ink)
 
-### Activity log
+### 📜 Activity log
 - Office-wide audit feed — every change in Work Flow, Cases, Clients, Courts, Prompts, Profile, and Users
 - Click any row → modal with full metadata (changed fields, before/after, board context, deep-link to source)
 - Filter pills per family (Cards / Lists / Boards / Cases / Clients / Courts / Prompts / People / Profile)
 - Configurable retention (default 30 days; admin can set forever) with TTL-driven Mongo cleanup
 
-### Smart delete with admin approval
+### 🚫 Smart delete with admin approval
 - All non-admins can do everything **except delete**
 - Empty list/card created by you? Direct delete — no friction
 - Anything with content? The system asks "why?" → admin sees it in the canvas bell + Activity / Requests tab → approves or rejects with optional note
 - Existing pending requests are auto-marked obsolete when an admin direct-deletes the target
 - Applies to lists, cards, boards, cases, prompts (boards always require admin)
 
-### Users / Advocates with **RBAC**
+### 🔐 Users / Advocates with **RBAC**
 - 5 roles: **Admin · Advocate · Junior · Clerk · Viewer** with colour-coded pills
 - Office admin can add staff (email + password + role + designation), reset passwords, deactivate, remove
 - Server-enforced permissions, partner-scoped data, can't self-deactivate
 
-### Dashboard
+### 📊 Dashboard
 - Real-time tiles — Today · Tomorrow · Pending · Vault counts
 - Today's board (cause-list)
 
-### My Profile
+### 🪪 My Profile
 - 8 fields (name, phone, email-locked, state, country, bar enrolment, designation, office address)
 - View / edit toggle with the same partner-side API used by mobile
 
 ---
 
-## Stack
+## 🏗️ Stack
 
 ```
 ┌────────────────────────────────────────────────────────────┐
@@ -134,16 +134,16 @@ Typography: **Crimson Pro** (display) · **Manrope** (body) · **DM Mono** (caps
 ```
 
 **Notable choices**
-- Same `/api/app/*` endpoints power both web and mobile via `requirePartner` (cookie OR JWT)
-- Asia/Kolkata (IST) midnight math centralised in `src/lib/ist-day.ts`
-- Lazy seeding pattern — defaults (boards, prompt templates) seed per-partner on first visit
-- Next 16's `proxy.ts` (formerly `middleware.ts`)
-- Activity log is the realtime backbone — every mutation already writes there, so the audit log doubles as the live-update channel
-- Type-checked end-to-end, every endpoint tenant-scoped server-side
+- 🔁 Same `/api/app/*` endpoints power both web and mobile via `requirePartner` (cookie OR JWT)
+- 🗓️ Asia/Kolkata (IST) midnight math centralised in `src/lib/ist-day.ts`
+- 🌱 Lazy seeding pattern — defaults (boards, prompt templates) seed per-partner on first visit
+- 🎯 Next 16's `proxy.ts` (formerly `middleware.ts`)
+- ⚡ Activity log is the realtime backbone — every mutation already writes there, so the audit log doubles as the live-update channel
+- 🧪 Type-checked end-to-end, every endpoint tenant-scoped server-side
 
 ---
 
-## How live collaboration works
+## ⚡ How live collaboration works
 
 The trick: **every mutation already writes to the `Activity` collection**, so the audit log doubles as the realtime change feed. No WebSockets, no vendor lock-in.
 
@@ -181,7 +181,7 @@ The trick: **every mutation already writes to the `Activity` collection**, so th
 
 ---
 
-## Getting started
+## 🚀 Getting started
 
 ### 1. Clone & install
 ```bash
@@ -217,7 +217,7 @@ npm run dev
 
 ---
 
-## Project structure
+## 📂 Project structure
 
 ```
 src/
@@ -283,46 +283,46 @@ src/
 
 ---
 
-## Tenancy & permissions
+## 🛡️ Tenancy & permissions
 
 | | |
 |---|---|
-| **Tenant scoping** | Every partner-side query filtered by `partnerId` from `requirePartner(request)` |
-| **Auth** | Auth.js cookie session (web) **OR** Bearer JWT (mobile) — same endpoint, same guard |
-| **Roles** | `partner_admin` (auth scope) + `role` (RBAC: admin · advocate · junior · clerk · viewer) |
-| **Write permissions** | All five roles can perform every action **except delete** |
-| **Delete permissions** | Admin direct-deletes anything · non-admins can direct-delete only empty lists/cards they created · everything else flows through the DeleteRequest queue with admin approval |
-| **Soft delete** | Every model has `isDeleted` — nothing is hard-removed |
-| **Audit trail** | Every mutation writes to `Activity` with before/after diffs; doubles as the live feed |
+| 🏢 **Tenant scoping** | Every partner-side query filtered by `partnerId` from `requirePartner(request)` |
+| 🔐 **Auth** | Auth.js cookie session (web) **OR** Bearer JWT (mobile) — same endpoint, same guard |
+| 👮 **Roles** | `partner_admin` (auth scope) + `role` (RBAC: admin · advocate · junior · clerk · viewer) |
+| ✍️ **Write permissions** | All five roles can perform every action **except delete** |
+| 🗑️ **Delete permissions** | Admin direct-deletes anything · non-admins can direct-delete only empty lists/cards they created · everything else flows through the DeleteRequest queue with admin approval |
+| 🚫 **Soft delete** | Every model has `isDeleted` — nothing is hard-removed |
+| 📜 **Audit trail** | Every mutation writes to `Activity` with before/after diffs; doubles as the live feed |
 
 ---
 
-## Roadmap
+## 🛣️ Roadmap
 
 ### Shipped
-- [x] **Phase 1 MVP** — Cases · Clients · Courts · Hearings · AI · Profile · Users RBAC · Work Flow boards
-- [x] **Phase 1.5** — Trello-grade canvas with positioned lists + edges + cards + checklists + drag/drop
-- [x] **Phase 2.0** — Activity timeline UI + click-to-detail · cross-module audit log
-- [x] **Phase 2.1** — Smart-delete with admin approval queue · canvas bell drawer
-- [x] **Phase 2.2** — Live board sync · presence dock · optimistic UI · designed canvas controls
+- [x] ⚖️ **Phase 1 MVP** — Cases · Clients · Courts · Hearings · AI · Profile · Users RBAC · Work Flow boards
+- [x] 🗂️ **Phase 1.5** — Trello-grade canvas with positioned lists + edges + cards + checklists + drag/drop
+- [x] 📜 **Phase 2.0** — Activity timeline UI + click-to-detail · cross-module audit log
+- [x] 🚫 **Phase 2.1** — Smart-delete with admin approval queue · canvas bell drawer
+- [x] ⚡ **Phase 2.2** — Live board sync · presence dock · optimistic UI · designed canvas controls
 
 ### Next up
-- [ ] **Senior Desk** — personal reminders + advocate-to-advocate internal messaging
-- [ ] **Notifications** — actionable alerts for hearings, pending dates, workflow due, requests
-- [ ] **Global search** — single search bar across cases / clients / courts / hearings
-- [ ] **Hearing report export** — CSV / PDF download from Hearing Track filters
-- [ ] **Dashboard widgets** — total active cases · unread notifications · per-advocate workload
-- [ ] **Inter-office user requests** — sent / received connection requests for cross-office collaboration
+- [ ] 🪶 **Senior Desk** — personal reminders + advocate-to-advocate internal messaging
+- [ ] 🔔 **Notifications** — actionable alerts for hearings, pending dates, workflow due, requests
+- [ ] 🔍 **Global search** — single search bar across cases / clients / courts / hearings
+- [ ] 📄 **Hearing report export** — CSV / PDF download from Hearing Track filters
+- [ ] 📊 **Dashboard widgets** — total active cases · unread notifications · per-advocate workload
+- [ ] 🤝 **Inter-office user requests** — sent / received connection requests for cross-office collaboration
 
 ### Later
-- [ ] Push notifications on mobile · iOS-first
-- [ ] Mobile parity for live-feed canvas
-- [ ] Conflict-resolution toast on simultaneous moves
-- [ ] Magic-link office invites
+- [ ] 📱 Push notifications on mobile · iOS-first
+- [ ] 📲 Mobile parity for live-feed canvas
+- [ ] ⚠️ Conflict-resolution toast on simultaneous moves
+- [ ] ✉️ Magic-link office invites
 
 ---
 
-## The advocate's pact
+## 💌 The advocate's pact
 
 > _All AI-generated drafts must be verified, edited and signed by an advocate before filing._
 
@@ -335,6 +335,6 @@ LegalEasy is a tool, never the lawyer. The judgement, the responsibility, the se
 **Built for the Indian advocate.**
 Designed in Chennai · Tested in chambers · Shipped from Mumbai
 
-_Justice deserves better tooling._
+⚖️ _Justice deserves better tooling._
 
 </div>
