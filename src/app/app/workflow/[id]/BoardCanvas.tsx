@@ -8,7 +8,6 @@ import {
   ReactFlowProvider,
   Background,
   BackgroundVariant,
-  Controls,
   MiniMap,
   ConnectionMode,
   useNodesState,
@@ -39,6 +38,16 @@ import CardPreview, { type PreviewTask } from "./CardPreview";
 import CardDetail from "./CardDetail";
 import BellDrawer from "./BellDrawer";
 import RequestDeleteDialog, { type RequestTarget } from "./RequestDeleteDialog";
+import CanvasToolbar from "./CanvasToolbar";
+import KeyboardShortcutsModal from "./KeyboardShortcutsModal";
+import RecentChangeOverlay from "./RecentChangeOverlay";
+import PresenceDock from "./PresenceDock";
+import { useBoardLiveFeed } from "@/lib/use-board-live-feed";
+import { useBoardPresence } from "@/lib/use-board-presence";
+import {
+  TEMP_ID_PREFIX,
+  isTempId,
+} from "@/lib/use-optimistic-action";
 
 export type CanvasList = {
   id: string;
@@ -66,7 +75,8 @@ const nodeTypes = { list: ListNode };
 const edgeTypes = { connection: ConnectionEdge };
 const proOptions = { hideAttribution: true };
 
-export default function BoardCanvas(props: {
+type BoardCanvasProps = {
+  currentUserId: string | null;
   boardId: string;
   board: { id: string; title: string; description: string; color: string };
   accent: string;
@@ -78,7 +88,9 @@ export default function BoardCanvas(props: {
   initialTasks: PreviewTask[];
   members: BoardMember[];
   role: string;
-}) {
+};
+
+export default function BoardCanvas(props: BoardCanvasProps) {
   return (
     <ReactFlowProvider>
       <Inner {...props} />
@@ -87,6 +99,7 @@ export default function BoardCanvas(props: {
 }
 
 function Inner({
+  currentUserId,
   boardId,
   board,
   accent,
@@ -97,21 +110,106 @@ function Inner({
   initialTasks,
   members,
   role,
-}: {
-  boardId: string;
-  board: { id: string; title: string; description: string; color: string };
-  accent: string;
-  accentSoft: string;
-  gradient: [string, string];
-  initialViewport: { x: number; y: number; zoom: number };
-  initialLists: CanvasList[];
-  initialEdges: CanvasEdge[];
-  initialTasks: PreviewTask[];
-  members: BoardMember[];
-  role: string;
-}) {
+}: BoardCanvasProps) {
   const router = useRouter();
   const canEdit = role !== "viewer";
+
+  /* ─── Live feed + presence ─── */
+  const liveFeed = useBoardLiveFeed({
+    boardId,
+    partnerId: null,
+    lastSeenStorageKey: `legaleasy:lastseen:board:${boardId}`,
+  });
+  const presence = useBoardPresence(boardId);
+  const [showMinimap, setShowMinimap] = useState(false);
+  const [locked, setLocked] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+
+  // Debounced resync of authoritative board state when the live feed
+  // reports changes that affect lists / tasks / edges and the actor was
+  // someone other than us. We don't trust activity metadata to carry
+  // every field needed to render — instead we re-pull the board from the
+  // /full endpoint, capped to once every 800ms regardless of how many
+  // events arrive in a burst.
+  //
+  // We hold the latest resync handler in a ref so the closure doesn't
+  // need to depend on `onResyncedEdges` (which is defined further down
+  // the component to avoid a forward ref).
+  const resyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastResyncAtRef = useRef<number>(0);
+  const onResyncedEdgesRef = useRef<((edges: CanvasEdge[]) => void) | null>(
+    null
+  );
+  const scheduleResync = useCallback(() => {
+    const now = Date.now();
+    const since = now - lastResyncAtRef.current;
+    const delay = since > 800 ? 0 : 800 - since;
+    if (resyncTimerRef.current) return;
+    resyncTimerRef.current = setTimeout(async () => {
+      resyncTimerRef.current = null;
+      lastResyncAtRef.current = Date.now();
+      try {
+        const res = await fetch(`/api/app/boards/${boardId}/full`, {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          lists: CanvasList[];
+          edges: CanvasEdge[];
+          tasks: PreviewTask[];
+        };
+        // Preserve any in-flight optimistic entities (temp:* ids) so we
+        // don't yank a card the user just added but the server hasn't
+        // returned for yet.
+        setLists((prev) => {
+          const fromServer = data.lists ?? [];
+          const optimistic = prev.filter((l) => isTempId(l.id));
+          return [...fromServer, ...optimistic];
+        });
+        setTasks((prev) => {
+          const fromServer = data.tasks ?? [];
+          const optimistic = prev.filter((t) => isTempId(t.id));
+          return [...fromServer, ...optimistic];
+        });
+        if (data.edges && onResyncedEdgesRef.current) {
+          onResyncedEdgesRef.current(data.edges);
+        }
+      } catch {
+        /* ignore */
+      }
+    }, delay);
+  }, [boardId]);
+
+  useEffect(() => {
+    return () => {
+      if (resyncTimerRef.current) clearTimeout(resyncTimerRef.current);
+    };
+  }, []);
+
+  // Detect interesting cross-user events. Anything from a different actor
+  // that targets a list/task/edge means our state may be stale.
+  const lastSeenIndexRef = useRef(0);
+  useEffect(() => {
+    const start = lastSeenIndexRef.current;
+    if (start >= liveFeed.newRows.length) return;
+    const fresh = liveFeed.newRows.slice(start);
+    lastSeenIndexRef.current = liveFeed.newRows.length;
+
+    let needsResync = false;
+    for (const row of fresh) {
+      if (row.actorUserId && row.actorUserId === currentUserId) continue;
+      if (
+        row.action.startsWith("task.") ||
+        row.action.startsWith("list.") ||
+        row.action.startsWith("board.") ||
+        row.action === "delete_request.approved"
+      ) {
+        needsResync = true;
+        break;
+      }
+    }
+    if (needsResync) scheduleResync();
+  }, [liveFeed.newRows, scheduleResync, currentUserId]);
 
   /* ─── State ─── */
   const [lists, setLists] = useState<CanvasList[]>(initialLists);
@@ -136,33 +234,62 @@ function Inner({
   /* ─── Mutation handlers (bound to the node data) ─── */
 
   const onTaskClick = useCallback((id: string) => setOpenTaskId(id), []);
+
+  // Rename and recolour are simple swap-then-confirm patterns: the local
+  // state changes immediately, and if the server rejects we revert. We
+  // capture the previous value in a closure so the rollback is precise.
   const onListRename = useCallback(
     async (listId: string, title: string) => {
-      const res = await fetch(`/api/app/lists/${listId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title }),
-      });
-      if (res.ok) {
-        setLists((prev) =>
-          prev.map((l) => (l.id === listId ? { ...l, title } : l))
-        );
-        router.refresh();
+      let previous: string | null = null;
+      setLists((prev) =>
+        prev.map((l) => {
+          if (l.id !== listId) return l;
+          previous = l.title;
+          return { ...l, title };
+        })
+      );
+      try {
+        const res = await fetch(`/api/app/lists/${listId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title }),
+        });
+        if (!res.ok) throw new Error("rename_failed");
+      } catch {
+        if (previous !== null) {
+          const restored = previous;
+          setLists((prev) =>
+            prev.map((l) => (l.id === listId ? { ...l, title: restored } : l))
+          );
+        }
       }
     },
-    [router]
+    []
   );
   const onListColorChange = useCallback(
     async (listId: string, color: string | null) => {
-      const res = await fetch(`/api/app/lists/${listId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ color }),
-      });
-      if (res.ok) {
-        setLists((prev) =>
-          prev.map((l) => (l.id === listId ? { ...l, color } : l))
-        );
+      let previous: string | null | undefined = undefined;
+      setLists((prev) =>
+        prev.map((l) => {
+          if (l.id !== listId) return l;
+          previous = l.color;
+          return { ...l, color };
+        })
+      );
+      try {
+        const res = await fetch(`/api/app/lists/${listId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ color }),
+        });
+        if (!res.ok) throw new Error("recolour_failed");
+      } catch {
+        if (previous !== undefined) {
+          const restored = previous;
+          setLists((prev) =>
+            prev.map((l) => (l.id === listId ? { ...l, color: restored } : l))
+          );
+        }
       }
     },
     []
@@ -171,17 +298,35 @@ function Inner({
     null
   );
 
-  const onListDelete = useCallback(
-    async (listId: string) => {
+  const onListDelete = useCallback(async (listId: string) => {
+    // Snapshot so we can roll back if the server rejects (or returns
+    // 403 with the request-flow code). We use object refs through the
+    // setState callbacks so we read the latest pre-removal arrays even
+    // if other state changes happen mid-flight.
+    const snapshot: {
+      lists: CanvasList[] | null;
+      tasks: PreviewTask[] | null;
+    } = { lists: null, tasks: null };
+    setLists((prev) => {
+      snapshot.lists = prev;
+      return prev.filter((l) => l.id !== listId);
+    });
+    setTasks((prev) => {
+      snapshot.tasks = prev;
+      return prev.filter((t) => t.listId !== listId);
+    });
+
+    const restore = () => {
+      if (snapshot.lists) setLists(snapshot.lists);
+      if (snapshot.tasks) setTasks(snapshot.tasks);
+    };
+
+    try {
       const res = await fetch(`/api/app/lists/${listId}`, {
         method: "DELETE",
       });
-      if (res.ok) {
-        setLists((prev) => prev.filter((l) => l.id !== listId));
-        setTasks((prev) => prev.filter((t) => t.listId !== listId));
-        router.refresh();
-        return;
-      }
+      if (res.ok) return;
+      restore();
       if (res.status === 403) {
         const data = await res.json().catch(() => null);
         if (data && data.code === "delete_request_required") {
@@ -191,26 +336,55 @@ function Inner({
             name: data.targetName,
             hint: data.error,
           });
-          return;
         }
       }
-    },
-    [router]
-  );
+    } catch {
+      restore();
+    }
+  }, []);
+
   const onTaskAdd = useCallback(
     async (listId: string, title: string) => {
-      const res = await fetch(`/api/app/boards/${boardId}/tasks`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ listId, title }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setTasks((prev) => [...prev, data.task]);
-        router.refresh();
+      // Place an optimistic card at the bottom of the list immediately so
+      // there is no perceived lag. Sort order = max(existing) + 1 for the
+      // target list. We put a temp:* id on it so the renderer can show a
+      // pending state and so we can swap it for the real one on success.
+      const tempId = `${TEMP_ID_PREFIX}${Date.now().toString(36)}`;
+      const trimmedTitle = title.trim();
+      const tempTask: PreviewTask = {
+        id: tempId,
+        listId,
+        title: trimmedTitle,
+        description: "",
+        sortOrder: Number.MAX_SAFE_INTEGER, // floats to bottom until swap
+        assignee: null,
+        dueDate: null,
+        priority: null,
+        checklistSummary: { totalChecklists: 0, totalItems: 0, doneItems: 0 },
+        hasDescription: false,
+        updatedAt: new Date().toISOString(),
+      };
+      setTasks((prev) => [...prev, tempTask]);
+
+      try {
+        const res = await fetch(`/api/app/boards/${boardId}/tasks`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ listId, title: trimmedTitle }),
+        });
+        const data = await res.json();
+        if (res.ok && data.task) {
+          setTasks((prev) =>
+            prev.map((t) => (t.id === tempId ? (data.task as PreviewTask) : t))
+          );
+        } else {
+          setTasks((prev) => prev.filter((t) => t.id !== tempId));
+        }
+      } catch {
+        setTasks((prev) => prev.filter((t) => t.id !== tempId));
       }
     },
-    [boardId, router]
+    [boardId]
   );
 
   const buildNodes = useCallback(
@@ -274,10 +448,9 @@ function Inner({
               : e
           )
         );
-        router.refresh();
       }
     },
-    [router, setEdges]
+    [setEdges]
   );
 
   const onEdgeDelete = useCallback(
@@ -287,10 +460,9 @@ function Inner({
       });
       if (res.ok) {
         setEdges((prev) => prev.filter((e) => e.id !== edgeId));
-        router.refresh();
       }
     },
-    [router, setEdges]
+    [setEdges]
   );
 
   const buildEdges = useCallback(
@@ -327,6 +499,22 @@ function Inner({
     setEdges(buildEdges(initialEdges));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Edge resync handler used by the live-feed reconciler. Replaces the
+  // current edge set with the server's authoritative list while
+  // preserving any optimistic temp edges still mid-flight. Held in a
+  // ref so the resync closure (declared earlier) can call into it.
+  useEffect(() => {
+    onResyncedEdgesRef.current = (canvasEdges: CanvasEdge[]) => {
+      setEdges((prev) => {
+        const optimistic = prev.filter((e) => isTempId(e.id));
+        return [...buildEdges(canvasEdges), ...optimistic];
+      });
+    };
+    return () => {
+      onResyncedEdgesRef.current = null;
+    };
+  }, [setEdges, buildEdges]);
 
   // Re-sync nodes when our local state changes (lists/tasks)
   useEffect(() => {
@@ -468,7 +656,6 @@ function Inner({
               : e
           )
         );
-        router.refresh();
       } else {
         setEdges((prev) => prev.filter((e) => e.id !== tempId));
       }
@@ -557,39 +744,60 @@ function Inner({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ toListId: targetListId, toIndex }),
         });
-        router.refresh();
       } catch {
-        // ignore
+        // ignore — live feed will reconcile if our optimistic move was wrong
       }
     },
-    [tasksByList, router]
+    [tasksByList]
   );
 
   /* ─── Add list ─── */
 
   const onAddList = useCallback(async () => {
     const title = window.prompt("Name the new list");
-    if (!title || !title.trim()) return;
-    const res = await fetch(`/api/app/boards/${boardId}/lists`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: title.trim() }),
-    });
-    const data = await res.json();
-    if (res.ok && data.list) {
-      const maxX = lists.reduce((m, l) => Math.max(m, l.position.x), 0);
-      const newPos = { x: maxX + 360, y: 80 };
-      setLists((prev) => [
-        ...prev,
-        {
-          id: data.list.id,
-          title: data.list.title,
-          sortOrder: data.list.sortOrder,
-          position: newPos,
-          width: 320,
-          color: null,
-        },
-      ]);
+    const trimmed = title?.trim();
+    if (!trimmed) return;
+
+    const tempId = `${TEMP_ID_PREFIX}${Date.now().toString(36)}`;
+    const maxX = lists.reduce((m, l) => Math.max(m, l.position.x), 0);
+    const newPos = { x: maxX + 360, y: 80 };
+    const tempList: CanvasList = {
+      id: tempId,
+      title: trimmed,
+      sortOrder: lists.length,
+      position: newPos,
+      width: 320,
+      color: null,
+    };
+    setLists((prev) => [...prev, tempList]);
+
+    try {
+      const res = await fetch(`/api/app/boards/${boardId}/lists`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: trimmed }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.list) {
+        setLists((prev) => prev.filter((l) => l.id !== tempId));
+        return;
+      }
+      // Swap temp for real, preserving the optimistic position.
+      setLists((prev) =>
+        prev.map((l) =>
+          l.id === tempId
+            ? {
+                id: data.list.id,
+                title: data.list.title,
+                sortOrder: data.list.sortOrder,
+                position: newPos,
+                width: 320,
+                color: null,
+              }
+            : l
+        )
+      );
+      // Persist the position the user just assumed.
       await fetch(`/api/app/boards/${boardId}/lists/positions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -597,9 +805,10 @@ function Inner({
           positions: [{ listId: data.list.id, x: newPos.x, y: newPos.y }],
         }),
       });
-      router.refresh();
+    } catch {
+      setLists((prev) => prev.filter((l) => l.id !== tempId));
     }
-  }, [boardId, lists, router]);
+  }, [boardId, lists]);
 
   /* ─── Render ─── */
 
@@ -637,8 +846,12 @@ function Inner({
           selectionOnDrag={false}
           deleteKeyCode={null}
           fitView={false}
-          nodesDraggable={canEdit}
-          nodesConnectable={canEdit}
+          nodesDraggable={canEdit && !locked}
+          nodesConnectable={canEdit && !locked}
+          panOnDrag={!locked}
+          zoomOnScroll={!locked}
+          zoomOnPinch={!locked}
+          zoomOnDoubleClick={!locked}
           elementsSelectable
           colorMode="light"
         >
@@ -648,33 +861,32 @@ function Inner({
             size={1.4}
             color="rgba(10,17,36,0.10)"
           />
-          <Controls
-            position="bottom-left"
-            style={{
-              background: "var(--color-app-paper)",
-              boxShadow: "0 8px 24px -8px rgba(10,17,36,0.20)",
-              borderRadius: 8,
-              border: "1px solid var(--color-app-edge)",
-              overflow: "hidden",
-            }}
-          />
-          <MiniMap
-            position="bottom-right"
-            pannable
-            zoomable
-            nodeColor={(n) => {
-              const data = n.data as unknown as ListNodeData;
-              return data?.list?.color || accent;
-            }}
-            nodeStrokeColor="rgba(10,17,36,0.25)"
-            nodeBorderRadius={6}
-            maskColor="rgba(10,17,36,0.08)"
-            style={{
-              background: "var(--color-app-paper)",
-              border: "1px solid var(--color-app-edge)",
-              borderRadius: 8,
-              overflow: "hidden",
-            }}
+          {showMinimap ? (
+            <MiniMap
+              position="bottom-right"
+              pannable
+              zoomable
+              nodeColor={(n) => {
+                const data = n.data as unknown as ListNodeData;
+                return data?.list?.color || accent;
+              }}
+              nodeStrokeColor="rgba(10,17,36,0.25)"
+              nodeBorderRadius={6}
+              maskColor="rgba(10,17,36,0.08)"
+              style={{
+                background: "var(--color-app-paper)",
+                border: "1px solid var(--color-app-edge)",
+                borderRadius: 8,
+                overflow: "hidden",
+              }}
+            />
+          ) : null}
+          <CanvasToolbar
+            showMinimap={showMinimap}
+            onToggleMinimap={() => setShowMinimap((v) => !v)}
+            locked={locked}
+            onToggleLock={() => setLocked((v) => !v)}
+            onOpenHelp={() => setHelpOpen(true)}
           />
         </ReactFlow>
 
@@ -689,6 +901,8 @@ function Inner({
           totalCards={tasks.length}
           boardId={boardId}
           onBellOpen={() => setBellOpen(true)}
+          presence={presence}
+          unreadCount={liveFeed.unreadCount}
         />
 
         {/* dropAnimation={null} — kills the snap-back glitch where the
@@ -743,6 +957,8 @@ function Inner({
               count: tasksByList.get(l.id)?.length ?? 0,
             }))}
           onClose={() => setBellOpen(false)}
+          liveRows={liveFeed.newRows}
+          onMarkSeen={liveFeed.markSeen}
         />
       ) : null}
 
@@ -753,11 +969,20 @@ function Inner({
           onSubmitted={() => {
             setRequestTarget(null);
             // Auto-open the bell drawer on the requests tab so the user
-            // can see their pending request immediately
+            // can see their pending request immediately. The live feed
+            // will refresh the requests count automatically.
             setBellOpen(true);
-            router.refresh();
           }}
         />
+      ) : null}
+
+      <RecentChangeOverlay
+        newRows={liveFeed.newRows}
+        selfUserId={currentUserId}
+      />
+
+      {helpOpen ? (
+        <KeyboardShortcutsModal onClose={() => setHelpOpen(false)} />
       ) : null}
     </div>
   );
@@ -776,6 +1001,8 @@ function CanvasTopBar({
   totalCards,
   boardId,
   onBellOpen,
+  presence,
+  unreadCount,
 }: {
   board: { id: string; title: string; description: string; color: string };
   accent: string;
@@ -787,29 +1014,39 @@ function CanvasTopBar({
   totalCards: number;
   boardId: string;
   onBellOpen: () => void;
+  presence: import("@/lib/use-board-presence").ActiveUser[];
+  unreadCount: number;
 }) {
-  const [bellCount, setBellCount] = useState(0);
+  // Pending delete-request count is still its own short poll because it
+  // counts a state (pending vs resolved) rather than an event stream.
+  // Cheaper to ask once per 10s than to derive from the live feed.
+  const [pendingDeleteCount, setPendingDeleteCount] = useState(0);
   useEffect(() => {
     let alive = true;
     const fetchCount = async () => {
       try {
         const res = await fetch(
-          `/api/app/delete-requests/count?boardId=${boardId}`
+          `/api/app/delete-requests/count?boardId=${boardId}`,
+          { cache: "no-store" }
         );
         if (!res.ok || !alive) return;
         const data = await res.json();
-        setBellCount(data.count || 0);
+        if (alive) setPendingDeleteCount(data.count || 0);
       } catch {
-        // ignore
+        /* ignore */
       }
     };
     fetchCount();
-    const t = setInterval(fetchCount, 5000);
+    const t = setInterval(fetchCount, 10000);
     return () => {
       alive = false;
       clearInterval(t);
     };
   }, [boardId]);
+
+  // Total bell badge = unread activity since last opened + any pending
+  // delete requests. Capped at 99+ so it never overflows the dot.
+  const bellCount = unreadCount + pendingDeleteCount;
   return (
     <div
       style={{
@@ -899,36 +1136,10 @@ function CanvasTopBar({
           pointerEvents: "auto",
         }}
       >
-        <div className="flex items-center -space-x-1.5 mr-1.5">
-          {members.slice(0, 4).map((m) => (
-            <div
-              key={m.id}
-              title={m.name}
-              className="flex h-7 w-7 items-center justify-center rounded-full text-[9px] font-semibold"
-              style={{
-                fontFamily: "var(--font-crimson), Georgia, serif",
-                backgroundColor: "var(--color-app-ink)",
-                color: "var(--color-app-ivory)",
-                border: "2px solid var(--color-app-paper)",
-              }}
-            >
-              {initials(m.name)}
-            </div>
-          ))}
-          {members.length > 4 ? (
-            <div
-              className="flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-semibold"
-              style={{
-                fontFamily: "var(--font-dm-mono), monospace",
-                backgroundColor: "var(--color-app-canvas-2)",
-                color: "var(--color-app-fg-soft)",
-                border: "2px solid var(--color-app-paper)",
-              }}
-            >
-              +{members.length - 4}
-            </div>
-          ) : null}
-        </div>
+        {/* Live presence: who is on this board right now (replaces the
+            static member avatar stack — the live signal is far more
+            useful for canvas collaboration). */}
+        <PresenceDock active={presence} />
 
         <div
           style={{
@@ -1023,11 +1234,6 @@ function BellIconStroke() {
       />
     </svg>
   );
-}
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase();
 }
 
 function BackIcon() {

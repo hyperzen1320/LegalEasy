@@ -149,6 +149,117 @@ body {
   animation: fadeUpSm 0.5s cubic-bezier(0.2, 0.7, 0.1, 1) both;
 }
 
+/* Live-feed highlights. Set [data-le-pulse="task" | "list" | "edge"] on
+   any element to play a 2.5s copper glow that draws the eye without
+   blocking interaction. The animation auto-removes the attribute via JS
+   so it can fire repeatedly. */
+@keyframes le-pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(197, 133, 58, 0);
+  }
+  18% {
+    box-shadow:
+      0 0 0 3px rgba(197, 133, 58, 0.95),
+      0 0 28px 10px rgba(197, 133, 58, 0.30);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(197, 133, 58, 0);
+  }
+}
+[data-le-pulse="task"],
+[data-le-pulse="list"] {
+  animation: le-pulse-ring 2.5s cubic-bezier(0.2, 0.7, 0.1, 1) both;
+}
+[data-le-pulse="edge"] .react-flow__edge-path,
+.react-flow__edge[data-le-pulse="edge"] .react-flow__edge-path {
+  animation: le-edge-pulse 1.5s cubic-bezier(0.2, 0.7, 0.1, 1) 2 both;
+}
+@keyframes le-edge-pulse {
+  0% {
+    stroke: var(--color-app-copper);
+    stroke-width: 1.5;
+  }
+  50% {
+    stroke: var(--color-app-copper);
+    stroke-width: 3;
+    filter: drop-shadow(0 0 4px rgba(197, 133, 58, 0.55));
+  }
+  100% {
+    stroke: var(--color-app-copper);
+    stroke-width: 1.5;
+  }
+}
+
+@keyframes le-actor-fade {
+  0% {
+    opacity: 0;
+    transform: translateY(-50%) translateX(-50%) translateY(-4px);
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(-100%) translateX(-50%);
+  }
+  85% {
+    opacity: 1;
+    transform: translateY(-100%) translateX(-50%);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-100%) translateX(-50%) translateY(-6px);
+  }
+}
+
+@keyframes le-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes le-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+    background-color: rgba(197, 133, 58, 0.10);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    background-color: transparent;
+  }
+}
+
+/* Optimistic / pending entities (cards, lists waiting on the server). */
+[data-le-pending="true"] {
+  opacity: 0.72;
+  filter: saturate(0.85);
+}
+[data-le-pending="true"]::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-app-copper);
+  box-shadow: 0 0 8px var(--color-app-copper);
+  animation: le-pending-blink 1.2s ease-in-out infinite;
+}
+@keyframes le-pending-blink {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 .paper-grain {
   background-image: radial-gradient(rgba(14, 26, 43, 1) 1px, transparent 1px);
   background-size: 3px 3px;

@@ -75,10 +75,15 @@ export default function ListNode(props: NodeProps & { data: ListNodeData }) {
   const stripeColor = list.color || accent;
   // Always show handles for editors (so they can connect), hide for viewers.
   const showHandles = canEdit;
+  // Lists with a temp:* id are still being saved server-side. We mark
+  // them so the global pending styles (dim + blinking dot) apply.
+  const isPending = list.id.startsWith("tmp:");
 
   return (
     <div
       className="relative"
+      data-le-id={list.id}
+      data-le-pending={isPending ? "true" : undefined}
       style={{
         width: list.width,
         backgroundColor: "rgba(255, 255, 255, 0.85)",

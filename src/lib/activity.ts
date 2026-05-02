@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { Activity, type ActivityTargetType } from "@/models/Activity";
+import { redisSafe, keys } from "@/lib/upstash";
 
 type ActorType = "global_admin" | "partner_admin" | "user" | "system";
 
@@ -22,7 +23,7 @@ type LogActivityArgs = {
 
 export async function logActivity(args: LogActivityArgs): Promise<void> {
   try {
-    await Activity.create({
+    const doc = await Activity.create({
       actorUserId: args.actor.id
         ? new mongoose.Types.ObjectId(args.actor.id)
         : null,
@@ -44,6 +45,23 @@ export async function logActivity(args: LogActivityArgs): Promise<void> {
         ? new mongoose.Types.ObjectId(args.boardId)
         : null,
     });
+
+    // Publish the new id to Upstash so polling clients can short-circuit
+    // their "anything new?" probe without hitting Mongo. We store the
+    // ObjectId as a string — clients use ObjectId-comparison semantics
+    // because ObjectIds embed a timestamp + counter.
+    if (args.partnerId) {
+      const id = String(doc._id);
+      await Promise.all([
+        redisSafe.set(keys.partnerLatestActivity(args.partnerId), id),
+        args.boardId
+          ? redisSafe.set(
+              keys.boardLatestActivity(args.partnerId, args.boardId),
+              id
+            )
+          : Promise.resolve(null),
+      ]);
+    }
   } catch (err) {
     // Don't crash the parent operation if activity logging fails.
     console.error("[activity] failed to log:", err);

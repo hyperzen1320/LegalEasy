@@ -90,12 +90,24 @@ export default async function BoardCanvasPage({
     });
   }
 
-  const role = session.user.userType === "partner_admin" ? "admin" : "junior";
+  // Pull the fine-grained role straight from the user record. The session
+  // only carries the broad userType (partner_admin / user); to enforce
+  // canEdit and to colour cursor labels we need the actual role.
+  const meDoc = session.user.id
+    ? await User.findById(new mongoose.Types.ObjectId(session.user.id))
+        .select("role userType")
+        .lean()
+    : null;
+  const role =
+    meDoc?.role ||
+    (session.user.userType === "partner_admin" ? "admin" : "junior");
+
   const styles =
     BOARD_COLOR_STYLES[board.color] ?? BOARD_COLOR_STYLES.copper;
 
   return (
     <BoardCanvas
+      currentUserId={session.user.id ?? null}
       boardId={String(board._id)}
       board={{
         id: String(board._id),
