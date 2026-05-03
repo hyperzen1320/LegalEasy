@@ -5,7 +5,6 @@ import { BoardList } from "@/models/BoardList";
 import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
 import { canPerform, workflowDeny } from "@/lib/workflow-rbac";
-import { logWorkflowActivity } from "@/lib/activity";
 import { loadBoard } from "@/lib/workflow-helpers";
 
 export async function OPTIONS() {
@@ -68,15 +67,9 @@ export async function POST(
     await BoardList.bulkWrite(ops);
   }
 
-  await logWorkflowActivity(guard.ctx, {
-    action: "list.reordered",
-    targetType: "board",
-    targetId: String(board._id),
-    targetName: board.title,
-    boardId: String(board._id),
-    message: `reordered lists on **${board.title}**`,
-    metadata: { listIds: ids },
-  });
+  // Reordering is a layout change, not a content event — no activity
+  // entry. The user explicitly only wants create / edit / connect /
+  // cross-list card moves in the audit feed.
 
   return NextResponse.json(
     { ok: true },

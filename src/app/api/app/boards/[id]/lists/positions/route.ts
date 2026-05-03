@@ -6,7 +6,6 @@ import { Board } from "@/models/Board";
 import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
 import { canPerform, workflowDeny } from "@/lib/workflow-rbac";
-import { logWorkflowActivity } from "@/lib/activity";
 import { loadBoard } from "@/lib/workflow-helpers";
 
 export async function OPTIONS() {
@@ -95,21 +94,9 @@ export async function POST(
     );
   }
 
-  // Single activity entry per drag-batch (not per list)
-  if (ops.length > 0) {
-    await logWorkflowActivity(guard.ctx, {
-      action: "list.reordered",
-      targetType: "board",
-      targetId: String(board._id),
-      targetName: board.title,
-      boardId: String(board._id),
-      message:
-        ops.length === 1
-          ? `moved a list on **${board.title}**`
-          : `moved ${ops.length} lists on **${board.title}**`,
-      metadata: { count: ops.length },
-    });
-  }
+  // List position drags are pure layout — they don't fire an activity
+  // entry. The user only wants real content events (create / edit /
+  // connect / cross-list card moves) in the audit feed.
 
   return NextResponse.json(
     { ok: true, updated: ops.length },
