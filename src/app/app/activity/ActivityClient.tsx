@@ -79,6 +79,8 @@ const ACTION_FAMILIES: { key: string; label: string; prefix: string }[] = [
   { key: "client", label: "Clients", prefix: "client." },
   { key: "court", label: "Courts", prefix: "court." },
   { key: "prompt", label: "Prompts", prefix: "prompt." },
+  { key: "chat", label: "Chats", prefix: "chat." },
+  { key: "reminder", label: "Reminders", prefix: "reminder." },
   { key: "user", label: "People", prefix: "user." },
   { key: "profile", label: "Profile", prefix: "profile." },
 ];
@@ -811,7 +813,11 @@ function ActionChip({ action }: { action: string }) {
         ? "List"
         : action.startsWith("board.")
           ? "Board"
-          : "System";
+          : action.startsWith("chat.")
+            ? "Chat"
+            : action.startsWith("reminder.")
+              ? "Reminder"
+              : "System";
   const colors: Record<string, { bg: string; fg: string }> = {
     Card: {
       bg: "var(--color-app-aqua-soft)",
@@ -824,6 +830,14 @@ function ActionChip({ action }: { action: string }) {
     Board: {
       bg: "rgba(10,17,36,0.10)",
       fg: "var(--color-app-ink)",
+    },
+    Chat: {
+      bg: "rgba(10,17,36,0.10)",
+      fg: "var(--color-app-ink)",
+    },
+    Reminder: {
+      bg: "rgba(197,133,58,0.18)",
+      fg: "var(--color-app-copper-deep)",
     },
     System: {
       bg: "var(--color-app-canvas-2)",
@@ -852,6 +866,14 @@ function familyToPrefix(family: string): string {
   if (family === "list") return "list.";
   if (family === "board") return "board.";
   if (family === "checklist") return "checklist";
+  if (family === "case") return "case.";
+  if (family === "client") return "client.";
+  if (family === "court") return "court.";
+  if (family === "prompt") return "prompt.";
+  if (family === "chat") return "chat.";
+  if (family === "reminder") return "reminder.";
+  if (family === "user") return "user.";
+  if (family === "profile") return "profile.";
   return "";
 }
 
@@ -1189,6 +1211,14 @@ function actionToFamily(action: string): string {
     return "Card";
   if (action.startsWith("list.")) return "List";
   if (action.startsWith("board.")) return "Board";
+  if (action.startsWith("case.")) return "Case";
+  if (action.startsWith("client.")) return "Client";
+  if (action.startsWith("court.")) return "Court";
+  if (action.startsWith("prompt.")) return "Prompt";
+  if (action.startsWith("chat.")) return "Chat";
+  if (action.startsWith("reminder.")) return "Reminder";
+  if (action.startsWith("user.")) return "People";
+  if (action.startsWith("profile.")) return "Profile";
   if (action.startsWith("delete_request")) return "Delete request";
   return "System";
 }

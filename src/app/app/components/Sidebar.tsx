@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -9,6 +10,9 @@ type NavItem = {
   href: string;
   icon: () => React.ReactElement;
   comingSoon?: boolean;
+  // When set, the badge reads from this key on the polled live counters
+  // so we can show an unread chat count next to Senior Desk.
+  liveCountKey?: "chatUnread";
 };
 
 const NAV: NavItem[] = [
@@ -27,7 +31,7 @@ const NAV: NavItem[] = [
     name: "Senior Desk",
     href: "/app/senior-desk",
     icon: IconSeniorDesk,
-    comingSoon: true,
+    liveCountKey: "chatUnread",
   },
   { name: "Activity", href: "/app/activity", icon: IconActivity },
   { name: "AI Assistant", href: "/app/ai", icon: IconAI },
@@ -43,6 +47,7 @@ export default function Sidebar({
   user: { firstName: string; lastName: string; email: string };
 }) {
   const pathname = usePathname();
+  const liveCounts = useLiveSidebarCounts();
 
   return (
     <aside
@@ -128,7 +133,22 @@ export default function Sidebar({
               )}
               <Icon />
               <span className="flex-1">{item.name}</span>
-              {item.comingSoon && (
+              {item.liveCountKey && liveCounts[item.liveCountKey] > 0 ? (
+                <span
+                  className="rounded-full px-1.5 text-[10px] font-semibold tabular-nums"
+                  style={{
+                    fontFamily: "var(--font-dm-mono), monospace",
+                    backgroundColor: "var(--color-app-copper)",
+                    color: "var(--color-app-copper-text)",
+                    minWidth: 20,
+                    textAlign: "center",
+                  }}
+                >
+                  {liveCounts[item.liveCountKey] > 99
+                    ? "99+"
+                    : liveCounts[item.liveCountKey]}
+                </span>
+              ) : item.comingSoon ? (
                 <span
                   className="rounded-sm border px-1.5 py-0.5 text-[8px] font-medium uppercase tracking-[0.16em]"
                   style={{
@@ -139,7 +159,7 @@ export default function Sidebar({
                 >
                   Soon
                 </span>
-              )}
+              ) : null}
             </Link>
           );
         })}
@@ -205,6 +225,54 @@ export default function Sidebar({
       </div>
     </aside>
   );
+}
+
+// Polls /api/app/chat/unread every 12s to drive the Senior Desk badge.
+// Cheap endpoint (~1 indexed query per room), so we can keep the cadence
+// snappy without burning resources. We intentionally stop polling when
+// the tab is hidden; the next focus event re-fires immediately.
+function useLiveSidebarCounts(): { chatUnread: number } {
+  const [chatUnread, setChatUnread] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    async function tick() {
+      if (!alive) return;
+      if (typeof document !== "undefined" && document.hidden) {
+        timer = setTimeout(tick, 30_000);
+        return;
+      }
+      try {
+        const res = await fetch("/api/app/chat/unread", {
+          cache: "no-store",
+        });
+        if (alive && res.ok) {
+          const data = await res.json();
+          setChatUnread(Number(data?.totalUnread || 0));
+        }
+      } catch {
+        /* ignore */
+      }
+      if (alive) timer = setTimeout(tick, 12_000);
+    }
+
+    tick();
+    const onFocus = () => {
+      if (timer) clearTimeout(timer);
+      tick();
+    };
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      alive = false;
+      if (timer) clearTimeout(timer);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, []);
+
+  return { chatUnread };
 }
 
 function BrandMark() {

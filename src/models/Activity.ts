@@ -69,10 +69,23 @@ export type CrossModuleActivityAction =
   | "user.deactivated"
   | "user.removed";
 
+// Senior Desk — chat + reminders. We deliberately keep these high-level
+// (one row per "Tejas sent N messages in Group Chat over the last minute"
+// rather than one row per keystroke) to avoid drowning the activity feed.
+export type SeniorDeskActivityAction =
+  | "chat.message"
+  | "chat.private_started"
+  | "reminder.created"
+  | "reminder.assigned"
+  | "reminder.completed"
+  | "reminder.reopened"
+  | "reminder.deleted";
+
 export type ActivityAction =
   | AdminActivityAction
   | WorkflowActivityAction
-  | CrossModuleActivityAction;
+  | CrossModuleActivityAction
+  | SeniorDeskActivityAction;
 
 export type ActivityTargetType =
   | "partner"
@@ -87,7 +100,10 @@ export type ActivityTargetType =
   | "court"
   | "hearing"
   | "prompt"
-  | "profile";
+  | "profile"
+  | "chat_room"
+  | "chat_message"
+  | "reminder";
 
 export interface IActivity {
   _id: Types.ObjectId;
@@ -139,6 +155,9 @@ const ActivitySchema = new Schema<IActivity>(
         "hearing",
         "prompt",
         "profile",
+        "chat_room",
+        "chat_message",
+        "reminder",
       ],
       required: true,
     },
