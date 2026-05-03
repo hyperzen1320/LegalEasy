@@ -14,10 +14,22 @@ type NavItem = {
 const NAV: NavItem[] = [
   { name: "Dashboard", href: "/app", icon: IconDashboard },
   { name: "Case Vault", href: "/app/cases", icon: IconCases },
+  {
+    name: "Disposed Cases",
+    href: "/app/disposed-cases",
+    icon: IconDisposed,
+    comingSoon: true,
+  },
   { name: "Client Crew", href: "/app/clients", icon: IconClients },
   { name: "Hearing Track", href: "/app/hearings", icon: IconHearings },
   { name: "Court Hub", href: "/app/courts", icon: IconCourts },
   { name: "Work Flow", href: "/app/workflow", icon: IconBoards },
+  {
+    name: "Senior Desk",
+    href: "/app/senior-desk",
+    icon: IconSeniorDesk,
+    comingSoon: true,
+  },
   { name: "Activity", href: "/app/activity", icon: IconActivity },
   { name: "AI Assistant", href: "/app/ai", icon: IconAI },
   { name: "My Profile", href: "/app/profile", icon: IconProfile },
@@ -317,6 +329,79 @@ function IconProfile() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
       <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.6" />
       <path d="M4 21c0-4 3.5-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+function IconDisposed() {
+  // Case file with a check overlay — "closed and shelved".
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect
+        x="3"
+        y="7"
+        width="18"
+        height="13"
+        rx="1.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+      <path
+        d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+      <path
+        d="M9 14.5l2.2 2.2L15.5 12.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+function IconSeniorDesk() {
+  // Lamp + clipboard — the senior advocate's desk corner.
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M7 4h6l-2 4H9l-2-4z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M10 8v6"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+      <path
+        d="M6 14h8"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+      <rect
+        x="14"
+        y="11"
+        width="7"
+        height="9"
+        rx="1.2"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+      <path
+        d="M16.5 11V9.5h2V11"
+        stroke="currentColor"
+        strokeWidth="1.4"
+      />
+      <path
+        d="M16 15h3M16 17.5h3"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
