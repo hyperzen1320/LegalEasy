@@ -32,9 +32,12 @@ export async function loadHearingsBucket(
   items: HearingRow[];
   counts: { today: number; tomorrow: number; pending: number };
 }> {
+  // Disposed cases never appear in any hearing bucket (today/tomorrow/
+  // pending) — they're archived and live in /app/disposed-cases.
   const baseFilter: Record<string, unknown> = {
     partnerId,
     isDeleted: false,
+    disposedAt: null,
   };
 
   let filter: Record<string, unknown>;

@@ -67,6 +67,8 @@ function serialize(c: NonNullable<Awaited<ReturnType<typeof loadCaseForPartner>>
       outcome: h.outcome,
       nextDate: h.nextDate ? h.nextDate.toISOString() : null,
     })),
+    disposedAt: c.disposedAt ? c.disposedAt.toISOString() : null,
+    disposalRemarks: c.disposalRemarks || "",
     createdAt: c.createdAt.toISOString(),
     updatedAt: c.updatedAt.toISOString(),
   };
@@ -130,6 +132,7 @@ export async function PATCH(
   const before = {
     caseNo: doc.caseNo,
     status: doc.status,
+    disposedAt: doc.disposedAt ? doc.disposedAt.toISOString() : null,
     nextHearingDate: doc.nextHearingDate
       ? doc.nextHearingDate.toISOString()
       : null,
@@ -178,6 +181,29 @@ export async function PATCH(
   // Status — validate against known list but allow custom strings as well
   if (typeof body.status === "string" && body.status.trim()) {
     doc.status = body.status.trim();
+  }
+
+  // Optional disposal remarks — captured when admin marks a case as
+  // disposed and explains the order. Free-form, persisted regardless
+  // of whether status itself changed (so admin can edit the remarks
+  // later without re-disposing).
+  if (typeof body.disposalRemarks === "string") {
+    doc.disposalRemarks = body.disposalRemarks.trim();
+  }
+
+  // Disposal lifecycle. The single source of truth for "is this case
+  // archived" is `disposedAt`. We derive its value from status:
+  //   • status transitions TO "Disposed"  → stamp disposedAt = now
+  //   • status transitions AWAY            → clear disposedAt
+  // Setting status to "Disposed" again on an already-disposed case
+  // does NOT bump the timestamp, so the archive's chronology stays
+  // honest. Active queries everywhere filter on disposedAt: null.
+  const wasDisposed = before.status === "Disposed";
+  const willBeDisposed = doc.status === "Disposed";
+  if (!wasDisposed && willBeDisposed) {
+    doc.disposedAt = new Date();
+  } else if (wasDisposed && !willBeDisposed) {
+    doc.disposedAt = null;
   }
 
   // Update next hearing — when changed, push the OLD nextHearingDate to
@@ -233,6 +259,34 @@ export async function PATCH(
       targetName: doc.caseNo,
       message: `set status of **${doc.caseNo}** to **${doc.status}**`,
       metadata: { from: before.status, to: doc.status },
+    });
+  }
+  // Distinct life-cycle events on top of status_changed so the audit
+  // feed surfaces "disposed" / "reopened" as their own headline rows
+  // rather than just another status flip.
+  if (!wasDisposed && willBeDisposed) {
+    await logWorkflowActivity(guard.ctx, {
+      action: "case.disposed",
+      targetType: "case",
+      targetId: String(doc._id),
+      targetName: doc.caseNo,
+      message: `disposed case **${doc.caseNo}**`,
+      metadata: {
+        disposedAt: doc.disposedAt?.toISOString() ?? null,
+        remarks: doc.disposalRemarks || undefined,
+      },
+    });
+  } else if (wasDisposed && !willBeDisposed) {
+    await logWorkflowActivity(guard.ctx, {
+      action: "case.reopened",
+      targetType: "case",
+      targetId: String(doc._id),
+      targetName: doc.caseNo,
+      message: `reopened case **${doc.caseNo}** (now **${doc.status}**)`,
+      metadata: {
+        previouslyDisposedAt: before.disposedAt,
+        toStatus: doc.status,
+      },
     });
   }
   const newNextIso = doc.nextHearingDate

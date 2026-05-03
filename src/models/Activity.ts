@@ -49,6 +49,8 @@ export type CrossModuleActivityAction =
   | "case.updated"
   | "case.hearing_updated"
   | "case.status_changed"
+  | "case.disposed"
+  | "case.reopened"
   | "case.deleted"
   | "client.created"
   | "client.updated"

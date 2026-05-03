@@ -17,7 +17,14 @@ export async function GET(request: Request) {
   await connectDB();
   const partnerId = new mongoose.Types.ObjectId(guard.ctx.user.partnerId);
 
-  const docs = await Case.find({ partnerId, isDeleted: false })
+  // Active cases only — disposed matters move to /app/disposed-cases
+  // and don't appear in Case Vault, Hearing Track, the dashboard, or
+  // any other "what am I working on" surface.
+  const docs = await Case.find({
+    partnerId,
+    isDeleted: false,
+    disposedAt: null,
+  })
     .sort({ updatedAt: -1 })
     .limit(200)
     .lean();

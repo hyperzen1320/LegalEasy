@@ -15,7 +15,13 @@ export default async function CaseVault() {
 
   if (partnerId) {
     await connectDB();
-    const docs = await Case.find({ partnerId, isDeleted: false })
+    // Active matters only — anything with a disposedAt timestamp lives
+    // in /app/disposed-cases and must not bleed into the Vault.
+    const docs = await Case.find({
+      partnerId,
+      isDeleted: false,
+      disposedAt: null,
+    })
       .sort({ updatedAt: -1 })
       .limit(200)
       .lean();
