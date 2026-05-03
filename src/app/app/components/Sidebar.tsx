@@ -18,7 +18,6 @@ const NAV: NavItem[] = [
     name: "Disposed Cases",
     href: "/app/disposed-cases",
     icon: IconDisposed,
-    comingSoon: true,
   },
   { name: "Client Crew", href: "/app/clients", icon: IconClients },
   { name: "Hearing Track", href: "/app/hearings", icon: IconHearings },

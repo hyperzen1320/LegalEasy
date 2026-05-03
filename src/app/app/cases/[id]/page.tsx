@@ -7,6 +7,7 @@ import { Case } from "@/models/Case";
 import { Partner } from "@/models/Partner";
 import UpdateHearingForm from "./UpdateHearingForm";
 import DeleteCaseButton from "./DeleteCaseButton";
+import ReopenCaseButton from "./ReopenCaseButton";
 
 export const dynamic = "force-dynamic";
 
@@ -140,12 +141,21 @@ export default async function CaseDetailPage({
     c.nextHearingDate &&
     new Date(c.nextHearingDate).toDateString() === new Date().toDateString();
 
+  // Disposed matters belong to /app/disposed-cases — when the user lands
+  // here through that archive, the breadcrumb should send them back
+  // there. Same for the disposal banner + Reopen action below.
+  const isDisposed = Boolean(c.disposedAt);
+  const role = session.user.userType === "partner_admin" ? "admin" : "junior";
+  const breadcrumbHref = isDisposed ? "/app/disposed-cases" : "/app/cases";
+  const breadcrumbLabel = isDisposed ? "Disposed Cases" : "Case Vault";
+  const disposedDateLabel = c.disposedAt ? fmtDate(c.disposedAt) : "";
+
   return (
     <div className="px-10 py-8">
       <div className="mx-auto max-w-[1100px]">
         {/* Breadcrumb */}
         <Link
-          href="/app/cases"
+          href={breadcrumbHref}
           className="fade-up-sm inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.18em] transition-colors hover:opacity-70"
           style={{
             fontFamily: "var(--font-dm-mono), monospace",
@@ -153,8 +163,74 @@ export default async function CaseDetailPage({
             animationDelay: "0ms",
           }}
         >
-          <span aria-hidden>&larr;</span> Case Vault
+          <span aria-hidden>&larr;</span> {breadcrumbLabel}
         </Link>
+
+        {/* Disposed banner — only when archived. Above the hero so the
+            "this is closed" signal hits before the case-no shouts. */}
+        {isDisposed ? (
+          <section
+            className="fade-up-sm mt-5 flex flex-wrap items-center justify-between gap-4 rounded-xl px-5 py-4"
+            style={{
+              backgroundColor: "var(--color-app-ink)",
+              color: "var(--color-app-ivory)",
+              animationDelay: "30ms",
+            }}
+          >
+            <div className="min-w-0">
+              <div
+                className="text-[10px] font-semibold uppercase tracking-[0.22em]"
+                style={{
+                  fontFamily: "var(--font-dm-mono), monospace",
+                  color: "var(--color-app-copper)",
+                }}
+              >
+                Disposed · archived
+              </div>
+              <div
+                className="mt-1 text-[14px]"
+                style={{
+                  fontFamily: "var(--font-manrope), sans-serif",
+                  color: "rgba(245,235,214,0.92)",
+                }}
+              >
+                Closed on{" "}
+                <span style={{ fontWeight: 600 }}>{disposedDateLabel}</span>
+                {c.disposalRemarks ? (
+                  <>
+                    {" "}
+                    ·{" "}
+                    <span
+                      style={{
+                        fontFamily:
+                          "var(--font-crimson), Georgia, serif",
+                        fontStyle: "italic",
+                        color: "rgba(245,235,214,0.78)",
+                      }}
+                    >
+                      "{c.disposalRemarks}"
+                    </span>
+                  </>
+                ) : null}
+              </div>
+              <div
+                className="mt-1.5 text-[11px]"
+                style={{
+                  fontFamily: "var(--font-manrope), sans-serif",
+                  color: "rgba(245,235,214,0.55)",
+                }}
+              >
+                Hidden from Case Vault, Hearing Track and the dashboard.
+              </div>
+            </div>
+            {role === "admin" ? (
+              <ReopenCaseButton
+                caseId={String(c._id)}
+                caseNo={c.caseNo}
+              />
+            ) : null}
+          </section>
+        ) : null}
 
         {/* Hero card */}
         <section

@@ -26,30 +26,35 @@ export async function GET(request: Request) {
 
   await connectDB();
 
+  // Disposed cases are excluded from every dashboard tile and from the
+  // upcoming-hearings cause-list. The Disposed Cases section is the
+  // only place they show up.
+  const activeFilter = {
+    partnerId,
+    isDeleted: false,
+    disposedAt: null,
+  } as const;
+
   const [todayHearings, tomorrowHearings, pendingDates, caseVault, boardDocs] =
     await Promise.all([
       Case.countDocuments({
-        partnerId,
-        isDeleted: false,
+        ...activeFilter,
         nextHearingDate: { $gte: startOfToday, $lt: startOfTomorrow },
       }),
       Case.countDocuments({
-        partnerId,
-        isDeleted: false,
+        ...activeFilter,
         nextHearingDate: { $gte: startOfTomorrow, $lt: startOfDayAfter },
       }),
       Case.countDocuments({
-        partnerId,
-        isDeleted: false,
+        ...activeFilter,
         $or: [
           { nextHearingDate: null },
           { nextHearingDate: { $lt: startOfToday } },
         ],
       }),
-      Case.countDocuments({ partnerId, isDeleted: false }),
+      Case.countDocuments(activeFilter),
       Case.find({
-        partnerId,
-        isDeleted: false,
+        ...activeFilter,
         nextHearingDate: { $gte: startOfToday, $lt: twoWeeksOut },
       })
         .sort({ nextHearingDate: 1 })

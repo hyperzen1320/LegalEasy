@@ -27,7 +27,9 @@ export async function GET(request: Request) {
     _id: { id: mongoose.Types.ObjectId | null; name: string };
     count: number;
   }>([
-    { $match: { partnerId, isDeleted: false } },
+    // Active cases only — the "X matters" badge on a court card means
+    // active matters before that bench, not the lifetime archive.
+    { $match: { partnerId, isDeleted: false, disposedAt: null } },
     {
       $group: {
         _id: { id: "$courtId", name: { $toLower: "$courtName" } },

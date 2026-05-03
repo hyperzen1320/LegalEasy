@@ -37,29 +37,32 @@ export default async function PartnerDashboard() {
 
   if (partnerId) {
     await connectDB();
+    // Disposed cases stay out of every dashboard tile and the today's
+    // board cause-list — they only appear in /app/disposed-cases.
+    const activeFilter = {
+      partnerId,
+      isDeleted: false,
+      disposedAt: null,
+    } as const;
     const [today, tomorrow, pending, vault, boardDocs] = await Promise.all([
       Case.countDocuments({
-        partnerId,
-        isDeleted: false,
+        ...activeFilter,
         nextHearingDate: { $gte: startOfToday, $lt: startOfTomorrow },
       }),
       Case.countDocuments({
-        partnerId,
-        isDeleted: false,
+        ...activeFilter,
         nextHearingDate: { $gte: startOfTomorrow, $lt: startOfDayAfter },
       }),
       Case.countDocuments({
-        partnerId,
-        isDeleted: false,
+        ...activeFilter,
         $or: [
           { nextHearingDate: null },
           { nextHearingDate: { $lt: startOfToday } },
         ],
       }),
-      Case.countDocuments({ partnerId, isDeleted: false }),
+      Case.countDocuments(activeFilter),
       Case.find({
-        partnerId,
-        isDeleted: false,
+        ...activeFilter,
         nextHearingDate: {
           $gte: startOfToday,
           $lt: new Date(startOfToday.getTime() + 14 * 24 * 60 * 60 * 1000),

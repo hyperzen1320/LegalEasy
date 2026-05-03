@@ -40,6 +40,18 @@ export interface ICase {
   lastHearingDate: Date | null;
   hearings: ICaseHearing[];
 
+  // Disposal — set when status transitions to "Disposed", cleared on
+  // re-open. Drives every "active vs archived" filter in the app:
+  //   • disposedAt: null   → active matter, appears in Case Vault,
+  //                          Hearing Track, Dashboard, AI search, etc.
+  //   • disposedAt: <Date> → archived, appears ONLY in Disposed Cases.
+  // Storing it as a separate field (rather than deriving from status)
+  // means re-editing status to "Disposed" twice doesn't move the
+  // disposal date around, and it gives us a real timestamp for the
+  // archive's chronological view.
+  disposedAt: Date | null;
+  disposalRemarks: string;
+
   createdBy: Types.ObjectId | null;
   createdAt: Date;
   updatedAt: Date;
@@ -91,6 +103,8 @@ const CaseSchema = new Schema<ICase>(
     nextHearingDate: { type: Date, default: null },
     lastHearingDate: { type: Date, default: null },
     hearings: { type: [HearingSchema], default: [] },
+    disposedAt: { type: Date, default: null },
+    disposalRemarks: { type: String, default: "", trim: true },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
     isDeleted: { type: Boolean, default: false },
   },
@@ -100,6 +114,12 @@ const CaseSchema = new Schema<ICase>(
 CaseSchema.index({ partnerId: 1, isDeleted: 1, nextHearingDate: 1 });
 CaseSchema.index({ partnerId: 1, isDeleted: 1, createdAt: -1 });
 CaseSchema.index({ partnerId: 1, caseNo: 1 });
+// Active-cases queries hit `disposedAt: null` constantly (Case Vault,
+// Hearing Track, Dashboard) — this index keeps the filter index-only.
+CaseSchema.index({ partnerId: 1, isDeleted: 1, disposedAt: 1, updatedAt: -1 });
+// Disposed-cases page sorts by disposalDate desc — covering index for
+// the archive view.
+CaseSchema.index({ partnerId: 1, isDeleted: 1, disposedAt: -1 });
 
 export const Case: Model<ICase> =
   (mongoose.models.Case as Model<ICase>) ||
