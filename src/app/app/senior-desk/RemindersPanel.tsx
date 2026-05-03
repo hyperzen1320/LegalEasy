@@ -102,7 +102,7 @@ export default function RemindersPanel({
 
   return (
     <div
-      className="flex h-[calc(100vh-300px)] min-h-[520px] flex-col overflow-hidden rounded-2xl"
+      className="flex h-full min-h-[420px] flex-col overflow-hidden rounded-2xl"
       style={{
         backgroundColor: "var(--color-app-canvas-2)",
         border: "1px solid var(--color-app-edge)",
