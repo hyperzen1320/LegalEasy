@@ -72,7 +72,7 @@ export default function PrivateChatPanel({
 
   return (
     <div
-      className="grid h-[calc(100vh-300px)] min-h-[520px] grid-cols-[320px_1fr] overflow-hidden rounded-2xl"
+      className="grid h-full min-h-[420px] grid-cols-[300px_1fr] overflow-hidden rounded-2xl"
       style={{
         backgroundColor: "var(--color-app-canvas-2)",
         border: "1px solid var(--color-app-edge)",

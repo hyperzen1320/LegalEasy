@@ -132,8 +132,16 @@ export default function SeniorDeskClient({
   );
 
   return (
-    <div className="px-10 py-8">
-      <div className="mx-auto max-w-[1280px]">
+    // Page fills the area below the 68px sticky Topbar exactly, then uses
+    // a flex column so the chat panel flexes into whatever's left after
+    // the header + toggle. This is what keeps the composer pinned to the
+    // bottom of the viewport instead of clipping off-screen on shorter
+    // displays.
+    <div
+      className="flex flex-col overflow-hidden px-10 pt-6 pb-5"
+      style={{ height: "calc(100vh - 68px)" }}
+    >
+      <div className="mx-auto flex w-full min-h-0 max-w-[1280px] flex-1 flex-col">
         <Header />
 
         <Toggle
@@ -144,7 +152,7 @@ export default function SeniorDeskClient({
           reminderUnread={reminderUnread}
         />
 
-        <div className="mt-6">
+        <div className="mt-5 flex min-h-0 flex-1 flex-col">
           {tab === "group" ? (
             groupRoom ? (
               <GroupChatPanel
@@ -176,8 +184,11 @@ export default function SeniorDeskClient({
 }
 
 function Header() {
+  // The Topbar already shows "Senior Desk" as the page title — this row
+  // adds the eyebrow + one-line description without duplicating the big
+  // serif name. Keeps the chat panel taller on a 720p display.
   return (
-    <div>
+    <div className="flex items-baseline gap-3">
       <div
         className="text-[10px] uppercase tracking-[0.22em]"
         style={{
@@ -187,17 +198,12 @@ function Header() {
       >
         Internal coordination
       </div>
-      <h2
-        className="mt-1 text-[40px] font-semibold tracking-tight leading-[1.1]"
-        style={{
-          fontFamily: "var(--font-crimson), Georgia, serif",
-          color: "var(--color-app-ink)",
-        }}
-      >
-        Senior Desk
-      </h2>
+      <span
+        className="h-px flex-1"
+        style={{ backgroundColor: "var(--color-app-edge)" }}
+      />
       <p
-        className="mt-2 text-[13px]"
+        className="text-[12.5px]"
         style={{
           fontFamily: "var(--font-manrope), sans-serif",
           color: "var(--color-app-fg-muted)",
@@ -279,14 +285,14 @@ function Toggle({
 function LoadingShell() {
   return (
     <div
-      className="rounded-xl px-5 py-16 text-center"
+      className="flex h-full min-h-[420px] items-center justify-center rounded-xl"
       style={{
         backgroundColor: "var(--color-app-paper)",
         border: "1px solid var(--color-app-edge)",
       }}
     >
       <div
-        className="mx-auto h-7 w-7 animate-spin rounded-full"
+        className="h-7 w-7 animate-spin rounded-full"
         style={{
           borderWidth: 2.5,
           borderStyle: "solid",
@@ -301,7 +307,7 @@ function LoadingShell() {
 function EmptyShell({ label }: { label: string }) {
   return (
     <div
-      className="rounded-xl px-5 py-16 text-center"
+      className="flex h-full min-h-[420px] items-center justify-center rounded-xl px-6 text-center"
       style={{
         backgroundColor: "var(--color-app-paper)",
         border: "1px dashed var(--color-app-edge)",
