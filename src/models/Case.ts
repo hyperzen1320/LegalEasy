@@ -28,9 +28,14 @@ export interface ICase {
   oppositeAdvocate: string;
   iaNumbers: string;
 
-  // Court
+  // Court — courtId links to the Court Hub master when the user picks
+  // from the combobox; the other four fields are denormalised so a case
+  // keeps rendering correctly even if the master court is renamed,
+  // re-numbered, or deleted. courtNumber is the ordinal ("2", "Hall 3")
+  // copied from the picked court at filing time.
   courtId: Types.ObjectId | null;
   courtName: string;
+  courtNumber: string;
   courtHall: string;
   courtPlace: string;
 
@@ -96,6 +101,7 @@ const CaseSchema = new Schema<ICase>(
     // Court
     courtId: { type: Schema.Types.ObjectId, ref: "Court", default: null },
     courtName: { type: String, default: "", trim: true },
+    courtNumber: { type: String, default: "", trim: true },
     courtHall: { type: String, default: "", trim: true },
     courtPlace: { type: String, default: "", trim: true },
 

@@ -39,7 +39,9 @@ export async function GET(request: Request) {
     clientPhone: c.clientPhone,
     clientWhatsapp: c.clientWhatsapp,
     oppositeParty: c.oppositeParty,
+    courtId: c.courtId ? String(c.courtId) : null,
     courtName: c.courtName,
+    courtNumber: c.courtNumber || "",
     courtHall: c.courtHall,
     courtPlace: c.courtPlace,
     status: c.status,
@@ -98,6 +100,16 @@ export async function POST(request: Request) {
       ? new Date(body.lastHearingDate)
       : null;
 
+  // courtId is the link to the Court Hub master — set only if the caller
+  // sent a valid ObjectId from picking a court out of the combobox. Free-
+  // form court names (typed without picking) leave courtId null and the
+  // matter just carries the denormalised strings.
+  const courtIdRaw = typeof body.courtId === "string" ? body.courtId : "";
+  const courtId =
+    courtIdRaw && mongoose.isValidObjectId(courtIdRaw)
+      ? new mongoose.Types.ObjectId(courtIdRaw)
+      : null;
+
   const doc = await Case.create({
     partnerId,
     caseNo,
@@ -115,7 +127,9 @@ export async function POST(request: Request) {
     oppositeAdvocate: str("oppositeAdvocate"),
     iaNumbers: str("iaNumbers"),
 
+    courtId,
     courtName: str("courtName"),
+    courtNumber: str("courtNumber"),
     courtHall: str("courtHall"),
     courtPlace: str("courtPlace"),
 

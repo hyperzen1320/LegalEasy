@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import CourtCombobox from "../CourtCombobox";
 
 // Status is now a free-form text field so chambers can use their own
 // vocabulary ("Mediation", "Cross-objection filed", "On-board", etc.)
@@ -37,8 +38,13 @@ export default function AddCaseForm() {
   const [clientWhatsapp, setClientWhatsapp] = useState("");
   const [clientPhone, setClientPhone] = useState("");
 
-  // Row 5
+  // Row 5 — Court is a combobox over the Court Hub master. Selection
+  // atomically fills name + number + place + the courtId link; the
+  // courtNumber stays out of the visible grid (it shows up on the case
+  // detail page) but rides along in the POST body.
+  const [courtId, setCourtId] = useState<string | null>(null);
   const [courtName, setCourtName] = useState("");
+  const [courtNumber, setCourtNumber] = useState("");
   const [status, setStatus] = useState("Filed");
 
   // Row 6
@@ -49,7 +55,8 @@ export default function AddCaseForm() {
   const [oppositeParty, setOppositeParty] = useState("");
   const [oppositeAdvocate, setOppositeAdvocate] = useState("");
 
-  // Optional extras
+  // Optional extras. courtPlace is shared with the combobox — selecting
+  // a court from Court Hub overwrites whatever's here.
   const [courtPlace, setCourtPlace] = useState("");
   const [courtHall, setCourtHall] = useState("");
   const [clientAddress, setClientAddress] = useState("");
@@ -85,7 +92,9 @@ export default function AddCaseForm() {
           clientWhatsapp,
           clientPhone,
           clientAddress,
+          courtId,
           courtName,
+          courtNumber,
           courtPlace,
           courtHall,
           status,
@@ -208,21 +217,30 @@ export default function AddCaseForm() {
             placeholder="+91..."
           />
 
-          <Field
+          <CourtCombobox
             id="courtName"
-            label="Court"
             required
-            value={courtName}
-            onChange={(v) => {
-              setCourtName(v);
-              if (missing.has("courtName") && v.trim()) {
-                const next = new Set(missing);
-                next.delete("courtName");
-                setMissing(next);
+            invalid={missing.has("courtName")}
+            value={{
+              courtId,
+              courtName,
+              courtNumber,
+              courtPlace,
+            }}
+            onChange={(next) => {
+              setCourtId(next.courtId);
+              setCourtName(next.courtName);
+              setCourtNumber(next.courtNumber);
+              // Selecting a court from the combobox overwrites Court Place
+              // (per the agreed UX) — the user can still tweak the field
+              // in "Add more details" if they want a custom value.
+              setCourtPlace(next.courtPlace);
+              if (missing.has("courtName") && next.courtName.trim()) {
+                const left = new Set(missing);
+                left.delete("courtName");
+                setMissing(left);
               }
             }}
-            placeholder="District Court, Chennai"
-            invalid={missing.has("courtName")}
           />
           <Field
             id="status"

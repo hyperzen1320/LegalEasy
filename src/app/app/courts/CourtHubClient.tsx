@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export type CourtRow = {
@@ -11,16 +11,48 @@ export type CourtRow = {
   caseCount: number;
 };
 
+type SortDir = "asc" | "desc";
+
 export default function CourtHubClient({
   initialCourts,
 }: {
   initialCourts: CourtRow[];
 }) {
   const [courts, setCourts] = useState<CourtRow[]>(initialCourts);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   function handleAdded(c: CourtRow) {
-    setCourts((prev) => [c, ...prev].sort((a, b) => a.name.localeCompare(b.name)));
+    // Prepend the new court — the sort effect below will put it in the
+    // right slot. We don't re-sort manually here because the displayed
+    // order should follow the user's chosen direction.
+    setCourts((prev) => [c, ...prev]);
   }
+
+  // Court-number sort. We extract the first numeric token from the
+  // string ("Hall 3" → 3, "Court 12" → 12, "2" → 2) so chambers can
+  // type the number either bare or alongside a prefix. Courts with no
+  // numeric token sit at the end regardless of direction so they
+  // don't drown out the meaningful sort, and the alphabetical name
+  // is the tie-breaker.
+  const sortedCourts = useMemo(() => {
+    const list = courts.slice();
+    list.sort((a, b) => {
+      const na = firstNumber(a.number);
+      const nb = firstNumber(b.number);
+      const aHas = na !== null;
+      const bHas = nb !== null;
+      if (aHas && bHas) {
+        if (na !== nb) {
+          return sortDir === "asc" ? na - nb : nb - na;
+        }
+        return a.name.localeCompare(b.name);
+      }
+      if (aHas) return -1;
+      if (bHas) return 1;
+      return a.name.localeCompare(b.name);
+    });
+    return list;
+  }, [courts, sortDir]);
 
   return (
     <>
@@ -51,13 +83,102 @@ export default function CourtHubClient({
       {courts.length === 0 ? (
         <EmptyHub />
       ) : (
-        <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {courts.map((c, i) => (
-            <CourtCard key={c.id} c={c} index={i} />
-          ))}
-        </div>
+        <>
+          <SortBar
+            sortDir={sortDir}
+            onToggle={() =>
+              setSortDir((d) => (d === "asc" ? "desc" : "asc"))
+            }
+            count={courts.length}
+          />
+          <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {sortedCourts.map((c, i) => (
+              <CourtCard key={c.id} c={c} index={i} />
+            ))}
+          </div>
+        </>
       )}
     </>
+  );
+}
+
+function firstNumber(s: string): number | null {
+  if (!s) return null;
+  const m = s.match(/-?\d+(?:\.\d+)?/);
+  if (!m) return null;
+  const n = Number(m[0]);
+  return Number.isFinite(n) ? n : null;
+}
+
+function SortBar({
+  sortDir,
+  onToggle,
+  count,
+}: {
+  sortDir: SortDir;
+  onToggle: () => void;
+  count: number;
+}) {
+  return (
+    <div className="mt-7 flex items-center justify-between gap-3">
+      <span
+        className="text-[11px] uppercase tracking-[0.22em]"
+        style={{
+          fontFamily: "var(--font-dm-mono), monospace",
+          color: "var(--color-app-fg-muted)",
+        }}
+      >
+        {count} {count === 1 ? "court" : "courts"} on the rolls
+      </span>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="inline-flex items-center gap-2 rounded-md border px-3.5 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] transition-colors"
+        style={{
+          fontFamily: "var(--font-dm-mono), monospace",
+          borderColor: "var(--color-app-edge)",
+          backgroundColor: "var(--color-app-paper)",
+          color: "var(--color-app-ink)",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.borderColor = "var(--color-app-copper)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.borderColor = "var(--color-app-edge)";
+        }}
+        aria-label={
+          sortDir === "asc"
+            ? "Sorted by court number ascending — click to switch to descending"
+            : "Sorted by court number descending — click to switch to ascending"
+        }
+      >
+        <span
+          className="text-[10px]"
+          style={{ color: "var(--color-app-fg-muted)" }}
+        >
+          Sort
+        </span>
+        <span>Court no.</span>
+        <span
+          className="inline-flex h-5 w-5 items-center justify-center rounded transition-transform"
+          style={{
+            backgroundColor: "var(--color-app-copper)",
+            color: "var(--color-app-copper-text)",
+            transform: sortDir === "asc" ? "rotate(0deg)" : "rotate(180deg)",
+          }}
+        >
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M12 4v16M5 11l7-7 7 7"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </span>
+      </button>
+    </div>
   );
 }
 

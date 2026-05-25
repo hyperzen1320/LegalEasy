@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import CourtCombobox from "../../CourtCombobox";
 
 // Full case edit form. Mirrors AddCaseForm's field set (so the user's
 // mental model is identical between "Add" and "Edit") but PATCHes the
@@ -21,7 +22,9 @@ export type CaseInitialValues = {
   appearingFor: string;
   oppositeParty: string;
   oppositeAdvocate: string;
+  courtId: string | null;
   courtName: string;
+  courtNumber: string;
   courtHall: string;
   courtPlace: string;
   status: string;
@@ -64,8 +67,13 @@ export default function EditCaseForm({
   const [clientWhatsapp, setClientWhatsapp] = useState(initial.clientWhatsapp);
   const [clientPhone, setClientPhone] = useState(initial.clientPhone);
 
-  // Row 5
+  // Row 5 — Court combobox + status. The combobox owns the tuple
+  // (courtId, courtName, courtNumber, courtPlace); courtPlace is also
+  // mirrored into the optional details Court Place field via shared
+  // state, so picking from Court Hub keeps the form consistent.
+  const [courtId, setCourtId] = useState<string | null>(initial.courtId);
   const [courtName, setCourtName] = useState(initial.courtName);
+  const [courtNumber, setCourtNumber] = useState(initial.courtNumber);
   const [status, setStatus] = useState(initial.status);
 
   // Row 6
@@ -100,7 +108,9 @@ export default function EditCaseForm({
       appearingFor !== initial.appearingFor ||
       clientWhatsapp !== initial.clientWhatsapp ||
       clientPhone !== initial.clientPhone ||
+      courtId !== initial.courtId ||
       courtName !== initial.courtName ||
+      courtNumber !== initial.courtNumber ||
       status !== initial.status ||
       previousDate !== initial.lastHearingDate ||
       nextHearingDate !== initial.nextHearingDate ||
@@ -119,7 +129,9 @@ export default function EditCaseForm({
     appearingFor,
     clientWhatsapp,
     clientPhone,
+    courtId,
     courtName,
+    courtNumber,
     status,
     previousDate,
     nextHearingDate,
@@ -181,6 +193,9 @@ export default function EditCaseForm({
       body.clientWhatsapp = clientWhatsapp;
     if (clientPhone !== initial.clientPhone) body.clientPhone = clientPhone;
     if (courtName !== initial.courtName) body.courtName = courtName;
+    if (courtNumber !== initial.courtNumber)
+      body.courtNumber = courtNumber;
+    if (courtId !== initial.courtId) body.courtId = courtId;
     if (status !== initial.status) body.status = status;
     if (oppositeParty !== initial.oppositeParty)
       body.oppositeParty = oppositeParty;
@@ -313,17 +328,25 @@ export default function EditCaseForm({
             placeholder="+91..."
           />
 
-          <Field
+          <CourtCombobox
             id="courtName"
-            label="Court"
             required
-            value={courtName}
-            onChange={(v) => {
-              setCourtName(v);
-              if (v.trim()) clearMissing("courtName");
-            }}
-            placeholder="District Court, Chennai"
             invalid={missing.has("courtName")}
+            value={{
+              courtId,
+              courtName,
+              courtNumber,
+              courtPlace,
+            }}
+            onChange={(next) => {
+              setCourtId(next.courtId);
+              setCourtName(next.courtName);
+              setCourtNumber(next.courtNumber);
+              // Picking a court overwrites Court Place (user can still
+              // tweak it in "More details" afterwards).
+              setCourtPlace(next.courtPlace);
+              if (next.courtName.trim()) clearMissing("courtName");
+            }}
           />
           <Field
             id="status"
