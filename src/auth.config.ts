@@ -4,6 +4,16 @@ import type { NextAuthConfig } from "next-auth";
 // The full Credentials provider with DB lookup lives in src/auth.ts.
 
 export default {
+  // Derive the canonical site URL from the incoming request's
+  // X-Forwarded-Host / Host headers instead of trusting NEXTAUTH_URL /
+  // AUTH_URL. Without this, a stale `NEXTAUTH_URL=http://localhost:3000`
+  // left over from a developer's `.env.local` (or copied into Vercel's
+  // env vars) causes Auth.js to embed localhost in the `callbackUrl`
+  // query param of /login — and then the post-sign-in redirect bounces
+  // the user from the production hostname back to localhost. Vercel
+  // already terminates TLS in front of us and sets the forwarded-host
+  // header, so trusting it here is safe.
+  trustHost: true,
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
   providers: [],
