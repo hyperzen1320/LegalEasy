@@ -243,6 +243,24 @@ export async function POST(request: Request) {
   }
   const dayIst = normaliseToIstMidnight(parsedDate);
 
+  // Future-date guard. The UI greys out future cells but the server is
+  // the source of truth — a craftily-typed POST shouldn't be able to
+  // mark tomorrow as Present. Today's IST midnight is the boundary:
+  // dates strictly greater than that are rejected.
+  const todayIst = normaliseToIstMidnight(new Date());
+  if (dayIst.getTime() > todayIst.getTime()) {
+    return NextResponse.json(
+      {
+        error:
+          "Attendance can only be marked for today or past dates.",
+      },
+      {
+        status: 400,
+        headers: guard.ctx.isMobile ? corsHeaders() : undefined,
+      }
+    );
+  }
+
   await connectDB();
   const partnerId = new mongoose.Types.ObjectId(guard.ctx.user.partnerId);
   const userObjId = new mongoose.Types.ObjectId(userIdRaw);
