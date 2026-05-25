@@ -55,7 +55,9 @@ function serialize(c: NonNullable<Awaited<ReturnType<typeof loadCaseForPartner>>
     appearingFor: c.appearingFor,
     oppositeAdvocate: c.oppositeAdvocate,
     iaNumbers: c.iaNumbers,
+    courtId: c.courtId ? String(c.courtId) : null,
     courtName: c.courtName,
+    courtNumber: c.courtNumber || "",
     courtHall: c.courtHall,
     courtPlace: c.courtPlace,
     status: c.status,
@@ -168,6 +170,7 @@ export async function PATCH(
     "oppositeAdvocate",
     "iaNumbers",
     "courtName",
+    "courtNumber",
     "courtHall",
     "courtPlace",
   ] as const;
@@ -176,6 +179,16 @@ export async function PATCH(
     if (typeof body[f] === "string") {
       doc[f] = (body[f] as string).trim();
     }
+  }
+
+  // courtId is set/unset separately from the denormalised strings. The
+  // form sends `courtId: "<id>"` when the user picks a court from the
+  // Court Hub combobox, `courtId: null` to explicitly unlink, and just
+  // omits the field when the user is only renaming the freeform string.
+  if (typeof body.courtId === "string" && mongoose.isValidObjectId(body.courtId)) {
+    doc.courtId = new mongoose.Types.ObjectId(body.courtId);
+  } else if (body.courtId === null) {
+    doc.courtId = null;
   }
 
   // Status — validate against known list but allow custom strings as well

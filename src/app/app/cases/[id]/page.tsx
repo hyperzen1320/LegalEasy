@@ -25,6 +25,26 @@ function fmtIso(d: Date | null | undefined): string {
   return d.toISOString().slice(0, 10);
 }
 
+// Build the meta line under the Court name. Joins courtNumber + hall +
+// place with " · " separators, dropping empties and deduplicating when
+// the number and hall match (some chambers type "Hall 3" into both
+// fields). Returns undefined when there's nothing to show so InfoCard
+// renders nothing instead of an empty bar.
+function courtMeta(
+  num: string | undefined,
+  hall: string | undefined,
+  place: string | undefined
+): string | undefined {
+  const parts: string[] = [];
+  const n = (num || "").trim();
+  const h = (hall || "").trim();
+  const p = (place || "").trim();
+  if (n) parts.push(n);
+  if (h && h.toLowerCase() !== n.toLowerCase()) parts.push(h);
+  if (p) parts.push(p);
+  return parts.length > 0 ? parts.join(" · ") : undefined;
+}
+
 function buildWhatsAppLink(args: {
   phone: string;
   clientName: string;
@@ -393,10 +413,7 @@ export default async function CaseDetailPage({
           <InfoCard
             label="Court"
             primary={c.courtName || "—"}
-            secondary={
-              [c.courtHall, c.courtPlace].filter(Boolean).join(" · ") ||
-              undefined
-            }
+            secondary={courtMeta(c.courtNumber, c.courtHall, c.courtPlace)}
           />
           <InfoCard
             label="Representation"
