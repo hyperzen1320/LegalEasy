@@ -232,6 +232,20 @@ export async function PATCH(
     }
   }
 
+  // Explicit lastHearingDate edits — applied AFTER the auto-archival above
+  // so that when the user edits a case retroactively (e.g. fixing a typo
+  // in the previous date from the EditCaseForm), their value wins over
+  // whatever the next-hearing change would have inferred.
+  if (
+    typeof body.lastHearingDate === "string" ||
+    body.lastHearingDate === null
+  ) {
+    doc.lastHearingDate =
+      typeof body.lastHearingDate === "string" && body.lastHearingDate
+        ? new Date(body.lastHearingDate)
+        : null;
+  }
+
   await doc.save();
 
   // Activity logs — emit specific events for the noteworthy bits

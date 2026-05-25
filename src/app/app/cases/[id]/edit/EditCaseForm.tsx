@@ -1,12 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-// Status is now a free-form text field so chambers can use their own
-// vocabulary ("Mediation", "Cross-objection filed", "On-board", etc.)
-// rather than being boxed into a fixed dropdown. Default is "Filed" so
-// new matters land in a sensible state if the advocate skips the field.
+// Full case edit form. Mirrors AddCaseForm's field set (so the user's
+// mental model is identical between "Add" and "Edit") but PATCHes the
+// case route with only the fields that actually changed. Every column is
+// editable — the user wanted nothing to be off-limits here.
+
+export type CaseInitialValues = {
+  id: string;
+  caseNo: string;
+  fileNo: string;
+  cnr: string;
+  iaNumbers: string;
+  clientName: string;
+  clientPhone: string;
+  clientWhatsapp: string;
+  clientAddress: string;
+  appearingFor: string;
+  oppositeParty: string;
+  oppositeAdvocate: string;
+  courtName: string;
+  courtHall: string;
+  courtPlace: string;
+  status: string;
+  nextHearingDate: string;
+  lastHearingDate: string;
+  isDisposed: boolean;
+};
 
 const APPEARING_OPTIONS = [
   "Petitioner",
@@ -15,48 +37,113 @@ const APPEARING_OPTIONS = [
   "Defendant",
 ];
 
-export default function AddCaseForm() {
+export default function EditCaseForm({
+  initial,
+}: {
+  initial: CaseInitialValues;
+}) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [missing, setMissing] = useState<Set<string>>(new Set());
+  const [saved, setSaved] = useState(false);
 
   // Row 1
-  const [fileNo, setFileNo] = useState("");
-  const [caseNo, setCaseNo] = useState("");
+  const [fileNo, setFileNo] = useState(initial.fileNo);
+  const [caseNo, setCaseNo] = useState(initial.caseNo);
 
   // Row 2
-  const [iaNumbers, setIaNumbers] = useState("");
-  const [cnr, setCnr] = useState("");
+  const [iaNumbers, setIaNumbers] = useState(initial.iaNumbers);
+  const [cnr, setCnr] = useState(initial.cnr);
 
   // Row 3
-  const [clientName, setClientName] = useState("");
-  const [appearingFor, setAppearingFor] = useState("Petitioner");
+  const [clientName, setClientName] = useState(initial.clientName);
+  const [appearingFor, setAppearingFor] = useState(initial.appearingFor);
 
   // Row 4
-  const [clientWhatsapp, setClientWhatsapp] = useState("");
-  const [clientPhone, setClientPhone] = useState("");
+  const [clientWhatsapp, setClientWhatsapp] = useState(initial.clientWhatsapp);
+  const [clientPhone, setClientPhone] = useState(initial.clientPhone);
 
   // Row 5
-  const [courtName, setCourtName] = useState("");
-  const [status, setStatus] = useState("Filed");
+  const [courtName, setCourtName] = useState(initial.courtName);
+  const [status, setStatus] = useState(initial.status);
 
   // Row 6
-  const [previousDate, setPreviousDate] = useState("");
-  const [nextHearingDate, setNextHearingDate] = useState("");
+  const [previousDate, setPreviousDate] = useState(initial.lastHearingDate);
+  const [nextHearingDate, setNextHearingDate] = useState(
+    initial.nextHearingDate
+  );
 
   // Row 7
-  const [oppositeParty, setOppositeParty] = useState("");
-  const [oppositeAdvocate, setOppositeAdvocate] = useState("");
+  const [oppositeParty, setOppositeParty] = useState(initial.oppositeParty);
+  const [oppositeAdvocate, setOppositeAdvocate] = useState(
+    initial.oppositeAdvocate
+  );
 
   // Optional extras
-  const [courtPlace, setCourtPlace] = useState("");
-  const [courtHall, setCourtHall] = useState("");
-  const [clientAddress, setClientAddress] = useState("");
+  const [courtPlace, setCourtPlace] = useState(initial.courtPlace);
+  const [courtHall, setCourtHall] = useState(initial.courtHall);
+  const [clientAddress, setClientAddress] = useState(initial.clientAddress);
+
+  // We compute the diff at submit time and only send fields that actually
+  // moved. The PATCH handler is idempotent so this is purely a polish: the
+  // activity log stays cleaner ("updated case X (clientPhone)" instead of
+  // "updated case X (every field you ever touched)") and we don't pay the
+  // cost of re-archiving an unchanged nextHearingDate.
+  const dirty = useMemo(() => {
+    return (
+      fileNo !== initial.fileNo ||
+      caseNo !== initial.caseNo ||
+      iaNumbers !== initial.iaNumbers ||
+      cnr !== initial.cnr ||
+      clientName !== initial.clientName ||
+      appearingFor !== initial.appearingFor ||
+      clientWhatsapp !== initial.clientWhatsapp ||
+      clientPhone !== initial.clientPhone ||
+      courtName !== initial.courtName ||
+      status !== initial.status ||
+      previousDate !== initial.lastHearingDate ||
+      nextHearingDate !== initial.nextHearingDate ||
+      oppositeParty !== initial.oppositeParty ||
+      oppositeAdvocate !== initial.oppositeAdvocate ||
+      courtPlace !== initial.courtPlace ||
+      courtHall !== initial.courtHall ||
+      clientAddress !== initial.clientAddress
+    );
+  }, [
+    fileNo,
+    caseNo,
+    iaNumbers,
+    cnr,
+    clientName,
+    appearingFor,
+    clientWhatsapp,
+    clientPhone,
+    courtName,
+    status,
+    previousDate,
+    nextHearingDate,
+    oppositeParty,
+    oppositeAdvocate,
+    courtPlace,
+    courtHall,
+    clientAddress,
+    initial,
+  ]);
+
+  function clearMissing(key: string) {
+    setMissing((prev) => {
+      if (!prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    setSaved(false);
 
     const missingNow = new Set<string>();
     if (!fileNo.trim()) missingNow.add("fileNo");
@@ -68,40 +155,70 @@ export default function AddCaseForm() {
       setError("Please fill the four required fields before saving.");
       return;
     }
-
     setMissing(new Set());
+
+    if (!dirty) {
+      // Nothing actually changed — short-circuit so we don't pretend to
+      // hit the server. Better UX than a noop POST that returns "Saved!".
+      setSaved(true);
+      return;
+    }
+
     setSubmitting(true);
+
+    // Build a diff body — only ship fields that moved. The server is happy
+    // to accept a partial payload (every PATCH branch is `if typeof ===
+    // "string"` so undefined fields are simply ignored).
+    const body: Record<string, string | null> = {};
+    if (fileNo !== initial.fileNo) body.fileNo = fileNo;
+    if (caseNo !== initial.caseNo) body.caseNo = caseNo;
+    if (iaNumbers !== initial.iaNumbers) body.iaNumbers = iaNumbers;
+    if (cnr !== initial.cnr) body.cnr = cnr;
+    if (clientName !== initial.clientName) body.clientName = clientName;
+    if (appearingFor !== initial.appearingFor)
+      body.appearingFor = appearingFor;
+    if (clientWhatsapp !== initial.clientWhatsapp)
+      body.clientWhatsapp = clientWhatsapp;
+    if (clientPhone !== initial.clientPhone) body.clientPhone = clientPhone;
+    if (courtName !== initial.courtName) body.courtName = courtName;
+    if (status !== initial.status) body.status = status;
+    if (oppositeParty !== initial.oppositeParty)
+      body.oppositeParty = oppositeParty;
+    if (oppositeAdvocate !== initial.oppositeAdvocate)
+      body.oppositeAdvocate = oppositeAdvocate;
+    if (courtPlace !== initial.courtPlace) body.courtPlace = courtPlace;
+    if (courtHall !== initial.courtHall) body.courtHall = courtHall;
+    if (clientAddress !== initial.clientAddress)
+      body.clientAddress = clientAddress;
+
+    if (nextHearingDate !== initial.nextHearingDate) {
+      body.nextHearingDate = nextHearingDate || null;
+    }
+    if (previousDate !== initial.lastHearingDate) {
+      body.lastHearingDate = previousDate || null;
+    }
+
     try {
-      const res = await fetch("/api/app/cases", {
-        method: "POST",
+      const res = await fetch(`/api/app/cases/${initial.id}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileNo,
-          caseNo,
-          iaNumbers,
-          cnr,
-          clientName,
-          appearingFor,
-          clientWhatsapp,
-          clientPhone,
-          clientAddress,
-          courtName,
-          courtPlace,
-          courtHall,
-          status,
-          oppositeParty,
-          oppositeAdvocate,
-          nextHearingDate: nextHearingDate || null,
-          lastHearingDate: previousDate || null,
-        }),
+        body: JSON.stringify(body),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error ?? "Couldn't save");
+        setError(data?.error ?? "Couldn't save");
         setSubmitting(false);
         return;
       }
-      router.push(`/app/cases/${data.id}`);
+
+      const becameDisposed =
+        !initial.isDisposed && status.trim() === "Disposed";
+
+      router.push(
+        becameDisposed
+          ? "/app/disposed-cases"
+          : `/app/cases/${initial.id}`
+      );
       router.refresh();
     } catch {
       setError("Network error.");
@@ -126,11 +243,7 @@ export default function AddCaseForm() {
             value={fileNo}
             onChange={(v) => {
               setFileNo(v);
-              if (missing.has("fileNo") && v.trim()) {
-                const next = new Set(missing);
-                next.delete("fileNo");
-                setMissing(next);
-              }
+              if (v.trim()) clearMissing("fileNo");
             }}
             placeholder="F-2025/001"
             invalid={missing.has("fileNo")}
@@ -142,11 +255,7 @@ export default function AddCaseForm() {
             value={caseNo}
             onChange={(v) => {
               setCaseNo(v);
-              if (missing.has("caseNo") && v.trim()) {
-                const next = new Set(missing);
-                next.delete("caseNo");
-                setMissing(next);
-              }
+              if (v.trim()) clearMissing("caseNo");
             }}
             placeholder="O.S. 100/2025"
             invalid={missing.has("caseNo")}
@@ -174,11 +283,7 @@ export default function AddCaseForm() {
             value={clientName}
             onChange={(v) => {
               setClientName(v);
-              if (missing.has("clientName") && v.trim()) {
-                const next = new Set(missing);
-                next.delete("clientName");
-                setMissing(next);
-              }
+              if (v.trim()) clearMissing("clientName");
             }}
             placeholder="R. Murugan"
             invalid={missing.has("clientName")}
@@ -215,11 +320,7 @@ export default function AddCaseForm() {
             value={courtName}
             onChange={(v) => {
               setCourtName(v);
-              if (missing.has("courtName") && v.trim()) {
-                const next = new Set(missing);
-                next.delete("courtName");
-                setMissing(next);
-              }
+              if (v.trim()) clearMissing("courtName");
             }}
             placeholder="District Court, Chennai"
             invalid={missing.has("courtName")}
@@ -263,8 +364,7 @@ export default function AddCaseForm() {
           />
         </div>
 
-        {/* Optional extras */}
-        <details className="mt-6 group">
+        <details className="mt-6 group" open={hasOptional(initial)}>
           <summary
             className="cursor-pointer select-none text-[11px] font-semibold uppercase tracking-[0.18em] transition-colors"
             style={{
@@ -272,8 +372,10 @@ export default function AddCaseForm() {
               color: "var(--color-app-fg-muted)",
             }}
           >
-            <span className="inline-block transition-transform group-open:rotate-90">&rsaquo;</span>{" "}
-            Add more details (optional)
+            <span className="inline-block transition-transform group-open:rotate-90">
+              &rsaquo;
+            </span>{" "}
+            More details
           </summary>
           <div className="mt-4 grid gap-x-6 gap-y-5 md:grid-cols-2">
             <Field
@@ -303,7 +405,7 @@ export default function AddCaseForm() {
         </details>
       </div>
 
-      {error && (
+      {error ? (
         <div
           className="mt-5 rounded-md px-4 py-3"
           style={{
@@ -321,14 +423,32 @@ export default function AddCaseForm() {
             {error}
           </p>
         </div>
-      )}
+      ) : null}
 
-      <div
-        className="mt-6 flex items-center justify-end gap-3"
-      >
+      {saved && !dirty ? (
+        <div
+          className="mt-5 rounded-md px-4 py-3"
+          style={{
+            backgroundColor: "var(--color-app-aqua-soft)",
+            border: "1px solid var(--color-app-aqua)",
+          }}
+        >
+          <p
+            className="text-[13px]"
+            style={{
+              fontFamily: "var(--font-manrope), sans-serif",
+              color: "var(--color-app-ink)",
+            }}
+          >
+            Nothing to save — everything's already up to date.
+          </p>
+        </div>
+      ) : null}
+
+      <div className="mt-6 flex items-center justify-end gap-3">
         <button
           type="button"
-          onClick={() => router.push("/app/cases")}
+          onClick={() => router.push(`/app/cases/${initial.id}`)}
           className="rounded-md border px-5 py-2.5 text-[13px] font-medium transition-colors"
           style={{
             fontFamily: "var(--font-manrope), sans-serif",
@@ -341,21 +461,32 @@ export default function AddCaseForm() {
         </button>
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || !dirty}
           className="inline-flex items-center gap-2 rounded-md px-6 py-2.5 text-[13px] font-semibold transition-all"
           style={{
             fontFamily: "var(--font-manrope), sans-serif",
-            backgroundColor: "var(--color-app-copper)",
-            color: "var(--color-app-copper-text)",
+            backgroundColor: dirty
+              ? "var(--color-app-copper)"
+              : "var(--color-app-canvas-2)",
+            color: dirty
+              ? "var(--color-app-copper-text)"
+              : "var(--color-app-fg-muted)",
             opacity: submitting ? 0.6 : 1,
-            boxShadow: "0 8px 20px -10px rgba(197,133,58,0.6)",
+            cursor: dirty && !submitting ? "pointer" : "default",
+            boxShadow: dirty
+              ? "0 8px 20px -10px rgba(197,133,58,0.6)"
+              : "none",
           }}
         >
-          {submitting ? "Saving…" : "Save Case"}
+          {submitting ? "Saving…" : "Save Changes"}
         </button>
       </div>
     </form>
   );
+}
+
+function hasOptional(v: CaseInitialValues): boolean {
+  return Boolean(v.courtPlace || v.courtHall || v.clientAddress);
 }
 
 function Field({
@@ -431,14 +562,12 @@ function SelectField({
   value,
   onChange,
   options,
-  compact,
 }: {
   id: string;
   label: string;
   value: string;
   onChange: (v: string) => void;
   options: string[];
-  compact?: boolean;
 }) {
   return (
     <div>
@@ -475,6 +604,9 @@ function SelectField({
             e.currentTarget.style.boxShadow = "none";
           }}
         >
+          {options.includes(value) ? null : (
+            <option value={value}>{value}</option>
+          )}
           {options.map((opt) => (
             <option key={opt} value={opt}>
               {opt}
@@ -497,7 +629,6 @@ function SelectField({
           </svg>
         </span>
       </div>
-      {compact ? null : null}
     </div>
   );
 }

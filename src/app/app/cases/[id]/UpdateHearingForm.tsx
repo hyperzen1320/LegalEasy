@@ -7,12 +7,10 @@ export default function UpdateHearingForm({
   caseId,
   initialNextDate,
   initialStatus,
-  statusOptions,
 }: {
   caseId: string;
   initialNextDate: string;
   initialStatus: string;
-  statusOptions: string[];
 }) {
   const router = useRouter();
   const [nextDate, setNextDate] = useState(initialNextDate);
@@ -142,50 +140,42 @@ export default function UpdateHearingForm({
         >
           Status / Stage
         </label>
-        <div className="relative mt-2">
-          <select
-            id="caseStatus"
-            value={statusOptions.includes(status) ? status : statusOptions[0]}
-            onChange={(e) => setStatus(e.target.value)}
-            className="block w-full appearance-none rounded-md border px-3.5 py-2.5 pr-10 text-[14px] outline-none transition-colors"
-            style={{
-              fontFamily: "var(--font-manrope), sans-serif",
-              borderColor: "var(--color-app-edge)",
-              backgroundColor: "var(--color-app-paper)",
-              color: "var(--color-app-ink)",
-            }}
-            onFocus={(e) => {
-              e.currentTarget.style.borderColor = "var(--color-app-copper)";
-              e.currentTarget.style.boxShadow =
-                "0 0 0 3px rgba(197,133,58,0.15)";
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderColor = "var(--color-app-edge)";
-              e.currentTarget.style.boxShadow = "none";
-            }}
-          >
-            {statusOptions.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
-          <span
-            aria-hidden
-            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2"
-            style={{ color: "var(--color-app-fg-muted)" }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M6 9l6 6 6-6"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </span>
-        </div>
+        <input
+          id="caseStatus"
+          type="text"
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+          placeholder="Filed, Evidence, Arguments, Mediation…"
+          className="mt-2 block w-full rounded-md border px-3.5 py-2.5 text-[14px] outline-none transition-colors"
+          style={{
+            fontFamily: "var(--font-manrope), sans-serif",
+            borderColor: "var(--color-app-edge)",
+            backgroundColor: "var(--color-app-paper)",
+            color: "var(--color-app-ink)",
+          }}
+          onFocus={(e) => {
+            e.currentTarget.style.borderColor = "var(--color-app-copper)";
+            e.currentTarget.style.boxShadow =
+              "0 0 0 3px rgba(197,133,58,0.15)";
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.borderColor = "var(--color-app-edge)";
+            e.currentTarget.style.boxShadow = "none";
+          }}
+        />
+        <p
+          className="mt-1.5 text-[11px]"
+          style={{
+            fontFamily: "var(--font-manrope), sans-serif",
+            color: "var(--color-app-fg-muted)",
+          }}
+        >
+          Type anything — your chambers&rsquo; own vocabulary. Type{" "}
+          <span style={{ fontWeight: 600, color: "var(--color-app-ink)" }}>
+            Disposed
+          </span>{" "}
+          to archive this matter to Disposed Cases.
+        </p>
       </div>
 
       {error && (
