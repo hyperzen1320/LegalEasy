@@ -15,6 +15,10 @@ type Props = {
   locked: boolean;
   onToggleLock: () => void;
   onOpenHelp: () => void;
+  // Incrementing counter — every change triggers a brief flash+shake on
+  // the Lock pill so the user can see WHERE the block came from when
+  // they try to edit a locked canvas.
+  lockPulseSig?: number;
 };
 
 export default function CanvasToolbar({
@@ -23,11 +27,21 @@ export default function CanvasToolbar({
   locked,
   onToggleLock,
   onOpenHelp,
+  lockPulseSig = 0,
 }: Props) {
   const rf = useReactFlow();
   const [zoomOpen, setZoomOpen] = useState(false);
   const [zoom, setZoom] = useState(100);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  // Triggered by lockPulseSig. We use a counter so re-mounting the
+  // animation key forces it to replay even if the user keeps clicking
+  // on the locked canvas in quick succession.
+  const [pulseCount, setPulseCount] = useState(0);
+  useEffect(() => {
+    if (lockPulseSig > 0) {
+      setPulseCount((c) => c + 1);
+    }
+  }, [lockPulseSig]);
 
   // Sync displayed zoom % with React Flow's actual viewport.
   useEffect(() => {
@@ -174,6 +188,7 @@ export default function CanvasToolbar({
         sublabel="L"
         onClick={onToggleLock}
         active={locked}
+        pulseKey={pulseCount}
       >
         <svg
           width="16"
@@ -351,17 +366,23 @@ function ToolButton({
   active,
   onClick,
   children,
+  pulseKey,
 }: {
   label: string;
   sublabel: string;
   active?: boolean;
   onClick: () => void;
   children: React.ReactNode;
+  // When pulseKey changes, the button briefly scales up + flashes
+  // danger-red. Used by the Lock button to draw the user's eye when
+  // they try to edit a locked canvas. Keyed re-mount of the inner
+  // span replays the CSS animation cleanly.
+  pulseKey?: number;
 }) {
   return (
     <button
       onClick={onClick}
-      className="flex flex-col items-center gap-0.5 rounded-full px-3 py-2 transition-colors"
+      className="relative flex flex-col items-center gap-0.5 rounded-full px-3 py-2 transition-colors"
       style={{
         fontFamily: "var(--font-manrope), sans-serif",
         backgroundColor: active ? "var(--color-app-ink)" : "transparent",
@@ -380,6 +401,36 @@ function ToolButton({
       }}
       title={`${label} (${sublabel})`}
     >
+      {pulseKey && pulseKey > 0 ? (
+        <span
+          key={pulseKey}
+          aria-hidden
+          className="pointer-events-none absolute inset-0 rounded-full"
+          style={{
+            border: "2px solid var(--color-app-copper)",
+            animation: "tb-lock-pulse 720ms ease-out",
+          }}
+        />
+      ) : null}
+      <style>{`
+        @keyframes tb-lock-pulse {
+          0% {
+            opacity: 0.95;
+            transform: scale(0.9);
+            box-shadow: 0 0 0 0 rgba(197, 133, 58, 0.55);
+          }
+          60% {
+            opacity: 0.7;
+            transform: scale(1.18);
+            box-shadow: 0 0 0 14px rgba(197, 133, 58, 0);
+          }
+          100% {
+            opacity: 0;
+            transform: scale(1.28);
+            box-shadow: 0 0 0 18px rgba(197, 133, 58, 0);
+          }
+        }
+      `}</style>
       {children}
       <span
         className="text-[9px] uppercase tracking-[0.16em]"

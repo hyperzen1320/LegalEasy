@@ -124,6 +124,13 @@ function Inner({
   const [showMinimap, setShowMinimap] = useState(false);
   const [locked, setLocked] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  // Increments whenever the user attempts an editing action while the
+  // canvas is locked — drives a brief flash + shake on the Lock pill in
+  // the toolbar so the source of the block is unambiguous.
+  const [lockPulseSig, setLockPulseSig] = useState(0);
+  const pulseLock = useCallback(() => {
+    setLockPulseSig((s) => s + 1);
+  }, []);
 
   // Debounced resync of authoritative board state when the live feed
   // reports changes that affect lists / tasks / edges and the actor was
@@ -942,12 +949,44 @@ function Inner({
               }}
             />
           ) : null}
+          {/* Locked shield. Sits ABOVE all canvas content (nodes,
+              edges, MiniMap) but BELOW the toolbar — covers every
+              click target that would otherwise mutate the board (Add
+              card, ⋮ menus, card opens, edge delete pills, etc.).
+              Each click increments `lockPulseSig` which flashes the
+              Lock pill so the user knows where the block came from.
+              The toolbar's higher z-index keeps Lock / Zoom / Fit /
+              Help all reachable. */}
+          {locked ? (
+            <div
+              role="presentation"
+              aria-hidden
+              onMouseDownCapture={(e) => {
+                e.stopPropagation();
+                pulseLock();
+              }}
+              onClickCapture={(e) => {
+                e.stopPropagation();
+                pulseLock();
+              }}
+              onWheelCapture={(e) => e.stopPropagation()}
+              style={{
+                position: "absolute",
+                inset: 0,
+                zIndex: 25,
+                cursor: "not-allowed",
+                background: "transparent",
+              }}
+              title="Canvas is locked — click the Lock pill to unlock"
+            />
+          ) : null}
           <CanvasToolbar
             showMinimap={showMinimap}
             onToggleMinimap={() => setShowMinimap((v) => !v)}
             locked={locked}
             onToggleLock={() => setLocked((v) => !v)}
             onOpenHelp={() => setHelpOpen(true)}
+            lockPulseSig={lockPulseSig}
           />
         </ReactFlow>
 
@@ -958,6 +997,8 @@ function Inner({
           members={members}
           canEdit={canEdit}
           onAddList={onAddList}
+          locked={locked}
+          onLockedAttempt={pulseLock}
           totalLists={lists.length}
           totalCards={tasks.length}
           boardId={boardId}
@@ -1058,6 +1099,8 @@ function CanvasTopBar({
   members,
   canEdit,
   onAddList,
+  locked,
+  onLockedAttempt,
   totalLists,
   totalCards,
   boardId,
@@ -1071,6 +1114,13 @@ function CanvasTopBar({
   members: BoardMember[];
   canEdit: boolean;
   onAddList: (title: string) => void;
+  // When the canvas is locked we still render the Add list composer
+  // (so the user can SEE where it lives) but every click on it routes
+  // to onLockedAttempt so the Lock pill flashes instead of opening the
+  // composer. Bell + back link stay fully interactive since they don't
+  // mutate the board.
+  locked: boolean;
+  onLockedAttempt: () => void;
   totalLists: number;
   totalCards: number;
   boardId: string;
@@ -1263,6 +1313,8 @@ function CanvasTopBar({
             accent={accent}
             gradient={gradient}
             onSubmit={onAddList}
+            locked={locked}
+            onLockedAttempt={onLockedAttempt}
           />
         ) : null}
       </div>
@@ -1280,14 +1332,27 @@ function AddListComposer({
   accent,
   gradient,
   onSubmit,
+  locked,
+  onLockedAttempt,
 }: {
   accent: string;
   gradient: [string, string];
   onSubmit: (title: string) => void;
+  locked: boolean;
+  onLockedAttempt: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // If the canvas locks while the composer is open, close it. Keeps the
+  // surface honest — no half-typed edits on a locked board.
+  useEffect(() => {
+    if (locked && open) {
+      setOpen(false);
+      setTitle("");
+    }
+  }, [locked, open]);
 
   useEffect(() => {
     if (open && inputRef.current) inputRef.current.focus();
@@ -1308,14 +1373,23 @@ function AddListComposer({
   if (!open) {
     return (
       <button
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          if (locked) {
+            onLockedAttempt();
+            return;
+          }
+          setOpen(true);
+        }}
         className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-semibold transition-transform hover:-translate-y-0.5"
         style={{
           fontFamily: "var(--font-manrope), sans-serif",
           background: `linear-gradient(135deg, ${gradient[0]}, ${gradient[1]})`,
           color: "#fff",
           boxShadow: `0 8px 20px -8px ${accent}80`,
+          opacity: locked ? 0.5 : 1,
+          cursor: locked ? "not-allowed" : "pointer",
         }}
+        title={locked ? "Canvas is locked" : "Add a new list"}
       >
         <span style={{ fontSize: 14, lineHeight: 1 }}>+</span> Add list
       </button>
