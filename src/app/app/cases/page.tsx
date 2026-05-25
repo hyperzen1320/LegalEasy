@@ -20,12 +20,14 @@ export default async function CaseVaultPage() {
   const partnerId = session?.user?.partnerId
     ? new mongoose.Types.ObjectId(session.user.partnerId)
     : null;
+  const isAdmin = session?.user?.userType === "partner_admin";
 
   let bootstrap: CaseVaultBootstrap = {
     courts: [],
     courtPlaces: [],
     advocates: [],
     partnerId: "",
+    isAdmin,
   };
 
   if (partnerId) {
@@ -75,6 +77,7 @@ export default async function CaseVaultPage() {
       courtPlaces,
       advocates,
       partnerId: String(partnerId),
+      isAdmin,
     };
   }
 

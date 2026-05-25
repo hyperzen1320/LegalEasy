@@ -13,33 +13,32 @@ import {
   type CourtOption,
   type AdvocateOption,
 } from "./case-vault-types";
-import CaseFilterBar from "./CaseFilterBar";
-import CaseSearchBar from "./CaseSearchBar";
+import CaseToolBar from "./CaseToolBar";
 import CaseTable from "./CaseTable";
+import RequestDeleteDialog, {
+  type RequestTarget,
+} from "@/app/app/workflow/[id]/RequestDeleteDialog";
 
 export type CaseVaultBootstrap = {
   courts: CourtOption[];
   courtPlaces: string[];
   advocates: AdvocateOption[];
   partnerId: string;
+  isAdmin: boolean;
 };
 
 // CaseVaultClient — the orchestrator.
 //
 // Owns:
 //   • The filter tuple, mirrored to the URL via router.replace so a
-//     copy-pasted link re-opens the same view. Read on mount, written
-//     on every Apply (filter bar) or input commit (search bar).
+//     copy-pasted link re-opens the same view.
 //   • The fetched rows + pagination meta. Re-fetches whenever the URL
 //     filters change.
-//   • Column visibility, persisted to localStorage per partner so each
-//     office user keeps their layout across sessions.
-//   • A small disposing-spinner state on the row delete action so the
-//     row dims while the PATCH-to-Disposed flies.
-//
-// The visible UI is split across three subcomponents — CaseFilterBar,
-// CaseSearchBar, CaseTable — each of which is small enough to read on
-// its own. This file is the glue.
+//   • Column visibility, persisted to localStorage per partner.
+//   • The Delete-action gate: admins dispose directly; non-admins
+//     route into the RequestDeleteDialog (POST /api/app/delete-requests)
+//     so the admin can approve via Activity → Delete Requests or via
+//     the bell-icon dropdown.
 
 export default function CaseVaultClient({
   bootstrap,
@@ -49,18 +48,13 @@ export default function CaseVaultClient({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // URL → applied filters. Anything in the URL is what's currently
-  // filtering the displayed rows. The filter bar's local "draft" state
-  // lives inside CaseFilterBar — it only flushes here on Apply.
+  // URL → applied filters.
   const appliedFilters: CaseFilters = useMemo(() => {
     const params = new URLSearchParams(searchParams.toString());
     return filtersFromQuery(params);
   }, [searchParams]);
 
-  // Column visibility. Default selection mirrors what's marked
-  // `default: true` in the column registry. Persisted under a
-  // partner-scoped key so two users on shared hardware see their own
-  // views.
+  // Column visibility.
   const visibilityKey = `legaleasy.caseVaultColumns.${bootstrap.partnerId}`;
   const [visibleColumns, setVisibleColumns] = useState<CaseColumnKey[]>(
     DEFAULT_VISIBLE_COLUMNS
@@ -75,14 +69,14 @@ export default function CaseVaultClient({
       const valid = parsed.filter((k): k is CaseColumnKey =>
         COLUMNS.some((c) => c.key === k)
       );
-      // Always keep S.No + Actions visible regardless of what was saved.
+      // S.No + Actions stay on regardless of what was saved.
       const always = COLUMNS.filter((c) => !c.togglable).map((c) => c.key);
       const merged = new Set<CaseColumnKey>([...always, ...valid]);
       setVisibleColumns(
         COLUMNS.filter((c) => merged.has(c.key)).map((c) => c.key)
       );
     } catch {
-      // Corrupt localStorage entry — ignore, the defaults stand.
+      /* Corrupt localStorage entry — defaults stand. */
     }
   }, [visibilityKey]);
 
@@ -93,7 +87,7 @@ export default function CaseVaultClient({
       try {
         window.localStorage.setItem(visibilityKey, JSON.stringify(next));
       } catch {
-        /* localStorage disabled — accept the ephemeral state. */
+        /* localStorage disabled — accept ephemeral state. */
       }
     },
     [visibilityKey]
@@ -104,12 +98,19 @@ export default function CaseVaultClient({
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Optimistically hidden ids — when the user clicks delete on a row
-  // we drop it from the view immediately, then ask the server to
-  // refresh. Avoids the ~200ms flash where the disposed row would
-  // still render while the page round-trips.
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const requestRef = useRef(0);
+
+  // Delete-request flow state. When non-admin clicks Delete on a row,
+  // we open RequestDeleteDialog instead of disposing directly. After
+  // the user submits a request, a small confirmation banner takes the
+  // place of the dialog until the next refetch.
+  const [requestTarget, setRequestTarget] = useState<RequestTarget | null>(
+    null
+  );
+  const [requestSentFor, setRequestSentFor] = useState<{
+    caseNo: string;
+  } | null>(null);
 
   const fetchRows = useCallback(async () => {
     setLoading(true);
@@ -117,13 +118,11 @@ export default function CaseVaultClient({
     const seq = ++requestRef.current;
     try {
       const params = filtersToQuery(appliedFilters);
-      // Always pass the limit explicitly so the server agrees with the UI's
-      // "Showing N of M" line even when the URL omitted the param.
       params.set("limit", String(appliedFilters.limit));
       const res = await fetch(`/api/app/cases?${params.toString()}`, {
         cache: "no-store",
       });
-      if (seq !== requestRef.current) return; // a newer request started — drop this result
+      if (seq !== requestRef.current) return;
       const data = await res.json().catch(() => null);
       if (!res.ok || !data) {
         setError(data?.error || "Couldn't load cases.");
@@ -159,17 +158,7 @@ export default function CaseVaultClient({
     [router]
   );
 
-  const handleApplyFilters = useCallback(
-    (next: CaseFilters) => {
-      writeFiltersToUrl(next);
-    },
-    [writeFiltersToUrl]
-  );
-
-  // The search bar can change two non-filter things — search/scope/limit
-  // (which DO live in the URL) and the visibility column list (which
-  // lives in localStorage). Splitting handlers keeps each side small.
-  const handleApplySearch = useCallback(
+  const handleApply = useCallback(
     (next: CaseFilters) => {
       writeFiltersToUrl(next);
     },
@@ -183,14 +172,24 @@ export default function CaseVaultClient({
     [persistVisibility]
   );
 
-  const handleDispose = useCallback(
+  const handleDelete = useCallback(
     async (row: CaseRow) => {
+      // Non-admin path — open the request dialog instead of disposing.
+      if (!bootstrap.isAdmin) {
+        setRequestTarget({
+          type: "case",
+          id: row.id,
+          name: row.caseNo || row.fileNo || "this matter",
+          hint: "Only the office admin can dispose a matter directly.",
+        });
+        return;
+      }
+
+      // Admin path — direct dispose via PATCH.
       const confirmMsg = `Move ${row.caseNo || "this matter"} to Disposed Cases? You can reopen it later from the archive.`;
       if (typeof window !== "undefined" && !window.confirm(confirmMsg)) {
         return;
       }
-      // Hide immediately so the row vanishes without waiting on the
-      // round-trip. The next fetch reconciles authoritatively.
       setHidden((prev) => {
         const next = new Set(prev);
         next.add(row.id);
@@ -204,11 +203,13 @@ export default function CaseVaultClient({
         });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
+          // Server might still 403 us — even admins occasionally get a
+          // delete_request_required signal if their role record is
+          // stale. Surface the message and restore the row.
           setError(
             data?.error ||
               "Couldn't move that matter to Disposed. Try again."
           );
-          // Restore the row since the action failed.
           setHidden((prev) => {
             const next = new Set(prev);
             next.delete(row.id);
@@ -216,7 +217,6 @@ export default function CaseVaultClient({
           });
           return;
         }
-        // Successful — pull fresh data so the count + neighbour rows update.
         fetchRows();
       } catch {
         setError("Network error. Try again.");
@@ -227,7 +227,7 @@ export default function CaseVaultClient({
         });
       }
     },
-    [fetchRows]
+    [bootstrap.isAdmin, fetchRows]
   );
 
   const visibleRows = useMemo(
@@ -237,16 +237,11 @@ export default function CaseVaultClient({
 
   return (
     <div className="mt-7 space-y-5">
-      <CaseFilterBar
+      <CaseToolBar
         bootstrap={bootstrap}
         appliedFilters={appliedFilters}
-        onApply={handleApplyFilters}
-      />
-
-      <CaseSearchBar
-        appliedFilters={appliedFilters}
         visibleColumns={visibleColumns}
-        onApply={handleApplySearch}
+        onApply={handleApply}
         onColumnsChange={handleColumnsChange}
       />
 
@@ -264,14 +259,44 @@ export default function CaseVaultClient({
         </div>
       ) : null}
 
+      {requestSentFor ? (
+        <div
+          className="rounded-md px-4 py-3 text-[13px]"
+          style={{
+            fontFamily: "var(--font-manrope), sans-serif",
+            backgroundColor: "var(--color-app-aqua-soft)",
+            border: "1px solid var(--color-app-aqua)",
+            color: "var(--color-app-ink)",
+          }}
+        >
+          Delete request for{" "}
+          <span style={{ fontWeight: 600 }}>{requestSentFor.caseNo}</span>{" "}
+          sent. The office admin will review it shortly.
+        </div>
+      ) : null}
+
       <CaseTable
         rows={visibleRows}
         total={total}
         loading={loading}
         visibleColumns={visibleColumns}
         appliedFilters={appliedFilters}
-        onDispose={handleDispose}
+        onDelete={handleDelete}
       />
+
+      {requestTarget ? (
+        <RequestDeleteDialog
+          target={requestTarget}
+          onClose={() => setRequestTarget(null)}
+          onSubmitted={() => {
+            const name = requestTarget.name;
+            setRequestTarget(null);
+            setRequestSentFor({ caseNo: name });
+            // Banner sticks until the next page interaction.
+            setTimeout(() => setRequestSentFor(null), 8000);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

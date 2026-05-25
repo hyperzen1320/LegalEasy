@@ -191,9 +191,38 @@ export async function PATCH(
     doc.courtId = null;
   }
 
-  // Status — validate against known list but allow custom strings as well
+  // Status — validate against known list but allow custom strings as well.
+  // The one exception is "Disposed": that's the deletion lever and admins
+  // are the only people authorised to pull it. Non-admins get a 403 with
+  // a `delete_request_required` code so the client can pivot into the
+  // Request-Delete flow (admin reviews + approves, then dispose happens).
+  // Reopening a disposed case stays admin-only too — handled via the
+  // status moving away from "Disposed" while currently disposed.
   if (typeof body.status === "string" && body.status.trim()) {
-    doc.status = body.status.trim();
+    const nextStatus = body.status.trim();
+    const wantsToDispose =
+      nextStatus === "Disposed" && doc.status !== "Disposed";
+    const wantsToReopen =
+      doc.status === "Disposed" && nextStatus !== "Disposed";
+    const isAdmin = guard.ctx.user.role === "admin";
+    if ((wantsToDispose || wantsToReopen) && !isAdmin) {
+      return NextResponse.json(
+        {
+          error: wantsToDispose
+            ? "Only the office admin can dispose a matter. Send a delete request and the admin will review."
+            : "Only the office admin can reopen a disposed matter.",
+          code: "delete_request_required",
+          targetType: "case",
+          targetId: String(doc._id),
+          targetName: doc.caseNo,
+        },
+        {
+          status: 403,
+          headers: guard.ctx.isMobile ? corsHeaders() : undefined,
+        }
+      );
+    }
+    doc.status = nextStatus;
   }
 
   // Optional disposal remarks — captured when admin marks a case as

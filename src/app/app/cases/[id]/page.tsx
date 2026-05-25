@@ -551,7 +551,11 @@ export default async function CaseDetailPage({
           className="fade-up-sm mt-10 flex justify-center"
           style={{ animationDelay: "380ms" }}
         >
-          <DeleteCaseButton caseId={String(c._id)} caseNo={c.caseNo} />
+          <DeleteCaseButton
+            caseId={String(c._id)}
+            caseNo={c.caseNo}
+            isAdmin={role === "admin"}
+          />
         </section>
       </div>
     </div>
