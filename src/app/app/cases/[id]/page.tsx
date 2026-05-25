@@ -442,9 +442,13 @@ export default async function CaseDetailPage({
           />
         </section>
 
-        {/* Update Hearing + Client Contact */}
+        {/* Update Hearing + Client Contact. id="update-hearing" is the
+            anchor target Hearing Track > Pending uses — clicking the
+            "Update hearing" button on a pending row jumps the user
+            straight here so the form is visible without scrolling. */}
         <section
-          className="fade-up-sm mt-6 grid gap-4 lg:grid-cols-[1.1fr_1fr]"
+          id="update-hearing"
+          className="fade-up-sm mt-6 scroll-mt-24 grid gap-4 lg:grid-cols-[1.1fr_1fr]"
           style={{ animationDelay: "220ms" }}
         >
           <UpdateHearingForm

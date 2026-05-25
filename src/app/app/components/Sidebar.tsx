@@ -15,14 +15,13 @@ type NavItem = {
   liveCountKey?: "chatUnread";
 };
 
+// Disposed Cases sits low in the rail (just above My Profile) because
+// it's an archive — advocates dip into it occasionally to reopen or
+// look up a closed matter, not as part of the daily triage flow at the
+// top of the workspace section.
 const NAV: NavItem[] = [
   { name: "Dashboard", href: "/app", icon: IconDashboard },
   { name: "Case Vault", href: "/app/cases", icon: IconCases },
-  {
-    name: "Disposed Cases",
-    href: "/app/disposed-cases",
-    icon: IconDisposed,
-  },
   { name: "Client Crew", href: "/app/clients", icon: IconClients },
   { name: "Hearing Track", href: "/app/hearings", icon: IconHearings },
   { name: "Court Hub", href: "/app/courts", icon: IconCourts },
@@ -35,6 +34,11 @@ const NAV: NavItem[] = [
   },
   { name: "Activity", href: "/app/activity", icon: IconActivity },
   { name: "AI Assistant", href: "/app/ai", icon: IconAI },
+  {
+    name: "Disposed Cases",
+    href: "/app/disposed-cases",
+    icon: IconDisposed,
+  },
   { name: "My Profile", href: "/app/profile", icon: IconProfile },
   { name: "Users / Advocates", href: "/app/users", icon: IconUsers },
 ];
