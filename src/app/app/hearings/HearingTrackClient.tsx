@@ -1,8 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
 export type Bucket = "today" | "tomorrow" | "pending";
 
@@ -21,18 +19,6 @@ export type HearingRow = {
   nextHearingDate: string | null;
   lastHearingDate: string | null;
 };
-
-const STATUS_OPTIONS = [
-  "Filed",
-  "Notice",
-  "Pleadings",
-  "Issues",
-  "Evidence",
-  "Arguments",
-  "Reserved",
-  "Judgment",
-  "Disposed",
-];
 
 export default function HearingTrackClient({
   bucket,
@@ -307,52 +293,15 @@ function PendingCard({
   index: number;
   officeName: string;
 }) {
-  const router = useRouter();
-  const [, startTransition] = useTransition();
-
-  const [date, setDate] = useState("");
-  const [status, setStatus] = useState(c.status || "Filed");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [savedFlash, setSavedFlash] = useState(false);
-
   const telLink = buildTelLink(c);
   const waLink = buildWhatsAppLink(c, officeName, "pending");
 
-  async function onUpdate() {
-    setError(null);
-    if (!date) {
-      setError("Please pick a next hearing date.");
-      return;
-    }
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/app/cases/${c.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nextHearingDate: date,
-          status,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Couldn't update");
-        setSaving(false);
-        return;
-      }
-      setSavedFlash(true);
-      // After a beat, refresh the server page so this row leaves the Pending bucket
-      setTimeout(() => {
-        startTransition(() => {
-          router.refresh();
-        });
-      }, 350);
-    } catch {
-      setError("Network error.");
-      setSaving(false);
-    }
-  }
+  // Two flavours of pending — the previous date passed without being
+  // replaced (overdue) or the matter was never given a next date
+  // (undated). The badge + tagline change accordingly so the advocate
+  // can tell at a glance which case is asking what.
+  const overdueDays = overdueDaysFor(c.nextHearingDate);
+  const isOverdue = overdueDays !== null;
 
   return (
     <div
@@ -360,9 +309,10 @@ function PendingCard({
       style={{
         backgroundColor: "var(--color-app-paper)",
         boxShadow: "0 1px 0 var(--color-app-edge)",
+        borderLeft: isOverdue
+          ? "3px solid var(--color-app-danger)"
+          : "3px solid var(--color-app-copper)",
         animationDelay: `${Math.min(index, 10) * 35}ms`,
-        opacity: savedFlash ? 0.55 : 1,
-        transition: "opacity 250ms ease",
       }}
     >
       {/* Top row */}
@@ -379,6 +329,19 @@ function PendingCard({
           >
             {c.caseNo}
           </Link>
+          {c.status ? (
+            <span
+              className="ml-3 rounded-md px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em]"
+              style={{
+                fontFamily: "var(--font-dm-mono), monospace",
+                backgroundColor: "var(--color-app-aqua-soft)",
+                color: "var(--color-app-aqua)",
+                verticalAlign: "middle",
+              }}
+            >
+              {c.status}
+            </span>
+          ) : null}
           <div
             className="mt-1.5 text-[13px]"
             style={{
@@ -407,7 +370,10 @@ function PendingCard({
               </>
             ) : null}
           </div>
-          {c.lastHearingDate ? (
+          {/* The "last date" line is only useful for undated matters —
+              for overdue ones the next date is itself the meaningful
+              past date and we surface it in the badge column instead. */}
+          {!isOverdue && c.lastHearingDate ? (
             <div
               className="mt-1 text-[12px]"
               style={{
@@ -427,135 +393,76 @@ function PendingCard({
             </div>
           ) : null}
         </div>
-        <span
-          className="shrink-0 rounded-md px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
-          style={{
-            fontFamily: "var(--font-dm-mono), monospace",
-            backgroundColor: "var(--color-app-copper)",
-            color: "var(--color-app-copper-text)",
-          }}
-        >
-          Pending next date
-        </span>
-      </div>
 
-      {/* Update form */}
-      <div className="mt-5 grid gap-4 md:grid-cols-[1fr_1fr_auto]">
-        <div>
-          <label
-            className="text-[10px] font-semibold uppercase tracking-[0.18em]"
-            style={{
-              fontFamily: "var(--font-dm-mono), monospace",
-              color: "var(--color-app-fg-muted)",
-            }}
-          >
-            Next hearing
-          </label>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="mt-2 block w-full rounded-md border px-3.5 py-2.5 text-[14px] outline-none transition-all"
-            style={{
-              fontFamily: "var(--font-manrope), sans-serif",
-              borderColor: error
-                ? "var(--color-app-danger)"
-                : "var(--color-app-edge)",
-              backgroundColor: "var(--color-app-paper)",
-              color: "var(--color-app-ink)",
-            }}
-            onFocus={(e) => {
-              e.currentTarget.style.borderColor = "var(--color-app-copper)";
-              e.currentTarget.style.boxShadow =
-                "0 0 0 3px rgba(197,133,58,0.15)";
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderColor = error
-                ? "var(--color-app-danger)"
-                : "var(--color-app-edge)";
-              e.currentTarget.style.boxShadow = "none";
-            }}
-          />
-        </div>
-        <div>
-          <label
-            className="text-[10px] font-semibold uppercase tracking-[0.18em]"
-            style={{
-              fontFamily: "var(--font-dm-mono), monospace",
-              color: "var(--color-app-fg-muted)",
-            }}
-          >
-            Status
-          </label>
-          <div className="relative mt-2">
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="block w-full appearance-none rounded-md border px-3.5 py-2.5 text-[14px] outline-none transition-all"
+        {/* Badge column */}
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          {isOverdue ? (
+            <>
+              <span
+                className="rounded-md px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                style={{
+                  fontFamily: "var(--font-dm-mono), monospace",
+                  backgroundColor: "var(--color-app-danger-soft)",
+                  color: "var(--color-app-danger)",
+                }}
+              >
+                {formatOverdue(overdueDays)}
+              </span>
+              <span
+                className="text-[11px]"
+                style={{
+                  fontFamily: "var(--font-dm-mono), monospace",
+                  color: "var(--color-app-fg-muted)",
+                }}
+              >
+                Was{" "}
+                <span
+                  style={{
+                    color: "var(--color-app-ink)",
+                    fontWeight: 600,
+                  }}
+                >
+                  {(c.nextHearingDate || "").slice(0, 10)}
+                </span>
+              </span>
+            </>
+          ) : (
+            <span
+              className="rounded-md px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
               style={{
-                fontFamily: "var(--font-manrope), sans-serif",
-                borderColor: "var(--color-app-edge)",
-                backgroundColor: "var(--color-app-paper)",
-                color: "var(--color-app-ink)",
-                paddingRight: 36,
+                fontFamily: "var(--font-dm-mono), monospace",
+                backgroundColor: "var(--color-app-copper)",
+                color: "var(--color-app-copper-text)",
               }}
             >
-              {STATUS_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-            <span
-              aria-hidden
-              className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2"
-              style={{ color: "var(--color-app-fg-muted)" }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M6 9l6 6 6-6"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              No next date
             </span>
-          </div>
-        </div>
-        <div className="flex items-end">
-          <button
-            onClick={onUpdate}
-            disabled={saving}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-md px-6 py-2.5 text-[13px] font-semibold transition-all hover:-translate-y-0.5"
-            style={{
-              fontFamily: "var(--font-manrope), sans-serif",
-              backgroundColor: "var(--color-app-copper)",
-              color: "var(--color-app-copper-text)",
-              opacity: saving ? 0.6 : 1,
-              boxShadow: "0 8px 20px -10px rgba(197,133,58,0.6)",
-              minWidth: 120,
-            }}
-          >
-            {saving ? "Updating…" : savedFlash ? "Updated ✓" : "Update"}
-          </button>
+          )}
         </div>
       </div>
 
-      {error ? (
-        <p
-          className="mt-3 text-[12px]"
+      {/* Action row — Update hearing primary, Call + WhatsApp secondary.
+          The Update hearing link drops the user onto the case detail
+          page with the URL fragment that scrolls them directly to the
+          Update Hearing form. They edit there, save, and the next page
+          load removes this row from the Pending bucket. */}
+      <div className="mt-5 flex flex-wrap items-center gap-2">
+        <Link
+          href={`/app/cases/${c.id}#update-hearing`}
+          className="inline-flex items-center gap-1.5 rounded-md px-5 py-2.5 text-[13px] font-semibold transition-all hover:-translate-y-0.5"
           style={{
             fontFamily: "var(--font-manrope), sans-serif",
-            color: "var(--color-app-danger)",
+            backgroundColor: "var(--color-app-copper)",
+            color: "var(--color-app-copper-text)",
+            boxShadow: "0 8px 20px -10px rgba(197,133,58,0.6)",
           }}
         >
-          {error}
-        </p>
-      ) : null}
-
-      {/* Contact buttons */}
-      <div className="mt-5 flex flex-wrap gap-2">
+          <CalendarIcon />
+          Update hearing
+          <span aria-hidden style={{ opacity: 0.8 }}>
+            →
+          </span>
+        </Link>
         <ContactPillButton
           href={telLink}
           icon={<PhoneIcon />}
@@ -572,6 +479,39 @@ function PendingCard({
       </div>
     </div>
   );
+}
+
+// Whole-day diff between nextHearingDate and today in the browser's
+// local timezone. Returns null when the date is missing, or 0+ for an
+// overdue (today is not in pending so 0 shouldn't normally appear; we
+// still handle it to avoid edge-case crashes).
+function overdueDaysFor(iso: string | null): number | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const dDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const today = new Date();
+  const tDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const diff = Math.floor(
+    (tDay.getTime() - dDay.getTime()) / (1000 * 60 * 60 * 24)
+  );
+  return diff > 0 ? diff : null;
+}
+
+function formatOverdue(days: number | null): string {
+  if (days === null || days <= 0) return "Overdue";
+  if (days === 1) return "Overdue · yesterday";
+  if (days < 7) return `Overdue · ${days} days`;
+  if (days < 30) {
+    const weeks = Math.floor(days / 7);
+    return `Overdue · ${weeks}w`;
+  }
+  if (days < 365) {
+    const months = Math.floor(days / 30);
+    return `Overdue · ${months}mo`;
+  }
+  const years = Math.floor(days / 365);
+  return `Overdue · ${years}y`;
 }
 
 /* ─── Contact buttons ─── */
@@ -723,7 +663,7 @@ function EmptyState({ bucket }: { bucket: Bucket }) {
           }
         : {
             title: "No pending dates. Inbox zero.",
-            body: "Every matter in the vault has its next hearing date set. Update from a case page or the daily diary.",
+            body: "Every matter in the vault has its next hearing date set, and no past hearings are sitting un-updated. Matters land here when a hearing date is missing or has passed without being re-listed.",
           };
 
   return (
@@ -818,6 +758,38 @@ function buildWhatsAppLink(
 }
 
 /* ─── Icons ─── */
+
+function CalendarIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+    >
+      <rect
+        x="3"
+        y="5"
+        width="18"
+        height="16"
+        rx="2"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      <path
+        d="M3 10h18M8 3v4M16 3v4"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <path
+        d="M9 14h2v2H9z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
 
 function PhoneIcon({ size = 18 }: { size?: number }) {
   return (

@@ -40,41 +40,92 @@ export async function loadHearingsBucket(
     disposedAt: null,
   };
 
-  let filter: Record<string, unknown>;
-  let sort: Record<string, 1 | -1>;
-
-  if (bucket === "pending") {
-    filter = { ...baseFilter, nextHearingDate: null };
-    sort = { lastHearingDate: -1, updatedAt: -1 };
-  } else {
-    const offset = bucket === "today" ? 0 : 1;
-    const now = new Date();
-    const start = istDayStart(now, offset);
-    const end = istDayStart(now, offset + 1);
-    filter = {
-      ...baseFilter,
-      nextHearingDate: { $gte: start, $lt: end },
-    };
-    sort = { courtName: 1, caseNo: 1 };
-  }
-
+  // IST day boundaries computed once and reused for both the filter and
+  // the per-bucket counts. Each call is server-side dynamic, so the page
+  // always uses "now" as of the request — no stale-time issues.
   const now = new Date();
   const todayStart = istDayStart(now, 0);
   const todayEnd = istDayStart(now, 1);
   const tomorrowEnd = istDayStart(now, 2);
 
-  const [docs, todayCount, tomorrowCount, pendingCount] = await Promise.all([
-    Case.find(filter).sort(sort).lean(),
-    Case.countDocuments({
+  // The pending bucket gathers two kinds of matters:
+  //   • Cases with no next hearing date at all (null).
+  //   • Cases whose next hearing date has passed today — `< todayStart`
+  //     in IST. The advocate forgot to re-list it after the last hearing,
+  //     so it needs attention.
+  // We run them as two separate queries so we can sort each meaningfully
+  // and concatenate (overdue ascending = oldest first, then undated):
+  // mixing them into one query with one sort would either bury overdues
+  // at the bottom or put nulls in the middle.
+  //
+  // The shared count uses an explicit `$ne: null` in the overdue branch
+  // so we don't accidentally double-count or rely on cross-type
+  // comparison behaviour.
+  const overdueFilter: Record<string, unknown> = {
+    ...baseFilter,
+    nextHearingDate: { $ne: null, $lt: todayStart },
+  };
+  const undatedFilter: Record<string, unknown> = {
+    ...baseFilter,
+    nextHearingDate: null,
+  };
+
+  let docsPromise: Promise<unknown[]>;
+  if (bucket === "pending") {
+    docsPromise = Promise.all([
+      Case.find(overdueFilter).sort({ nextHearingDate: 1 }).lean(),
+      Case.find(undatedFilter)
+        .sort({ lastHearingDate: -1, updatedAt: -1 })
+        .lean(),
+    ]).then(([overdue, undated]) => [...overdue, ...undated]);
+  } else {
+    const offset = bucket === "today" ? 0 : 1;
+    const start = istDayStart(now, offset);
+    const end = istDayStart(now, offset + 1);
+    docsPromise = Case.find({
       ...baseFilter,
-      nextHearingDate: { $gte: todayStart, $lt: todayEnd },
-    }),
-    Case.countDocuments({
-      ...baseFilter,
-      nextHearingDate: { $gte: todayEnd, $lt: tomorrowEnd },
-    }),
-    Case.countDocuments({ ...baseFilter, nextHearingDate: null }),
-  ]);
+      nextHearingDate: { $gte: start, $lt: end },
+    })
+      .sort({ courtName: 1, caseNo: 1 })
+      .lean() as Promise<unknown[]>;
+  }
+
+  const [docsUnknown, todayCount, tomorrowCount, pendingCount] =
+    await Promise.all([
+      docsPromise,
+      Case.countDocuments({
+        ...baseFilter,
+        nextHearingDate: { $gte: todayStart, $lt: todayEnd },
+      }),
+      Case.countDocuments({
+        ...baseFilter,
+        nextHearingDate: { $gte: todayEnd, $lt: tomorrowEnd },
+      }),
+      Case.countDocuments({
+        ...baseFilter,
+        $or: [
+          { nextHearingDate: null },
+          { nextHearingDate: { $ne: null, $lt: todayStart } },
+        ],
+      }),
+    ]);
+
+  const docs = docsUnknown as Array<{
+    _id: mongoose.Types.ObjectId;
+    caseNo: string;
+    fileNo: string;
+    cnr: string;
+    clientId: mongoose.Types.ObjectId | null;
+    clientName: string;
+    clientPhone: string;
+    clientWhatsapp: string;
+    oppositeParty: string;
+    courtName: string;
+    courtPlace: string;
+    status: string;
+    nextHearingDate: Date | null;
+    lastHearingDate: Date | null;
+  }>;
 
   // Client-contact fallback: when a case doesn't have phone/WhatsApp directly,
   // use the linked Client's contact details.
