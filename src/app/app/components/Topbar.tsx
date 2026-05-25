@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import BellDropdown from "./BellDropdown";
 
 const PAGE_TITLES: Record<string, string> = {
   "/app": "Dashboard",
@@ -71,28 +72,10 @@ export default function Topbar() {
             <path d="M16 16l5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
           </svg>
         </IconButton>
-        <div className="relative">
-          <IconButton ariaLabel="Notifications">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-              <path
-                d="M6 9a6 6 0 1 1 12 0c0 5 2 7 2 7H4s2-2 2-7z"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M10 19a2 2 0 0 0 4 0"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-              />
-            </svg>
-          </IconButton>
-          <span
-            className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full"
-            style={{ backgroundColor: "var(--color-app-copper)" }}
-          />
-        </div>
+        {/* The Topbar bell is dedicated to delete requests so admins
+            can review them from any non-canvas page. Canvas keeps its
+            own activity bell — they live in different surfaces. */}
+        <BellDropdown />
       </div>
     </header>
   );

@@ -1,6 +1,6 @@
 // Shared types for the Case Vault UI. Lives outside the components so
-// the table, filter bar, export menu, etc. can all type-check against
-// the same row shape.
+// the table, toolbar, export menu, etc. can all type-check against the
+// same row shape.
 
 export type CaseRow = {
   id: string;
@@ -43,7 +43,9 @@ export type AdvocateOption = {
 // Master column list for the table. `togglable: false` means the user
 // can't hide it via the Columns menu (S.No and Actions are always on).
 // `default: true` controls the initial visibility before the user has
-// saved any column preferences.
+// saved any column preferences. The Columns menu drives BOTH the
+// visible table columns AND the exported columns — same list, no
+// separate "fields to export" dropdown.
 export type CaseColumnKey =
   | "sno"
   | "fileNo"
@@ -100,53 +102,13 @@ export const DEFAULT_VISIBLE_COLUMNS: CaseColumnKey[] = COLUMNS
   .filter((c) => c.default)
   .map((c) => c.key);
 
-// The "Search in" dropdown lets the user constrain the search query
-// to specific columns. These mirror the searchable-field list in the
-// case-filter helper on the server.
-export type SearchScope =
-  | "fileNo"
-  | "caseNo"
-  | "iaNumbers"
-  | "cnr"
-  | "clientName"
-  | "clientPhone"
-  | "clientWhatsapp"
-  | "courtName"
-  | "courtNumber"
-  | "courtPlace"
-  | "status";
-
-export const SEARCH_SCOPE_OPTIONS: { key: SearchScope; label: string }[] = [
-  { key: "fileNo", label: "File No" },
-  { key: "caseNo", label: "Case No" },
-  { key: "iaNumbers", label: "IA No" },
-  { key: "cnr", label: "CNR No" },
-  { key: "clientName", label: "Client Name" },
-  { key: "clientPhone", label: "Mobile 1" },
-  { key: "clientWhatsapp", label: "Mobile 2" },
-  { key: "courtName", label: "Court Name" },
-  { key: "courtNumber", label: "Court No" },
-  { key: "courtPlace", label: "Place" },
-  { key: "status", label: "Status" },
-];
-
-export const DEFAULT_SEARCH_SCOPE: SearchScope[] = [
-  "fileNo",
-  "caseNo",
-  "iaNumbers",
-  "cnr",
-  "clientName",
-  "clientPhone",
-  "clientWhatsapp",
-  "courtName",
-  "courtNumber",
-  "courtPlace",
-  "status",
-];
-
 export const LIMIT_OPTIONS = [25, 50, 100, 200, 500] as const;
 export const DEFAULT_LIMIT = 50;
 
+// The filter tuple that drives the case list. Search is always across
+// every searchable column server-side — no per-field scope toggle, since
+// "search everything" is what users actually want and the previous UI
+// surface was confusing them into thinking it controlled export.
 export type CaseFilters = {
   courtId: string;
   courtPlace: string;
@@ -154,7 +116,6 @@ export type CaseFilters = {
   fromDate: string;
   toDate: string;
   search: string;
-  searchScope: SearchScope[];
   limit: number;
 };
 
@@ -165,21 +126,10 @@ export const EMPTY_FILTERS: CaseFilters = {
   fromDate: "",
   toDate: "",
   search: "",
-  searchScope: DEFAULT_SEARCH_SCOPE,
   limit: DEFAULT_LIMIT,
 };
 
 export function filtersFromQuery(params: URLSearchParams): CaseFilters {
-  const search = params.get("search") || "";
-  const rawScope = params.get("searchScope");
-  const scope = rawScope
-    ? rawScope
-        .split(",")
-        .map((s) => s.trim())
-        .filter((s): s is SearchScope =>
-          DEFAULT_SEARCH_SCOPE.includes(s as SearchScope)
-        )
-    : DEFAULT_SEARCH_SCOPE;
   const limitRaw = Number(params.get("limit") || "");
   const limit = (LIMIT_OPTIONS as readonly number[]).includes(limitRaw)
     ? limitRaw
@@ -190,8 +140,7 @@ export function filtersFromQuery(params: URLSearchParams): CaseFilters {
     advocateId: params.get("advocateId") || "",
     fromDate: params.get("fromDate") || "",
     toDate: params.get("toDate") || "",
-    search,
-    searchScope: scope.length > 0 ? scope : DEFAULT_SEARCH_SCOPE,
+    search: params.get("search") || "",
     limit,
   };
 }
@@ -204,13 +153,6 @@ export function filtersToQuery(filters: CaseFilters): URLSearchParams {
   if (filters.fromDate) params.set("fromDate", filters.fromDate);
   if (filters.toDate) params.set("toDate", filters.toDate);
   if (filters.search) params.set("search", filters.search);
-  // Only include scope when it diverges from the default (keeps URLs short).
-  if (
-    filters.searchScope.length !== DEFAULT_SEARCH_SCOPE.length ||
-    filters.searchScope.some((s, i) => s !== DEFAULT_SEARCH_SCOPE[i])
-  ) {
-    params.set("searchScope", filters.searchScope.join(","));
-  }
   if (filters.limit !== DEFAULT_LIMIT) {
     params.set("limit", String(filters.limit));
   }

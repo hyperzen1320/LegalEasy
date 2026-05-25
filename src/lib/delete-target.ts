@@ -98,9 +98,18 @@ export async function performSoftDelete(args: {
       return { ok: true, targetName: court.name, boardId: null };
     }
     case "case": {
+      // "Delete" on a case = move to Disposed Cases (not hide). Keeps
+      // the matter recoverable via the Reopen action and stays
+      // consistent with the direct admin Delete button on the table /
+      // detail page, both of which set status="Disposed" via PATCH.
       const c = await Case.findOne({ _id: targetId, partnerId });
       if (!c) return { ok: false, targetName: "", boardId: null };
-      c.isDeleted = true;
+      if (!c.disposedAt) {
+        c.disposedAt = new Date();
+      }
+      if (c.status !== "Disposed") {
+        c.status = "Disposed";
+      }
       await c.save();
       return {
         ok: true,

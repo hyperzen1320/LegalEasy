@@ -22,14 +22,14 @@ export default function CaseTable({
   loading,
   visibleColumns,
   appliedFilters,
-  onDispose,
+  onDelete,
 }: {
   rows: CaseRow[];
   total: number;
   loading: boolean;
   visibleColumns: CaseColumnKey[];
   appliedFilters: CaseFilters;
-  onDispose: (row: CaseRow) => void;
+  onDelete: (row: CaseRow) => void;
 }) {
   const cols = useMemo(
     () =>
@@ -96,7 +96,7 @@ export default function CaseTable({
                     row={row}
                     sno={i + 1}
                     cols={cols}
-                    onDispose={onDispose}
+                    onDelete={onDelete}
                   />
                 ))
               )}
@@ -164,12 +164,12 @@ function CaseTableRow({
   row,
   sno,
   cols,
-  onDispose,
+  onDelete,
 }: {
   row: CaseRow;
   sno: number;
   cols: (typeof COLUMNS)[number][];
-  onDispose: (row: CaseRow) => void;
+  onDelete: (row: CaseRow) => void;
 }) {
   // Use a regular row but mark it as a link target via the file/case
   // number cells. The whole row is hoverable for visual feedback; the
@@ -200,7 +200,7 @@ function CaseTableRow({
             verticalAlign: "middle",
           }}
         >
-          {renderCell(col.key, row, sno, onDispose)}
+          {renderCell(col.key, row, sno, onDelete)}
         </td>
       ))}
     </tr>
@@ -211,7 +211,7 @@ function renderCell(
   key: CaseColumnKey,
   row: CaseRow,
   sno: number,
-  onDispose: (row: CaseRow) => void
+  onDelete: (row: CaseRow) => void
 ): React.ReactNode {
   switch (key) {
     case "sno":
@@ -406,7 +406,7 @@ function renderCell(
           </Link>
           <button
             type="button"
-            onClick={() => onDispose(row)}
+            onClick={() => onDelete(row)}
             aria-label="Move to Disposed"
             title="Move to Disposed Cases"
             className="inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors"

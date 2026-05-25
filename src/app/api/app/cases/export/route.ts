@@ -22,6 +22,15 @@ import { generateXlsx } from "@/lib/case-export/xlsx";
 import { generateDocx } from "@/lib/case-export/docx";
 import { generatePdf } from "@/lib/case-export/pdf";
 
+// The PDF (pdfkit) generator loads AFM font files at runtime via
+// `fs.readFileSync` — that requires the full Node runtime, NOT the edge
+// runtime that some Next deployments default to. Be explicit so the
+// route is never silently rebuilt to edge.
+export const runtime = "nodejs";
+// And don't try to pre-render — every export is a fresh server call
+// with auth, filters and partner branding.
+export const dynamic = "force-dynamic";
+
 export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders() });
 }
@@ -178,9 +187,18 @@ export async function POST(request: Request) {
     else if (format === "docx") buffer = await generateDocx(exportInput);
     else buffer = await generatePdf(exportInput);
   } catch (err) {
-    console.error("[case-export] generator failed:", err);
+    // Log the actual error with context so a 500 in production isn't
+    // an opaque "Couldn't generate" — Vercel function logs will carry
+    // the stack and the format that broke.
+    console.error(
+      `[case-export] ${format} generator failed for partner ${guard.ctx.user.partnerId}:`,
+      err
+    );
+    const detail = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
-      { error: "Couldn't generate the export. Try again." },
+      {
+        error: `Couldn't generate the ${format.toUpperCase()} export. ${detail}`,
+      },
       {
         status: 500,
         headers: guard.ctx.isMobile ? corsHeaders() : undefined,
