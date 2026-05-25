@@ -178,7 +178,19 @@ export default function AttendanceClient({
   // weekday letter (S M T W T F S) which we use as a subtitle.
   const days = useMemo(() => {
     if (!data) return [];
-    const list: { day: number; weekday: string; iso: string }[] = [];
+    // Today in IST as a (year, month, day) tuple — drives the
+    // future-date cutoff so future cells render as locked.
+    const istNow = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
+    const todayY = istNow.getUTCFullYear();
+    const todayM = istNow.getUTCMonth() + 1;
+    const todayD = istNow.getUTCDate();
+    const list: {
+      day: number;
+      weekday: string;
+      iso: string;
+      isFuture: boolean;
+      isToday: boolean;
+    }[] = [];
     for (let d = 1; d <= data.totalDays; d++) {
       const date = new Date(Date.UTC(year, month - 1, d));
       const weekday = date.toLocaleDateString("en-IN", {
@@ -187,7 +199,19 @@ export default function AttendanceClient({
       })[0];
       // The ISO we send to the server is the IST midnight of the day.
       const ist = new Date(date.getTime() - 5.5 * 60 * 60 * 1000);
-      list.push({ day: d, weekday, iso: ist.toISOString() });
+      const isFuture =
+        year > todayY ||
+        (year === todayY && month > todayM) ||
+        (year === todayY && month === todayM && d > todayD);
+      const isToday =
+        year === todayY && month === todayM && d === todayD;
+      list.push({
+        day: d,
+        weekday,
+        iso: ist.toISOString(),
+        isFuture,
+        isToday,
+      });
     }
     return list;
   }, [data, year, month]);
@@ -469,8 +493,10 @@ export default function AttendanceClient({
                             iso={d.iso}
                             day={d.day}
                             weekend={isWeekend(d.weekday)}
+                            isFuture={d.isFuture}
+                            isToday={d.isToday}
                             record={rec || null}
-                            canEdit={isAdmin}
+                            canEdit={isAdmin && !d.isFuture}
                             busy={busyCell === key}
                             onMark={mark}
                           />
@@ -724,6 +750,8 @@ function AttendanceCell({
   iso,
   day,
   weekend,
+  isFuture,
+  isToday,
   record,
   canEdit,
   busy,
@@ -733,6 +761,8 @@ function AttendanceCell({
   iso: string;
   day: number;
   weekend: boolean;
+  isFuture: boolean;
+  isToday: boolean;
   record: RecordDTO | null;
   canEdit: boolean;
   busy: boolean;
@@ -764,7 +794,9 @@ function AttendanceCell({
 
   const opt = record ? STATUS_BY_KEY.get(record.status) || null : null;
   const tooltipBits: string[] = [];
-  if (opt) {
+  if (isFuture) {
+    tooltipBits.push("Future date — can't mark yet");
+  } else if (opt) {
     tooltipBits.push(opt.label);
     if (record?.markedByName) {
       tooltipBits.push(`by ${record.markedByName}`);
@@ -801,29 +833,49 @@ function AttendanceCell({
         type="button"
         title={tooltipBits.join(" · ")}
         onClick={() => {
-          if (!canEdit) return;
+          if (!canEdit || isFuture) return;
           setOpen((v) => !v);
         }}
-        disabled={!canEdit || busy}
+        disabled={!canEdit || busy || isFuture}
         className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[11px] font-semibold transition-all"
         style={{
           fontFamily: "var(--font-dm-mono), monospace",
-          backgroundColor: opt
-            ? opt.bg
-            : weekend
-              ? "transparent"
-              : "var(--color-app-canvas-2)",
-          color: opt ? opt.fg : "var(--color-app-fg-muted)",
-          border: opt
-            ? "1px solid transparent"
-            : weekend
-              ? "1px dashed var(--color-app-edge)"
-              : "1px solid transparent",
-          opacity: busy ? 0.6 : 1,
-          cursor: canEdit ? "pointer" : "default",
+          // Future cells render as visibly locked: no fill, dashed
+          // muted border, and the cursor goes to not-allowed so the
+          // user can tell at a glance that the day hasn't happened
+          // yet.
+          backgroundColor: isFuture
+            ? "transparent"
+            : opt
+              ? opt.bg
+              : weekend
+                ? "transparent"
+                : "var(--color-app-canvas-2)",
+          color: isFuture
+            ? "var(--color-app-edge)"
+            : opt
+              ? opt.fg
+              : "var(--color-app-fg-muted)",
+          border: isFuture
+            ? "1px dashed var(--color-app-edge)"
+            : opt
+              ? isToday
+                ? "1px solid var(--color-app-copper)"
+                : "1px solid transparent"
+              : weekend
+                ? "1px dashed var(--color-app-edge)"
+                : isToday
+                  ? "1px solid var(--color-app-copper)"
+                  : "1px solid transparent",
+          opacity: isFuture ? 0.5 : busy ? 0.6 : 1,
+          cursor: isFuture
+            ? "not-allowed"
+            : canEdit
+              ? "pointer"
+              : "default",
         }}
       >
-        {opt ? opt.short : weekend ? "·" : ""}
+        {isFuture ? "" : opt ? opt.short : weekend ? "·" : ""}
       </button>
 
       {open && canEdit ? (

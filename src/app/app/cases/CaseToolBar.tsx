@@ -123,9 +123,13 @@ export default function CaseToolBar({
           "0 1px 0 var(--color-app-edge), 0 16px 32px -24px rgba(10,17,36,0.12)",
       }}
     >
-      {/* Top — structural filters */}
-      <div className="px-5 pt-5 pb-4">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1.1fr_1.4fr_1.2fr_1fr_1fr]">
+      {/* Top — structural filters. Single row that flows: the five
+          filter inputs + Clear (when applicable) + Apply. The min-w-0
+          on the input wrapper lets each field shrink past its label
+          width when the viewport is tight, so the row stays on one
+          line as long as the screen reasonably allows. */}
+      <div className="px-4 py-3">
+        <div className="flex flex-wrap items-end gap-2.5">
           <SelectField
             label="Court Place"
             value={draft.courtPlace}
@@ -168,14 +172,16 @@ export default function CaseToolBar({
             value={draft.toDate}
             onChange={(v) => setDraftField("toDate", v)}
           />
-        </div>
 
-        <div className="mt-4 flex items-center justify-end gap-2">
+          {/* Spacer eats remaining horizontal room so Apply hugs the
+              right edge regardless of which sub-rows the filters land on. */}
+          <div className="flex-1 basis-0" />
+
           {hasStructuralFilters ? (
             <button
               type="button"
               onClick={clearStructural}
-              className="rounded-md px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] transition-colors"
+              className="h-9 rounded-md px-2.5 text-[10.5px] font-semibold uppercase tracking-[0.16em] transition-colors"
               style={{
                 fontFamily: "var(--font-dm-mono), monospace",
                 backgroundColor: "transparent",
@@ -188,22 +194,22 @@ export default function CaseToolBar({
                 e.currentTarget.style.color = "var(--color-app-fg-muted)";
               }}
             >
-              Clear filters
+              Clear
             </button>
           ) : null}
           <button
             type="button"
             onClick={applyDraft}
-            className="inline-flex items-center gap-2 rounded-md px-5 py-2.5 text-[12px] font-semibold uppercase tracking-[0.18em] transition-all hover:-translate-y-0.5"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md px-3.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition-all hover:-translate-y-0.5"
             style={{
               fontFamily: "var(--font-dm-mono), monospace",
               backgroundColor: "var(--color-app-copper)",
               color: "var(--color-app-copper-text)",
-              boxShadow: "0 8px 18px -10px rgba(197,133,58,0.6)",
+              boxShadow: "0 6px 14px -8px rgba(197,133,58,0.55)",
             }}
           >
             <FilterIcon />
-            Apply Filters
+            Apply
           </button>
         </div>
       </div>
@@ -328,9 +334,12 @@ function SelectField({
   placeholder?: string;
 }) {
   return (
-    <div>
+    // Compact filter cell. The min-w-0 lets it shrink past the label
+    // width when the toolbar runs out of horizontal room — the row
+    // wraps cleanly instead of forcing the parent wider.
+    <div className="min-w-0 basis-[150px] flex-1">
       <label
-        className="block text-[10px] font-semibold uppercase tracking-[0.18em]"
+        className="block text-[9px] font-semibold uppercase tracking-[0.18em]"
         style={{
           fontFamily: "var(--font-dm-mono), monospace",
           color: "var(--color-app-fg-muted)",
@@ -338,11 +347,11 @@ function SelectField({
       >
         {label}
       </label>
-      <div className="relative mt-1.5">
+      <div className="relative mt-1">
         <select
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="block w-full appearance-none rounded-md border bg-transparent px-3 py-2.5 pr-9 text-[13px] outline-none transition-all"
+          className="block h-9 w-full appearance-none rounded-md border bg-transparent px-2.5 pr-8 text-[12.5px] outline-none transition-all"
           style={{
             fontFamily: "var(--font-manrope), sans-serif",
             borderColor: value
@@ -363,7 +372,7 @@ function SelectField({
         </select>
         <span
           aria-hidden
-          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2"
+          className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2"
           style={{ color: "var(--color-app-fg-muted)" }}
         >
           <ChevronDown />
@@ -383,9 +392,9 @@ function DateField({
   onChange: (v: string) => void;
 }) {
   return (
-    <div>
+    <div className="min-w-0 basis-[140px] flex-1">
       <label
-        className="block text-[10px] font-semibold uppercase tracking-[0.18em]"
+        className="block text-[9px] font-semibold uppercase tracking-[0.18em]"
         style={{
           fontFamily: "var(--font-dm-mono), monospace",
           color: "var(--color-app-fg-muted)",
@@ -397,7 +406,7 @@ function DateField({
         type="date"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-1.5 block w-full rounded-md border px-3 py-2.5 text-[13px] outline-none transition-all"
+        className="mt-1 block h-9 w-full rounded-md border px-2.5 text-[12.5px] outline-none transition-all"
         style={{
           fontFamily: "var(--font-manrope), sans-serif",
           borderColor: value

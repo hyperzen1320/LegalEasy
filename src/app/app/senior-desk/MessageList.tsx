@@ -77,10 +77,15 @@ export default function MessageList({
 
   const grouped = useMemo(() => groupByDay(messages), [messages]);
 
+  // Loading + empty states use flex-1 instead of a fixed min-height so
+  // the composer below always stays inside the panel — previously the
+  // 400px min-height could push the composer past the bottom edge on
+  // shorter laptop viewports, which is why the user saw only a sliver
+  // of the Send button.
   if (loading) {
     return (
       <div
-        className="flex min-h-[400px] items-center justify-center"
+        className="flex flex-1 items-center justify-center min-h-0"
         style={{ color: "var(--color-app-fg-muted)" }}
       >
         <div
@@ -99,7 +104,7 @@ export default function MessageList({
   if (messages.length === 0) {
     return (
       <div
-        className="flex min-h-[400px] flex-col items-center justify-center px-8 text-center"
+        className="flex flex-1 min-h-0 flex-col items-center justify-center px-8 text-center"
         style={{ color: "var(--color-app-fg-muted)" }}
       >
         <div
