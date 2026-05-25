@@ -240,6 +240,12 @@ function AddCourtForm({
     >
       <div className="grid gap-4 md:grid-cols-[1fr_1fr_1fr_auto]">
         <Field
+          label="Court Number"
+          value={number}
+          onChange={setNumber}
+          placeholder="Hall 3"
+        />
+        <Field
           label="Court Name"
           value={name}
           onChange={(v) => {
@@ -248,12 +254,6 @@ function AddCourtForm({
           }}
           placeholder="District Court"
           invalid={missing}
-        />
-        <Field
-          label="Court Number"
-          value={number}
-          onChange={setNumber}
-          placeholder="Hall 3"
         />
         <Field
           label="Place"

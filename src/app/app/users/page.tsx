@@ -29,7 +29,10 @@ export default async function UsersPage() {
       lastName: u.lastName,
       name: `${u.firstName} ${u.lastName}`.trim(),
       userType: u.userType,
-      role: u.role || (u.userType === "partner_admin" ? "admin" : "junior"),
+      role:
+        u.userType === "partner_admin"
+          ? "admin"
+          : u.role || "junior",
       phone: u.phone || "",
       designation: u.designation || "",
       active: u.active,

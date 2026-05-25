@@ -178,6 +178,10 @@ export async function POST(request: Request) {
       firstName,
       lastName,
       userType: "partner_admin",
+      // Pin the office role from creation. The pre-save hook on User
+      // also enforces this, but being explicit here matches reader
+      // expectations and avoids relying on the hook for correctness.
+      role: "admin",
       partnerId: partner._id,
       active: true,
     });

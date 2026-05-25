@@ -81,11 +81,19 @@ export type SeniorDeskActivityAction =
   | "reminder.reopened"
   | "reminder.deleted";
 
+// Attendance — admin marks / unmarks a user's day. Two action keys is
+// enough granularity; the metadata carries the (userId, date, status)
+// detail so the activity feed reads naturally.
+export type AttendanceActivityAction =
+  | "attendance.marked"
+  | "attendance.cleared";
+
 export type ActivityAction =
   | AdminActivityAction
   | WorkflowActivityAction
   | CrossModuleActivityAction
-  | SeniorDeskActivityAction;
+  | SeniorDeskActivityAction
+  | AttendanceActivityAction;
 
 export type ActivityTargetType =
   | "partner"
@@ -103,7 +111,8 @@ export type ActivityTargetType =
   | "profile"
   | "chat_room"
   | "chat_message"
-  | "reminder";
+  | "reminder"
+  | "attendance";
 
 export interface IActivity {
   _id: Types.ObjectId;
@@ -155,6 +164,7 @@ const ActivitySchema = new Schema<IActivity>(
         "hearing",
         "prompt",
         "profile",
+        "attendance",
         "chat_room",
         "chat_message",
         "reminder",
