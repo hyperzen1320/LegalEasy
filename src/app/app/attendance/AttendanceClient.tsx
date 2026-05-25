@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import type { AttendanceStatus } from "@/models/Attendance";
 
 // Attendance — month grid + per-user metrics. Admins mark; non-admins
@@ -745,6 +746,11 @@ function pctAccent(
   return "absent";
 }
 
+// Worst-case popover dimensions (5 status options + clear-marking + day
+// header). Used both for collision detection and as a CSS size cap.
+const POPOVER_WIDTH = 184;
+const POPOVER_HEIGHT = 268;
+
 function AttendanceCell({
   userId,
   iso,
@@ -773,22 +779,64 @@ function AttendanceCell({
   ) => void;
 }) {
   const [open, setOpen] = useState(false);
+  // Viewport coords for the portalled popover. Recomputed every time
+  // the cell opens — fixed positioning escapes the table's
+  // overflow-x-auto and overflow-hidden wrappers, which otherwise clip
+  // the popover and make it look squashed under the next row.
+  const [coords, setCoords] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
   const rootRef = useRef<HTMLTableCellElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
+
+  const placePopover = useCallback(() => {
+    if (!buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    // Default: anchor the popover's right edge to the button's right
+    // edge, sitting just below it. Clamp into the viewport so cells
+    // near the right edge don't render off-screen.
+    let left = rect.right - POPOVER_WIDTH;
+    if (left < 8) left = 8;
+    if (left + POPOVER_WIDTH > window.innerWidth - 8) {
+      left = window.innerWidth - POPOVER_WIDTH - 8;
+    }
+    // Flip upward when there isn't enough room below — admins can mark
+    // the last row of the table without the menu disappearing under
+    // the page fold.
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const flipUp =
+      spaceBelow < POPOVER_HEIGHT + 12 && rect.top > POPOVER_HEIGHT + 12;
+    const top = flipUp ? rect.top - POPOVER_HEIGHT - 4 : rect.bottom + 4;
+    setCoords({ top, left });
+  }, []);
 
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (!rootRef.current) return;
-      if (!rootRef.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (rootRef.current?.contains(target)) return;
+      if (popoverRef.current?.contains(target)) return;
+      setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
+    // Close on any scroll (capture phase catches descendant scrolling
+    // like the table's overflow-x-auto strip) or window resize — the
+    // popover is fixed-positioned so it would otherwise drift away
+    // from the cell as the table scrolls.
+    const onScrollOrResize = () => setOpen(false);
     document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScrollOrResize, true);
+    window.addEventListener("resize", onScrollOrResize);
     return () => {
       document.removeEventListener("mousedown", onDoc);
       document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScrollOrResize, true);
+      window.removeEventListener("resize", onScrollOrResize);
     };
   }, [open]);
 
@@ -820,6 +868,16 @@ function AttendanceCell({
     onMark(userId, iso, status);
   }
 
+  function toggle() {
+    if (!canEdit || isFuture) return;
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    placePopover();
+    setOpen(true);
+  }
+
   return (
     <td
       ref={rootRef}
@@ -830,12 +888,10 @@ function AttendanceCell({
       }}
     >
       <button
+        ref={buttonRef}
         type="button"
         title={tooltipBits.join(" · ")}
-        onClick={() => {
-          if (!canEdit || isFuture) return;
-          setOpen((v) => !v);
-        }}
+        onClick={toggle}
         disabled={!canEdit || busy || isFuture}
         className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[11px] font-semibold transition-all"
         style={{
@@ -878,96 +934,108 @@ function AttendanceCell({
         {isFuture ? "" : opt ? opt.short : weekend ? "·" : ""}
       </button>
 
-      {open && canEdit ? (
-        <div
-          className="absolute right-0 top-full z-30 mt-1 w-[180px] overflow-hidden rounded-md"
-          style={{
-            backgroundColor: "var(--color-app-paper)",
-            border: "1px solid var(--color-app-edge)",
-            boxShadow:
-              "0 16px 32px -12px rgba(10,17,36,0.25), 0 0 0 1px rgba(10,17,36,0.04)",
-          }}
-        >
-          <div
-            className="px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.18em]"
-            style={{
-              fontFamily: "var(--font-dm-mono), monospace",
-              color: "var(--color-app-fg-muted)",
-              borderBottom: "1px solid var(--color-app-edge-soft)",
-              backgroundColor: "var(--color-app-canvas-2)",
-            }}
-          >
-            Day {day}
-          </div>
-          <ul className="py-1">
-            {STATUS_OPTIONS.map((s) => {
-              const active = record?.status === s.key;
-              return (
-                <li key={s.key}>
-                  <button
-                    type="button"
-                    onClick={() => pick(s.key)}
-                    className="flex w-full items-center gap-3 px-3 py-2 text-left text-[12.5px] transition-colors"
-                    style={{
-                      fontFamily: "var(--font-manrope), sans-serif",
-                      backgroundColor: active
-                        ? "var(--color-app-canvas-2)"
-                        : "transparent",
-                      color: "var(--color-app-ink)",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (active) return;
-                      e.currentTarget.style.backgroundColor =
-                        "var(--color-app-canvas-2)";
-                    }}
-                    onMouseLeave={(e) => {
-                      if (active) return;
-                      e.currentTarget.style.backgroundColor = "transparent";
-                    }}
-                  >
-                    <span
-                      className="flex h-5 w-5 items-center justify-center rounded text-[10px] font-semibold"
+      {open && canEdit && coords && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              ref={popoverRef}
+              className="fixed overflow-hidden rounded-md"
+              style={{
+                top: coords.top,
+                left: coords.left,
+                width: POPOVER_WIDTH,
+                // z-index high enough to clear the sticky table header
+                // (z-10), the topbar shadow, and any future floating UI.
+                zIndex: 1000,
+                backgroundColor: "var(--color-app-paper)",
+                border: "1px solid var(--color-app-edge)",
+                boxShadow:
+                  "0 16px 32px -12px rgba(10,17,36,0.25), 0 0 0 1px rgba(10,17,36,0.04)",
+              }}
+            >
+              <div
+                className="px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.18em]"
+                style={{
+                  fontFamily: "var(--font-dm-mono), monospace",
+                  color: "var(--color-app-fg-muted)",
+                  borderBottom: "1px solid var(--color-app-edge-soft)",
+                  backgroundColor: "var(--color-app-canvas-2)",
+                }}
+              >
+                Day {day}
+              </div>
+              <ul className="py-1">
+                {STATUS_OPTIONS.map((s) => {
+                  const active = record?.status === s.key;
+                  return (
+                    <li key={s.key}>
+                      <button
+                        type="button"
+                        onClick={() => pick(s.key)}
+                        className="flex w-full items-center gap-3 px-3 py-2 text-left text-[12.5px] transition-colors"
+                        style={{
+                          fontFamily: "var(--font-manrope), sans-serif",
+                          backgroundColor: active
+                            ? "var(--color-app-canvas-2)"
+                            : "transparent",
+                          color: "var(--color-app-ink)",
+                        }}
+                        onMouseEnter={(e) => {
+                          if (active) return;
+                          e.currentTarget.style.backgroundColor =
+                            "var(--color-app-canvas-2)";
+                        }}
+                        onMouseLeave={(e) => {
+                          if (active) return;
+                          e.currentTarget.style.backgroundColor =
+                            "transparent";
+                        }}
+                      >
+                        <span
+                          className="flex h-5 w-5 items-center justify-center rounded text-[10px] font-semibold"
+                          style={{
+                            fontFamily:
+                              "var(--font-dm-mono), monospace",
+                            backgroundColor: s.bg,
+                            color: s.fg,
+                          }}
+                        >
+                          {s.short}
+                        </span>
+                        {s.label}
+                      </button>
+                    </li>
+                  );
+                })}
+                {record ? (
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() => pick(null)}
+                      className="flex w-full items-center gap-3 px-3 py-2 text-left text-[12.5px] transition-colors"
                       style={{
-                        fontFamily:
-                          "var(--font-dm-mono), monospace",
-                        backgroundColor: s.bg,
-                        color: s.fg,
+                        fontFamily: "var(--font-manrope), sans-serif",
+                        color: "var(--color-app-fg-muted)",
+                        borderTop: "1px solid var(--color-app-edge-soft)",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor =
+                          "var(--color-app-canvas-2)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor =
+                          "transparent";
                       }}
                     >
-                      {s.short}
-                    </span>
-                    {s.label}
-                  </button>
-                </li>
-              );
-            })}
-            {record ? (
-              <li>
-                <button
-                  type="button"
-                  onClick={() => pick(null)}
-                  className="flex w-full items-center gap-3 px-3 py-2 text-left text-[12.5px] transition-colors"
-                  style={{
-                    fontFamily: "var(--font-manrope), sans-serif",
-                    color: "var(--color-app-fg-muted)",
-                    borderTop: "1px solid var(--color-app-edge-soft)",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor =
-                      "var(--color-app-canvas-2)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "transparent";
-                  }}
-                >
-                  <span className="text-[14px]">×</span>
-                  Clear marking
-                </button>
-              </li>
-            ) : null}
-          </ul>
-        </div>
-      ) : null}
+                      <span className="text-[14px]">×</span>
+                      Clear marking
+                    </button>
+                  </li>
+                ) : null}
+              </ul>
+            </div>,
+            document.body
+          )
+        : null}
     </td>
   );
 }
