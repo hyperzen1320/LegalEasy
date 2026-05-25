@@ -11,15 +11,6 @@ import ReopenCaseButton from "./ReopenCaseButton";
 
 export const dynamic = "force-dynamic";
 
-const STATUS_OPTIONS = [
-  "Filed",
-  "Notice",
-  "Evidence",
-  "Arguments",
-  "Reserved",
-  "Disposed",
-];
-
 function fmtDate(d: Date | null | undefined): string {
   if (!d) return "—";
   return d.toLocaleDateString("en-IN", {
@@ -153,18 +144,46 @@ export default async function CaseDetailPage({
   return (
     <div className="px-10 py-8">
       <div className="mx-auto max-w-[1100px]">
-        {/* Breadcrumb */}
-        <Link
-          href={breadcrumbHref}
-          className="fade-up-sm inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.18em] transition-colors hover:opacity-70"
-          style={{
-            fontFamily: "var(--font-dm-mono), monospace",
-            color: "var(--color-app-fg-muted)",
-            animationDelay: "0ms",
-          }}
-        >
-          <span aria-hidden>&larr;</span> {breadcrumbLabel}
-        </Link>
+        {/* Breadcrumb + Edit shortcut */}
+        <div className="fade-up-sm flex items-center justify-between gap-3">
+          <Link
+            href={breadcrumbHref}
+            className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.18em] transition-colors hover:opacity-70"
+            style={{
+              fontFamily: "var(--font-dm-mono), monospace",
+              color: "var(--color-app-fg-muted)",
+            }}
+          >
+            <span aria-hidden>&larr;</span> {breadcrumbLabel}
+          </Link>
+          <Link
+            href={`/app/cases/${String(c._id)}/edit`}
+            className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] transition-colors"
+            style={{
+              fontFamily: "var(--font-dm-mono), monospace",
+              borderColor: "var(--color-app-edge)",
+              backgroundColor: "var(--color-app-paper)",
+              color: "var(--color-app-fg-soft)",
+              letterSpacing: 0.4,
+            }}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path
+                d="M4 20h4l10-10-4-4L4 16v4z"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M14 6l4 4"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+              />
+            </svg>
+            Edit case
+          </Link>
+        </div>
 
         {/* Disposed banner — only when archived. Above the hero so the
             "this is closed" signal hits before the case-no shouts. */}
@@ -415,7 +434,6 @@ export default async function CaseDetailPage({
             caseId={String(c._id)}
             initialNextDate={fmtIso(c.nextHearingDate)}
             initialStatus={c.status || "Filed"}
-            statusOptions={STATUS_OPTIONS}
           />
 
           <ContactCard
