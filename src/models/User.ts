@@ -106,6 +106,12 @@ const UserSchema = new Schema<IUser>(
 // global_admin must NOT have a partnerId; everyone else must.
 // Implemented as an async pre-save hook because inline `validate` with a
 // typed `this` collides with Mongoose v9's stricter ValidateFn typings.
+//
+// The same hook also pins partner_admin users to role="admin". The
+// schema's role default is "junior", so without this coercion every
+// partner-admin who didn't have role set explicitly would carry the
+// wrong office role — which is why the Users / Advocates page used to
+// show the firm's owner with a "Junior" badge.
 UserSchema.pre("save", async function () {
   if (this.userType === "global_admin") {
     if (this.partnerId !== null && this.partnerId !== undefined) {
@@ -113,6 +119,9 @@ UserSchema.pre("save", async function () {
     }
   } else if (!this.partnerId) {
     throw new Error("partnerId is required for partner_admin/user");
+  }
+  if (this.userType === "partner_admin" && this.role !== "admin") {
+    this.role = "admin";
   }
 });
 
