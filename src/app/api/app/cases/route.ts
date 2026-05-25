@@ -2,13 +2,24 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { connectDB } from "@/lib/db";
 import { Case } from "@/models/Case";
+import { User } from "@/models/User";
 import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
 import { logWorkflowActivity } from "@/lib/activity";
+import {
+  buildCaseFilter,
+  readCaseFilterParams,
+} from "@/lib/case-filter";
 
 export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders() });
 }
+
+// Caps that exist so a runaway client (or a typo in a URL) can't ask
+// the server for the entire collection. 500 is plenty for the Case
+// Vault table; the export endpoint has its own larger cap.
+const MAX_LIMIT = 500;
+const DEFAULT_LIMIT = 50;
 
 export async function GET(request: Request) {
   const guard = await requirePartner(request);
@@ -16,48 +27,111 @@ export async function GET(request: Request) {
 
   await connectDB();
   const partnerId = new mongoose.Types.ObjectId(guard.ctx.user.partnerId);
+  const url = new URL(request.url);
 
-  // Active cases only — disposed matters move to /app/disposed-cases
-  // and don't appear in Case Vault, Hearing Track, the dashboard, or
-  // any other "what am I working on" surface.
-  const docs = await Case.find({
+  const filterInput = {
     partnerId,
-    isDeleted: false,
-    disposedAt: null,
-  })
-    .sort({ updatedAt: -1 })
-    .limit(200)
-    .lean();
+    ...readCaseFilterParams(url.searchParams),
+  };
+  const filter = buildCaseFilter(filterInput);
 
-  const cases = docs.map((c) => ({
-    id: String(c._id),
-    caseNo: c.caseNo,
-    fileNo: c.fileNo,
-    cnr: c.cnr,
-    title: c.title,
-    clientName: c.clientName,
-    clientPhone: c.clientPhone,
-    clientWhatsapp: c.clientWhatsapp,
-    oppositeParty: c.oppositeParty,
-    courtId: c.courtId ? String(c.courtId) : null,
-    courtName: c.courtName,
-    courtNumber: c.courtNumber || "",
-    courtHall: c.courtHall,
-    courtPlace: c.courtPlace,
-    status: c.status,
-    appearingFor: c.appearingFor,
-    nextHearingDate: c.nextHearingDate
-      ? c.nextHearingDate.toISOString()
-      : null,
-    lastHearingDate: c.lastHearingDate
-      ? c.lastHearingDate.toISOString()
-      : null,
-    createdAt: c.createdAt.toISOString(),
-    updatedAt: c.updatedAt.toISOString(),
-  }));
+  // Pagination params. The Case Vault table doesn't paginate today
+  // (it uses a single bumpable limit) but the wire shape is paginated
+  // so we can add page controls later without a breaking change.
+  const limitParam = Number(url.searchParams.get("limit") || "");
+  const limit = Number.isFinite(limitParam) && limitParam > 0
+    ? Math.min(limitParam, MAX_LIMIT)
+    : DEFAULT_LIMIT;
+  const pageParam = Number(url.searchParams.get("page") || "");
+  const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
+  const skip = (page - 1) * limit;
+
+  const [docs, total] = await Promise.all([
+    Case.find(filter)
+      .sort({ nextHearingDate: 1, updatedAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    Case.countDocuments(filter),
+  ]);
+
+  // Pull the advocate (createdBy) names for the rows we're returning,
+  // in one round-trip. The Vault table renders the advocate column and
+  // the filter dropdown wants the office roster, so we hand both back.
+  const creatorIds = Array.from(
+    new Set(
+      docs
+        .map((d) => (d.createdBy ? String(d.createdBy) : null))
+        .filter((x): x is string => Boolean(x))
+    )
+  );
+
+  const advocateLookup: Array<{
+    _id: mongoose.Types.ObjectId;
+    firstName: string;
+    lastName: string;
+    email: string;
+  }> = creatorIds.length > 0
+    ? await User.find({
+        _id: {
+          $in: creatorIds.map((id) => new mongoose.Types.ObjectId(id)),
+        },
+        partnerId,
+      })
+        .select("firstName lastName email")
+        .lean()
+    : [];
+
+  const advocateMap = new Map<string, { id: string; name: string }>();
+  for (const u of advocateLookup) {
+    const name =
+      `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.email;
+    advocateMap.set(String(u._id), { id: String(u._id), name });
+  }
+
+  const cases = docs.map((c) => {
+    const createdById = c.createdBy ? String(c.createdBy) : null;
+    const advocate = createdById ? advocateMap.get(createdById) : undefined;
+    return {
+      id: String(c._id),
+      caseNo: c.caseNo,
+      fileNo: c.fileNo,
+      cnr: c.cnr,
+      title: c.title,
+      iaNumbers: c.iaNumbers || "",
+      clientName: c.clientName,
+      clientPhone: c.clientPhone,
+      clientWhatsapp: c.clientWhatsapp,
+      oppositeParty: c.oppositeParty,
+      oppositeAdvocate: c.oppositeAdvocate || "",
+      courtId: c.courtId ? String(c.courtId) : null,
+      courtName: c.courtName,
+      courtNumber: c.courtNumber || "",
+      courtHall: c.courtHall,
+      courtPlace: c.courtPlace,
+      status: c.status,
+      appearingFor: c.appearingFor,
+      advocateId: createdById,
+      advocateName: advocate?.name || "",
+      nextHearingDate: c.nextHearingDate
+        ? c.nextHearingDate.toISOString()
+        : null,
+      lastHearingDate: c.lastHearingDate
+        ? c.lastHearingDate.toISOString()
+        : null,
+      createdAt: c.createdAt.toISOString(),
+      updatedAt: c.updatedAt.toISOString(),
+    };
+  });
 
   return NextResponse.json(
-    { cases },
+    {
+      cases,
+      total,
+      page,
+      limit,
+      hasMore: skip + cases.length < total,
+    },
     { headers: guard.ctx.isMobile ? corsHeaders() : undefined }
   );
 }

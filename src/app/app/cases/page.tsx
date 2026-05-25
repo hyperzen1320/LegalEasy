@@ -2,44 +2,80 @@ import Link from "next/link";
 import mongoose from "mongoose";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/db";
-import { Case } from "@/models/Case";
-import CaseListClient, { type CaseRow } from "./CaseListClient";
+import { Court } from "@/models/Court";
+import { User } from "@/models/User";
+import CaseVaultClient, {
+  type CaseVaultBootstrap,
+} from "./CaseVaultClient";
 
-export default async function CaseVault() {
+// Server shell. Loads the static-ish dropdown data (courts + office
+// roster) up-front and hands the partner id to the client. All case
+// data + filter changes are then driven client-side through the API,
+// which keeps the page snappy when the user fiddles with filters.
+
+export const dynamic = "force-dynamic";
+
+export default async function CaseVaultPage() {
   const session = await auth();
   const partnerId = session?.user?.partnerId
     ? new mongoose.Types.ObjectId(session.user.partnerId)
     : null;
 
-  let cases: CaseRow[] = [];
+  let bootstrap: CaseVaultBootstrap = {
+    courts: [],
+    courtPlaces: [],
+    advocates: [],
+    partnerId: "",
+  };
 
   if (partnerId) {
     await connectDB();
-    // Active matters only — anything with a disposedAt timestamp lives
-    // in /app/disposed-cases and must not bleed into the Vault.
-    const docs = await Case.find({
-      partnerId,
-      isDeleted: false,
-      disposedAt: null,
-    })
-      .sort({ updatedAt: -1 })
-      .limit(200)
-      .lean();
-    cases = docs.map((c) => ({
+    const [courtsDocs, usersDocs] = await Promise.all([
+      Court.find({ partnerId, isDeleted: false })
+        .select("name number place")
+        .sort({ name: 1 })
+        .lean(),
+      // The "by which advocate" filter looks across the whole office
+      // roster — including non-admins, since clerks and juniors can
+      // also file cases. We exclude only deactivated / removed users
+      // so the dropdown doesn't carry dead options.
+      User.find({ partnerId, isDeleted: false, active: { $ne: false } })
+        .select("firstName lastName email role")
+        .sort({ firstName: 1, lastName: 1 })
+        .lean(),
+    ]);
+
+    const courts = courtsDocs.map((c) => ({
       id: String(c._id),
-      caseNo: c.caseNo,
-      fileNo: c.fileNo,
-      cnr: c.cnr,
-      clientName: c.clientName,
-      oppositeParty: c.oppositeParty,
-      courtName: c.courtName,
-      courtPlace: c.courtPlace,
-      status: c.status,
-      nextHearingDate: c.nextHearingDate
-        ? c.nextHearingDate.toISOString()
-        : null,
-      updatedAt: c.updatedAt.toISOString(),
+      name: c.name,
+      number: c.number || "",
+      place: c.place || "",
     }));
+
+    // The Court Place dropdown is a deduped list of place strings from
+    // the Court Hub. We do it server-side so the client doesn't have
+    // to pull the whole court list just to compute place options.
+    const placeSet = new Set<string>();
+    for (const c of courts) {
+      if (c.place && c.place.trim()) placeSet.add(c.place.trim());
+    }
+    const courtPlaces = Array.from(placeSet).sort((a, b) =>
+      a.localeCompare(b)
+    );
+
+    const advocates = usersDocs.map((u) => ({
+      id: String(u._id),
+      name:
+        `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.email,
+      role: u.role || "junior",
+    }));
+
+    bootstrap = {
+      courts,
+      courtPlaces,
+      advocates,
+      partnerId: String(partnerId),
+    };
   }
 
   return (
@@ -63,16 +99,7 @@ export default async function CaseVault() {
                 color: "var(--color-app-fg-muted)",
               }}
             >
-              {cases.length === 0 ? (
-                "No matters on record yet."
-              ) : (
-                <>
-                  <span style={{ color: "var(--color-app-ink)", fontWeight: 600 }}>
-                    {cases.length}
-                  </span>{" "}
-                  {cases.length === 1 ? "matter" : "matters"} on record
-                </>
-              )}
+              Every active matter. Filter, search and export the rolls.
             </p>
           </div>
 
@@ -90,70 +117,8 @@ export default async function CaseVault() {
           </Link>
         </div>
 
-        {cases.length === 0 ? (
-          <EmptyVault />
-        ) : (
-          <CaseListClient cases={cases} />
-        )}
+        <CaseVaultClient bootstrap={bootstrap} />
       </div>
-    </div>
-  );
-}
-
-function EmptyVault() {
-  return (
-    <div
-      className="mt-10 rounded-xl p-16 text-center"
-      style={{
-        backgroundColor: "var(--color-app-paper)",
-        border: "1px dashed var(--color-app-edge)",
-      }}
-    >
-      <div
-        className="mx-auto flex h-16 w-16 items-center justify-center rounded-full"
-        style={{
-          backgroundColor: "var(--color-app-canvas-2)",
-          color: "var(--color-app-copper-deep)",
-        }}
-      >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
-          <rect x="3" y="7" width="18" height="13" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
-          <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="currentColor" strokeWidth="1.6" />
-          <path d="M3 12h18" stroke="currentColor" strokeWidth="1.6" />
-        </svg>
-      </div>
-      <h3
-        className="mt-6 text-[28px] font-semibold tracking-tight"
-        style={{
-          fontFamily: "var(--font-crimson), Georgia, serif",
-          color: "var(--color-app-ink)",
-        }}
-      >
-        The vault is empty.
-      </h3>
-      <p
-        className="mx-auto mt-3 max-w-md text-[14px] leading-7"
-        style={{
-          fontFamily: "var(--font-manrope), sans-serif",
-          color: "var(--color-app-fg-muted)",
-        }}
-      >
-        Add your first matter — case number, court, client, status, and the
-        next hearing date. The dashboard, hearing track, and pending-date list
-        all read from this one place.
-      </p>
-      <Link
-        href="/app/cases/new"
-        className="mt-7 inline-flex items-center gap-2 rounded-md px-6 py-3 text-[13px] font-semibold transition-all hover:-translate-y-0.5"
-        style={{
-          fontFamily: "var(--font-manrope), sans-serif",
-          backgroundColor: "var(--color-app-ink)",
-          color: "var(--color-app-ivory)",
-          boxShadow: "0 8px 20px -10px rgba(10,17,36,0.4)",
-        }}
-      >
-        <span>+</span> Add the first case
-      </Link>
     </div>
   );
 }
