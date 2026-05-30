@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import RequestDeleteDialog from "@/app/app/workflow/[id]/RequestDeleteDialog";
 
 export type CourtRow = {
   id: string;
@@ -15,9 +16,12 @@ type SortDir = "asc" | "desc";
 
 export default function CourtHubClient({
   initialCourts,
+  isAdmin,
 }: {
   initialCourts: CourtRow[];
+  isAdmin: boolean;
 }) {
+  const router = useRouter();
   const [courts, setCourts] = useState<CourtRow[]>(initialCourts);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
@@ -26,6 +30,18 @@ export default function CourtHubClient({
     // right slot. We don't re-sort manually here because the displayed
     // order should follow the user's chosen direction.
     setCourts((prev) => [c, ...prev]);
+  }
+
+  function handleUpdated(updated: CourtRow) {
+    setCourts((prev) =>
+      prev.map((c) => (c.id === updated.id ? { ...c, ...updated } : c))
+    );
+    router.refresh();
+  }
+
+  function handleDeleted(id: string) {
+    setCourts((prev) => prev.filter((c) => c.id !== id));
+    router.refresh();
   }
 
   // Court-number sort. We extract the first numeric token from the
@@ -93,7 +109,14 @@ export default function CourtHubClient({
           />
           <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {sortedCourts.map((c, i) => (
-              <CourtCard key={c.id} c={c} index={i} />
+              <CourtCard
+                key={c.id}
+                c={c}
+                index={i}
+                isAdmin={isAdmin}
+                onUpdated={handleUpdated}
+                onDeleted={handleDeleted}
+              />
             ))}
           </div>
         </>
@@ -296,61 +319,400 @@ function AddCourtForm({
   );
 }
 
-function CourtCard({ c, index }: { c: CourtRow; index: number }) {
+function CourtCard({
+  c,
+  index,
+  isAdmin,
+  onUpdated,
+  onDeleted,
+}: {
+  c: CourtRow;
+  index: number;
+  isAdmin: boolean;
+  onUpdated: (c: CourtRow) => void;
+  onDeleted: (id: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
   const subtitle = [c.number, c.place].filter(Boolean).join(" · ");
+
+  if (editing) {
+    return (
+      <div
+        className="fade-up-sm rounded-xl p-5"
+        style={{
+          backgroundColor: "var(--color-app-paper)",
+          boxShadow: "0 1px 0 var(--color-app-edge)",
+        }}
+      >
+        <EditCourtForm
+          court={c}
+          onCancel={() => setEditing(false)}
+          onSaved={(updated) => {
+            setEditing(false);
+            onUpdated(updated);
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div
-      className="fade-up-sm flex items-center gap-4 rounded-xl p-5 transition-[box-shadow,transform] duration-200 ease-out hover:-translate-y-0.5"
+      className="fade-up-sm flex flex-col rounded-xl p-5 transition-[box-shadow,transform] duration-200 ease-out hover:-translate-y-0.5"
       style={{
         backgroundColor: "var(--color-app-paper)",
         boxShadow: "0 1px 0 var(--color-app-edge)",
         animationDelay: `${Math.min(index, 12) * 35}ms`,
       }}
     >
-      <div
-        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md"
-        style={{ backgroundColor: "var(--color-app-canvas-2)" }}
-      >
-        <BuildingIcon />
+      <div className="flex items-center gap-4">
+        <div
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md"
+          style={{ backgroundColor: "var(--color-app-canvas-2)" }}
+        >
+          <BuildingIcon />
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3
+            className="text-[20px] font-semibold tracking-tight leading-[1.2]"
+            style={{
+              fontFamily: "var(--font-crimson), Georgia, serif",
+              color: "var(--color-app-ink)",
+            }}
+          >
+            {c.name}
+          </h3>
+          {subtitle ? (
+            <p
+              className="mt-0.5 text-[12px]"
+              style={{
+                fontFamily: "var(--font-dm-mono), monospace",
+                color: "var(--color-app-fg-muted)",
+                letterSpacing: 0.3,
+              }}
+            >
+              {subtitle}
+            </p>
+          ) : null}
+          {c.caseCount > 0 ? (
+            <p
+              className="mt-1 text-[11px]"
+              style={{
+                fontFamily: "var(--font-manrope), sans-serif",
+                color: "var(--color-app-fg-soft)",
+              }}
+            >
+              <span style={{ color: "var(--color-app-copper-deep)", fontWeight: 600 }}>
+                {c.caseCount}
+              </span>{" "}
+              {c.caseCount === 1 ? "matter" : "matters"} on the rolls
+            </p>
+          ) : null}
+        </div>
       </div>
-      <div className="min-w-0 flex-1">
-        <h3
-          className="text-[20px] font-semibold tracking-tight leading-[1.2]"
+
+      {/* Manage actions */}
+      <div
+        className="mt-4 flex items-center gap-2 border-t pt-4"
+        style={{ borderColor: "var(--color-app-edge-soft)" }}
+      >
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[12px] font-medium transition-colors"
           style={{
-            fontFamily: "var(--font-crimson), Georgia, serif",
-            color: "var(--color-app-ink)",
+            fontFamily: "var(--font-manrope), sans-serif",
+            borderColor: "var(--color-app-edge)",
+            backgroundColor: "var(--color-app-paper)",
+            color: "var(--color-app-fg-soft)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = "var(--color-app-copper)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = "var(--color-app-edge)";
           }}
         >
-          {c.name}
-        </h3>
-        {subtitle ? (
-          <p
-            className="mt-0.5 text-[12px]"
-            style={{
-              fontFamily: "var(--font-dm-mono), monospace",
-              color: "var(--color-app-fg-muted)",
-              letterSpacing: 0.3,
-            }}
-          >
-            {subtitle}
-          </p>
-        ) : null}
-        {c.caseCount > 0 ? (
-          <p
-            className="mt-1 text-[11px]"
-            style={{
-              fontFamily: "var(--font-manrope), sans-serif",
-              color: "var(--color-app-fg-soft)",
-            }}
-          >
-            <span style={{ color: "var(--color-app-copper-deep)", fontWeight: 600 }}>
-              {c.caseCount}
-            </span>{" "}
-            {c.caseCount === 1 ? "matter" : "matters"} on the rolls
-          </p>
-        ) : null}
+          <PencilIcon /> Edit
+        </button>
+        <DeleteCourtButton
+          court={c}
+          isAdmin={isAdmin}
+          onDeleted={() => onDeleted(c.id)}
+        />
       </div>
     </div>
+  );
+}
+
+function DeleteCourtButton({
+  court,
+  isAdmin,
+  onDeleted,
+}: {
+  court: CourtRow;
+  isAdmin: boolean;
+  onDeleted: () => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [requestOpen, setRequestOpen] = useState(false);
+  const [requestSent, setRequestSent] = useState(false);
+
+  async function onDelete() {
+    setError(null);
+    setWorking(true);
+    try {
+      const res = await fetch(`/api/app/courts/${court.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (data?.code === "delete_request_required") {
+          setConfirming(false);
+          setRequestOpen(true);
+          setWorking(false);
+          return;
+        }
+        setError(data?.error ?? "Couldn't delete this court.");
+        setWorking(false);
+        return;
+      }
+      onDeleted();
+    } catch {
+      setError("Network error.");
+      setWorking(false);
+    }
+  }
+
+  if (requestSent) {
+    return (
+      <span
+        className="text-[12px]"
+        style={{
+          fontFamily: "var(--font-manrope), sans-serif",
+          color: "var(--color-app-aqua)",
+        }}
+      >
+        Delete request sent for admin review.
+      </span>
+    );
+  }
+
+  if (confirming && isAdmin) {
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <span
+          className="text-[12px]"
+          style={{
+            fontFamily: "var(--font-manrope), sans-serif",
+            color: error ? "var(--color-app-danger)" : "var(--color-app-fg-soft)",
+          }}
+        >
+          {error || "Remove this court?"}
+        </span>
+        <button
+          type="button"
+          onClick={() => setConfirming(false)}
+          disabled={working}
+          className="rounded-md border px-2.5 py-1 text-[12px] font-medium"
+          style={{
+            fontFamily: "var(--font-manrope), sans-serif",
+            borderColor: "var(--color-app-edge)",
+            color: "var(--color-app-fg-soft)",
+          }}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={working}
+          className="rounded-md px-2.5 py-1 text-[12px] font-semibold"
+          style={{
+            fontFamily: "var(--font-manrope), sans-serif",
+            backgroundColor: "var(--color-app-danger)",
+            color: "white",
+            opacity: working ? 0.6 : 1,
+          }}
+        >
+          {working ? "Removing…" : "Delete"}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => (isAdmin ? setConfirming(true) : setRequestOpen(true))}
+        className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[12px] font-medium transition-colors"
+        style={{
+          fontFamily: "var(--font-manrope), sans-serif",
+          borderColor: "var(--color-app-edge)",
+          backgroundColor: "transparent",
+          color: "var(--color-app-danger)",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = "var(--color-app-danger-soft)";
+          e.currentTarget.style.borderColor = "var(--color-app-danger)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = "transparent";
+          e.currentTarget.style.borderColor = "var(--color-app-edge)";
+        }}
+      >
+        <TrashIcon /> {isAdmin ? "Delete" : "Request delete"}
+      </button>
+      {requestOpen ? (
+        <RequestDeleteDialog
+          target={{
+            type: "court",
+            id: court.id,
+            name: court.name,
+            hint: "Only the office admin can remove a court directly.",
+          }}
+          onClose={() => setRequestOpen(false)}
+          onSubmitted={() => {
+            setRequestOpen(false);
+            setRequestSent(true);
+          }}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function EditCourtForm({
+  court,
+  onCancel,
+  onSaved,
+}: {
+  court: CourtRow;
+  onCancel: () => void;
+  onSaved: (c: CourtRow) => void;
+}) {
+  const [name, setName] = useState(court.name);
+  const [number, setNumber] = useState(court.number);
+  const [place, setPlace] = useState(court.place);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [missing, setMissing] = useState(false);
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    if (!name.trim()) {
+      setMissing(true);
+      setError("Court name is required.");
+      return;
+    }
+    setMissing(false);
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/app/courts/${court.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, number, place }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Couldn't save");
+        setSubmitting(false);
+        return;
+      }
+      onSaved({
+        ...court,
+        name: name.trim(),
+        number: number.trim(),
+        place: place.trim(),
+      });
+    } catch {
+      setError("Network error.");
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <form onSubmit={onSubmit}>
+      <div
+        className="mb-4 text-[11px] font-semibold uppercase tracking-[0.18em]"
+        style={{
+          fontFamily: "var(--font-dm-mono), monospace",
+          color: "var(--color-app-copper-deep)",
+        }}
+      >
+        Edit court
+      </div>
+      <div className="grid gap-4">
+        <Field
+          label="Court Number"
+          value={number}
+          onChange={setNumber}
+          placeholder="Hall 3"
+        />
+        <Field
+          label="Court Name"
+          value={name}
+          onChange={(v) => {
+            setName(v);
+            if (missing && v.trim()) setMissing(false);
+          }}
+          placeholder="District Court"
+          invalid={missing}
+        />
+        <Field
+          label="Place"
+          value={place}
+          onChange={setPlace}
+          placeholder="Chennai"
+        />
+      </div>
+
+      {error ? (
+        <p
+          className="mt-3 text-[12px]"
+          style={{
+            fontFamily: "var(--font-manrope), sans-serif",
+            color: "var(--color-app-danger)",
+          }}
+        >
+          {error}
+        </p>
+      ) : null}
+
+      <div className="mt-5 flex items-center justify-end gap-3">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-md border px-4 py-2 text-[13px] font-medium"
+          style={{
+            fontFamily: "var(--font-manrope), sans-serif",
+            borderColor: "var(--color-app-edge)",
+            backgroundColor: "var(--color-app-paper)",
+            color: "var(--color-app-fg-soft)",
+          }}
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={submitting}
+          className="inline-flex items-center gap-2 rounded-md px-5 py-2 text-[13px] font-semibold transition-all"
+          style={{
+            fontFamily: "var(--font-manrope), sans-serif",
+            backgroundColor: "var(--color-app-copper)",
+            color: "var(--color-app-copper-text)",
+            opacity: submitting ? 0.6 : 1,
+            boxShadow: "0 8px 20px -10px rgba(197,133,58,0.6)",
+          }}
+        >
+          {submitting ? "Saving…" : "Save changes"}
+        </button>
+      </div>
+    </form>
   );
 }
 
@@ -464,6 +826,38 @@ function BuildingIcon({ size = 22 }: { size?: number }) {
         strokeWidth="1.6"
         strokeLinecap="round"
         strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M4 20h4l10-10-4-4L4 16v4z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M14 6l4 4"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
       />
     </svg>
   );

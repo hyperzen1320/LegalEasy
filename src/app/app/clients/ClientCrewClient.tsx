@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import RequestDeleteDialog from "@/app/app/workflow/[id]/RequestDeleteDialog";
 
 export type ClientRow = {
   id: string;
@@ -15,13 +16,29 @@ export type ClientRow = {
 
 export default function ClientCrewClient({
   initialClients,
+  isAdmin,
 }: {
   initialClients: ClientRow[];
+  isAdmin: boolean;
 }) {
   const router = useRouter();
   const [clients, setClients] = useState<ClientRow[]>(initialClients);
   const [query, setQuery] = useState("");
   const [adding, setAdding] = useState(false);
+
+  function handleUpdated(updated: ClientRow) {
+    setClients((prev) =>
+      prev
+        .map((c) => (c.id === updated.id ? updated : c))
+        .sort((a, b) => a.name.localeCompare(b.name))
+    );
+    router.refresh();
+  }
+
+  function handleDeleted(id: string) {
+    setClients((prev) => prev.filter((c) => c.id !== id));
+    router.refresh();
+  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -172,7 +189,14 @@ export default function ClientCrewClient({
       ) : (
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           {filtered.map((c, i) => (
-            <ClientCard key={c.id} c={c} index={i} />
+            <ClientCard
+              key={c.id}
+              c={c}
+              index={i}
+              isAdmin={isAdmin}
+              onUpdated={handleUpdated}
+              onDeleted={handleDeleted}
+            />
           ))}
         </div>
       )}
@@ -180,7 +204,21 @@ export default function ClientCrewClient({
   );
 }
 
-function ClientCard({ c, index }: { c: ClientRow; index: number }) {
+function ClientCard({
+  c,
+  index,
+  isAdmin,
+  onUpdated,
+  onDeleted,
+}: {
+  c: ClientRow;
+  index: number;
+  isAdmin: boolean;
+  onUpdated: (c: ClientRow) => void;
+  onDeleted: (id: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+
   const phone = (c.phone || "").trim();
   const wa = (c.whatsapp || c.phone || "").replace(/\D/g, "");
   const waNumber = wa.length === 10 ? `91${wa}` : wa;
@@ -188,6 +226,27 @@ function ClientCard({ c, index }: { c: ClientRow; index: number }) {
   const telLink = phone ? `tel:${phone.replace(/\s+/g, "")}` : null;
   const waLink = wa ? `https://wa.me/${waNumber}` : null;
   const mailLink = c.email ? `mailto:${c.email}` : null;
+
+  if (editing) {
+    return (
+      <div
+        className="fade-up-sm rounded-xl p-5"
+        style={{
+          backgroundColor: "var(--color-app-paper)",
+          boxShadow: "0 1px 0 var(--color-app-edge)",
+        }}
+      >
+        <EditClientForm
+          client={c}
+          onCancel={() => setEditing(false)}
+          onSaved={(updated) => {
+            setEditing(false);
+            onUpdated(updated);
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div
@@ -233,7 +292,7 @@ function ClientCard({ c, index }: { c: ClientRow; index: number }) {
         </span>
       </div>
 
-      {/* Action buttons */}
+      {/* Contact actions */}
       <div className="mt-4 flex flex-wrap gap-2">
         <ContactButton
           href={telLink}
@@ -255,7 +314,336 @@ function ClientCard({ c, index }: { c: ClientRow; index: number }) {
           variant="ghost"
         />
       </div>
+
+      {/* Manage actions — edit always available; delete admin-direct,
+          non-admins route through the delete-request flow. */}
+      <div
+        className="mt-4 flex items-center gap-2 border-t pt-4"
+        style={{ borderColor: "var(--color-app-edge-soft)" }}
+      >
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[12px] font-medium transition-colors"
+          style={{
+            fontFamily: "var(--font-manrope), sans-serif",
+            borderColor: "var(--color-app-edge)",
+            backgroundColor: "var(--color-app-paper)",
+            color: "var(--color-app-fg-soft)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = "var(--color-app-copper)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = "var(--color-app-edge)";
+          }}
+        >
+          <PencilIcon /> Edit
+        </button>
+        <DeleteClientButton
+          client={c}
+          isAdmin={isAdmin}
+          onDeleted={() => onDeleted(c.id)}
+        />
+      </div>
     </div>
+  );
+}
+
+function DeleteClientButton({
+  client,
+  isAdmin,
+  onDeleted,
+}: {
+  client: ClientRow;
+  isAdmin: boolean;
+  onDeleted: () => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [requestOpen, setRequestOpen] = useState(false);
+  const [requestSent, setRequestSent] = useState(false);
+
+  async function onDelete() {
+    setError(null);
+    setWorking(true);
+    try {
+      const res = await fetch(`/api/app/clients/${client.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        // Stale role record etc. — pivot non-admins into the request flow
+        // rather than dead-ending on the 403.
+        if (data?.code === "delete_request_required") {
+          setConfirming(false);
+          setRequestOpen(true);
+          setWorking(false);
+          return;
+        }
+        setError(data?.error ?? "Couldn't delete this client.");
+        setWorking(false);
+        return;
+      }
+      onDeleted();
+    } catch {
+      setError("Network error.");
+      setWorking(false);
+    }
+  }
+
+  if (requestSent) {
+    return (
+      <span
+        className="text-[12px]"
+        style={{
+          fontFamily: "var(--font-manrope), sans-serif",
+          color: "var(--color-app-aqua)",
+        }}
+      >
+        Delete request sent for admin review.
+      </span>
+    );
+  }
+
+  if (confirming && isAdmin) {
+    return (
+      <div className="flex items-center gap-2">
+        <span
+          className="text-[12px]"
+          style={{
+            fontFamily: "var(--font-manrope), sans-serif",
+            color: error ? "var(--color-app-danger)" : "var(--color-app-fg-soft)",
+          }}
+        >
+          {error || "Remove this client?"}
+        </span>
+        <button
+          type="button"
+          onClick={() => setConfirming(false)}
+          disabled={working}
+          className="rounded-md border px-2.5 py-1 text-[12px] font-medium"
+          style={{
+            fontFamily: "var(--font-manrope), sans-serif",
+            borderColor: "var(--color-app-edge)",
+            color: "var(--color-app-fg-soft)",
+          }}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={working}
+          className="rounded-md px-2.5 py-1 text-[12px] font-semibold"
+          style={{
+            fontFamily: "var(--font-manrope), sans-serif",
+            backgroundColor: "var(--color-app-danger)",
+            color: "white",
+            opacity: working ? 0.6 : 1,
+          }}
+        >
+          {working ? "Removing…" : "Delete"}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => (isAdmin ? setConfirming(true) : setRequestOpen(true))}
+        className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[12px] font-medium transition-colors"
+        style={{
+          fontFamily: "var(--font-manrope), sans-serif",
+          borderColor: "var(--color-app-edge)",
+          backgroundColor: "transparent",
+          color: "var(--color-app-danger)",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = "var(--color-app-danger-soft)";
+          e.currentTarget.style.borderColor = "var(--color-app-danger)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = "transparent";
+          e.currentTarget.style.borderColor = "var(--color-app-edge)";
+        }}
+      >
+        <TrashIcon /> {isAdmin ? "Delete" : "Request delete"}
+      </button>
+      {requestOpen ? (
+        <RequestDeleteDialog
+          target={{
+            type: "client",
+            id: client.id,
+            name: client.name,
+            hint: "Only the office admin can remove a client directly.",
+          }}
+          onClose={() => setRequestOpen(false)}
+          onSubmitted={() => {
+            setRequestOpen(false);
+            setRequestSent(true);
+          }}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function EditClientForm({
+  client,
+  onCancel,
+  onSaved,
+}: {
+  client: ClientRow;
+  onCancel: () => void;
+  onSaved: (c: ClientRow) => void;
+}) {
+  const [name, setName] = useState(client.name);
+  const [email, setEmail] = useState(client.email);
+  const [whatsapp, setWhatsapp] = useState(client.whatsapp);
+  const [phone, setPhone] = useState(client.phone);
+  const [address, setAddress] = useState(client.address);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [missing, setMissing] = useState(false);
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    if (!name.trim()) {
+      setMissing(true);
+      setError("Name is required.");
+      return;
+    }
+    setMissing(false);
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/app/clients/${client.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, whatsapp, phone, address }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Couldn't save");
+        setSubmitting(false);
+        return;
+      }
+      onSaved({
+        ...client,
+        name: name.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        whatsapp: whatsapp.trim(),
+        address: address.trim(),
+      });
+    } catch {
+      setError("Network error.");
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <form onSubmit={onSubmit}>
+      <div
+        className="mb-4 text-[11px] font-semibold uppercase tracking-[0.18em]"
+        style={{
+          fontFamily: "var(--font-dm-mono), monospace",
+          color: "var(--color-app-copper-deep)",
+        }}
+      >
+        Edit client
+      </div>
+      <div className="grid gap-x-6 gap-y-5 md:grid-cols-2">
+        <Field
+          id={`edit-name-${client.id}`}
+          label="Name"
+          required
+          value={name}
+          onChange={(v) => {
+            setName(v);
+            if (missing && v.trim()) setMissing(false);
+          }}
+          invalid={missing}
+        />
+        <Field
+          id={`edit-email-${client.id}`}
+          label="Email"
+          type="email"
+          value={email}
+          onChange={setEmail}
+        />
+        <Field
+          id={`edit-whatsapp-${client.id}`}
+          label="WhatsApp"
+          type="tel"
+          value={whatsapp}
+          onChange={setWhatsapp}
+          placeholder="+91..."
+        />
+        <Field
+          id={`edit-phone-${client.id}`}
+          label="Phone"
+          type="tel"
+          value={phone}
+          onChange={setPhone}
+          placeholder="+91..."
+        />
+        <div className="md:col-span-2">
+          <Field
+            id={`edit-address-${client.id}`}
+            label="Address"
+            value={address}
+            onChange={setAddress}
+          />
+        </div>
+      </div>
+
+      {error ? (
+        <p
+          className="mt-3 text-[12px]"
+          style={{
+            fontFamily: "var(--font-manrope), sans-serif",
+            color: "var(--color-app-danger)",
+          }}
+        >
+          {error}
+        </p>
+      ) : null}
+
+      <div className="mt-5 flex items-center justify-end gap-3">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-md border px-4 py-2 text-[13px] font-medium"
+          style={{
+            fontFamily: "var(--font-manrope), sans-serif",
+            borderColor: "var(--color-app-edge)",
+            backgroundColor: "var(--color-app-paper)",
+            color: "var(--color-app-fg-soft)",
+          }}
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={submitting}
+          className="inline-flex items-center gap-2 rounded-md px-5 py-2 text-[13px] font-semibold transition-all"
+          style={{
+            fontFamily: "var(--font-manrope), sans-serif",
+            backgroundColor: "var(--color-app-copper)",
+            color: "var(--color-app-copper-text)",
+            opacity: submitting ? 0.6 : 1,
+            boxShadow: "0 8px 20px -10px rgba(197,133,58,0.6)",
+          }}
+        >
+          {submitting ? "Saving…" : "Save changes"}
+        </button>
+      </div>
+    </form>
   );
 }
 
@@ -659,6 +1047,38 @@ function MailIcon() {
         strokeWidth="1.6"
         strokeLinecap="round"
         strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M4 20h4l10-10-4-4L4 16v4z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M14 6l4 4"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
       />
     </svg>
   );

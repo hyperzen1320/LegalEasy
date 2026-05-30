@@ -8,6 +8,12 @@ import { corsHeaders } from "@/lib/cors";
 import { logWorkflowActivity } from "@/lib/activity";
 import { canDirectDeleteGeneric } from "@/lib/delete-eligibility";
 import { DeleteRequest } from "@/models/DeleteRequest";
+import {
+  normalizeCnr,
+  findCnrConflict,
+  cnrConflictMessage,
+  isDuplicateKeyError,
+} from "@/lib/cnr";
 
 const VALID_STATUSES = [
   "Filed",
@@ -181,6 +187,32 @@ export async function PATCH(
     }
   }
 
+  // CNR is normalised to its canonical upper-case form, then checked for
+  // a clash with any OTHER live matter in the chambers. Only runs when
+  // the CNR actually changed and isn't blank — editing a case without
+  // touching its CNR must never trip over itself.
+  if (typeof body.cnr === "string") {
+    doc.cnr = normalizeCnr(body.cnr);
+  }
+  const cnrChanged =
+    doc.cnr !== normalizeCnr(before.fieldsSnapshot.cnr);
+  if (doc.cnr && cnrChanged) {
+    const conflict = await findCnrConflict({
+      partnerId: doc.partnerId,
+      cnr: doc.cnr,
+      excludeId: doc._id,
+    });
+    if (conflict) {
+      return NextResponse.json(
+        { error: cnrConflictMessage(conflict), code: "cnr_conflict" },
+        {
+          status: 409,
+          headers: guard.ctx.isMobile ? corsHeaders() : undefined,
+        }
+      );
+    }
+  }
+
   // courtId is set/unset separately from the denormalised strings. The
   // form sends `courtId: "<id>"` when the user picks a court from the
   // Court Hub combobox, `courtId: null` to explicitly unlink, and just
@@ -288,7 +320,32 @@ export async function PATCH(
         : null;
   }
 
-  await doc.save();
+  try {
+    await doc.save();
+  } catch (err) {
+    if (isDuplicateKeyError(err)) {
+      const conflict = doc.cnr
+        ? await findCnrConflict({
+            partnerId: doc.partnerId,
+            cnr: doc.cnr,
+            excludeId: doc._id,
+          })
+        : null;
+      return NextResponse.json(
+        {
+          error: conflict
+            ? cnrConflictMessage(conflict)
+            : "That CNR is already on record under another matter.",
+          code: "cnr_conflict",
+        },
+        {
+          status: 409,
+          headers: guard.ctx.isMobile ? corsHeaders() : undefined,
+        }
+      );
+    }
+    throw err;
+  }
 
   // Activity logs — emit specific events for the noteworthy bits
   const changedFields: string[] = [];

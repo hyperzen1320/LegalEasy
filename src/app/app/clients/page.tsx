@@ -63,10 +63,12 @@ export default async function ClientsPage() {
     });
   }
 
+  const isAdmin = session?.user?.userType === "partner_admin";
+
   return (
     <div className="px-10 py-8">
       <div className="mx-auto max-w-[1280px]">
-        <ClientCrewClient initialClients={clients} />
+        <ClientCrewClient initialClients={clients} isAdmin={isAdmin} />
       </div>
     </div>
   );

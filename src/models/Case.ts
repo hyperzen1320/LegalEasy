@@ -120,6 +120,22 @@ const CaseSchema = new Schema<ICase>(
 CaseSchema.index({ partnerId: 1, isDeleted: 1, nextHearingDate: 1 });
 CaseSchema.index({ partnerId: 1, isDeleted: 1, createdAt: -1 });
 CaseSchema.index({ partnerId: 1, caseNo: 1 });
+
+// CNR uniqueness within a chambers. A partial index so it only governs
+// LIVE matters with an actual CNR: blank CNRs are allowed to repeat
+// (many matters are filed before a CNR is assigned), and a soft-deleted
+// matter frees its CNR for re-entry. CNR is normalised to upper-case on
+// write (see lib/cnr.ts), so a plain index is enough — no collation
+// needed — and "tnch01…"/"TNCH01…" can't both slip through. This is the
+// race backstop; lib/cnr.ts does the friendly app-level check first.
+CaseSchema.index(
+  { partnerId: 1, cnr: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { isDeleted: false, cnr: { $gt: "" } },
+    name: "uniq_partner_active_cnr",
+  }
+);
 // Active-cases queries hit `disposedAt: null` constantly (Case Vault,
 // Hearing Track, Dashboard) — this index keeps the filter index-only.
 CaseSchema.index({ partnerId: 1, isDeleted: 1, disposedAt: 1, updatedAt: -1 });

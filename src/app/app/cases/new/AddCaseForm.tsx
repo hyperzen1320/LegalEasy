@@ -3,18 +3,15 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import CourtCombobox from "../CourtCombobox";
+import { APPEARING_OPTIONS } from "@/lib/appearing-options";
 
 // Status is now a free-form text field so chambers can use their own
 // vocabulary ("Mediation", "Cross-objection filed", "On-board", etc.)
 // rather than being boxed into a fixed dropdown. Default is "Filed" so
 // new matters land in a sensible state if the advocate skips the field.
-
-const APPEARING_OPTIONS = [
-  "Petitioner",
-  "Respondent",
-  "Plaintiff",
-  "Defendant",
-];
+//
+// "Appearing for" stays a dropdown — the shared roster in
+// lib/appearing-options.ts covers civil, appellate and criminal roles.
 
 export default function AddCaseForm() {
   const router = useRouter();
@@ -197,7 +194,7 @@ export default function AddCaseForm() {
             label="Appearing For"
             value={appearingFor}
             onChange={setAppearingFor}
-            options={APPEARING_OPTIONS}
+            options={[...APPEARING_OPTIONS]}
           />
 
           <Field
