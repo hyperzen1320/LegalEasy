@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import CourtCombobox from "../../CourtCombobox";
+import { appearingOptionsWith } from "@/lib/appearing-options";
 
 // Full case edit form. Mirrors AddCaseForm's field set (so the user's
 // mental model is identical between "Add" and "Edit") but PATCHes the
@@ -32,13 +33,6 @@ export type CaseInitialValues = {
   lastHearingDate: string;
   isDisposed: boolean;
 };
-
-const APPEARING_OPTIONS = [
-  "Petitioner",
-  "Respondent",
-  "Plaintiff",
-  "Defendant",
-];
 
 export default function EditCaseForm({
   initial,
@@ -308,7 +302,7 @@ export default function EditCaseForm({
             label="Appearing For"
             value={appearingFor}
             onChange={setAppearingFor}
-            options={APPEARING_OPTIONS}
+            options={appearingOptionsWith(initial.appearingFor)}
           />
 
           <Field

@@ -10,6 +10,12 @@ import {
   buildCaseFilter,
   readCaseFilterParams,
 } from "@/lib/case-filter";
+import {
+  normalizeCnr,
+  findCnrConflict,
+  cnrConflictMessage,
+  isDuplicateKeyError,
+} from "@/lib/cnr";
 
 export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders() });
@@ -184,37 +190,80 @@ export async function POST(request: Request) {
       ? new mongoose.Types.ObjectId(courtIdRaw)
       : null;
 
-  const doc = await Case.create({
-    partnerId,
-    caseNo,
-    fileNo: str("fileNo"),
-    cnr: str("cnr"),
-    title: str("title"),
+  // CNR uniqueness. Blank CNRs are fine to repeat (matters get filed
+  // before a CNR is assigned); a non-blank one must be free within the
+  // chambers. The friendly pre-check runs first; the unique index is the
+  // race backstop, caught below.
+  const cnr = normalizeCnr(body.cnr);
+  if (cnr) {
+    const conflict = await findCnrConflict({ partnerId, cnr });
+    if (conflict) {
+      return NextResponse.json(
+        { error: cnrConflictMessage(conflict), code: "cnr_conflict" },
+        {
+          status: 409,
+          headers: guard.ctx.isMobile ? corsHeaders() : undefined,
+        }
+      );
+    }
+  }
 
-    clientName: str("clientName"),
-    clientPhone: str("clientPhone"),
-    clientWhatsapp: str("clientWhatsapp"),
-    clientAddress: str("clientAddress"),
-    oppositeParty: str("oppositeParty"),
+  let doc;
+  try {
+    doc = await Case.create({
+      partnerId,
+      caseNo,
+      fileNo: str("fileNo"),
+      cnr,
+      title: str("title"),
 
-    appearingFor: str("appearingFor"),
-    oppositeAdvocate: str("oppositeAdvocate"),
-    iaNumbers: str("iaNumbers"),
+      clientName: str("clientName"),
+      clientPhone: str("clientPhone"),
+      clientWhatsapp: str("clientWhatsapp"),
+      clientAddress: str("clientAddress"),
+      oppositeParty: str("oppositeParty"),
 
-    courtId,
-    courtName: str("courtName"),
-    courtNumber: str("courtNumber"),
-    courtHall: str("courtHall"),
-    courtPlace: str("courtPlace"),
+      appearingFor: str("appearingFor"),
+      oppositeAdvocate: str("oppositeAdvocate"),
+      iaNumbers: str("iaNumbers"),
 
-    status: str("status") || "Filed",
-    nextHearingDate,
-    lastHearingDate,
+      courtId,
+      courtName: str("courtName"),
+      courtNumber: str("courtNumber"),
+      courtHall: str("courtHall"),
+      courtPlace: str("courtPlace"),
 
-    createdBy: guard.ctx.user.id
-      ? new mongoose.Types.ObjectId(guard.ctx.user.id)
-      : null,
-  });
+      status: str("status") || "Filed",
+      nextHearingDate,
+      lastHearingDate,
+
+      createdBy: guard.ctx.user.id
+        ? new mongoose.Types.ObjectId(guard.ctx.user.id)
+        : null,
+    });
+  } catch (err) {
+    // The unique index fired between our pre-check and the insert (two
+    // tabs racing the same CNR). Re-resolve the conflict so the message
+    // still names the matter that won.
+    if (isDuplicateKeyError(err)) {
+      const conflict = cnr
+        ? await findCnrConflict({ partnerId, cnr })
+        : null;
+      return NextResponse.json(
+        {
+          error: conflict
+            ? cnrConflictMessage(conflict)
+            : "That CNR is already on record under another matter.",
+          code: "cnr_conflict",
+        },
+        {
+          status: 409,
+          headers: guard.ctx.isMobile ? corsHeaders() : undefined,
+        }
+      );
+    }
+    throw err;
+  }
 
   await logWorkflowActivity(guard.ctx, {
     action: "case.created",
