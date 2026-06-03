@@ -11,12 +11,30 @@ export type DisposedCaseRow = {
   cnr: string;
   clientName: string;
   oppositeParty: string;
+  courtId: string;
   courtName: string;
   courtPlace: string;
   status: string;
   disposedAt: string | null;
   disposalRemarks: string;
 };
+
+type Format = "xlsx" | "docx" | "pdf";
+
+// Fields the on-screen search scans. Kept identical to the searchScope we
+// hand the export endpoint so the file you download matches the list you
+// filtered (the server runs the same OR-of-substrings over these keys).
+const SEARCH_KEYS: (keyof DisposedCaseRow)[] = [
+  "fileNo",
+  "caseNo",
+  "cnr",
+  "clientName",
+  "oppositeParty",
+  "courtName",
+  "courtPlace",
+  "status",
+];
+const SEARCH_SCOPE = "fileNo,caseNo,cnr,clientName,oppositeParty,courtName,courtPlace,status";
 
 function fmtDate(iso: string | null): string {
   if (!iso) return "—";
@@ -29,79 +47,227 @@ function fmtDate(iso: string | null): string {
 
 export default function DisposedCasesClient({
   cases,
+  isAdmin,
 }: {
   cases: DisposedCaseRow[];
+  isAdmin: boolean;
 }) {
   const [query, setQuery] = useState("");
+  const [courtFilter, setCourtFilter] = useState(""); // courtId or ""
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+
+  // Court dropdown is built from the courts actually present in the
+  // archive (only those carrying a Court Hub id, so the filter maps to an
+  // exact courtId the export can re-query).
+  const courts = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of cases) {
+      if (!c.courtId) continue;
+      if (!map.has(c.courtId)) {
+        const label =
+          [c.courtName, c.courtPlace].filter(Boolean).join(", ") ||
+          "Unnamed court";
+        map.set(c.courtId, label);
+      }
+    }
+    return Array.from(map.entries())
+      .map(([id, label]) => ({ id, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [cases]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return cases;
-    return cases.filter(
-      (c) =>
-        c.caseNo.toLowerCase().includes(q) ||
-        c.fileNo.toLowerCase().includes(q) ||
-        c.cnr.toLowerCase().includes(q) ||
-        c.clientName.toLowerCase().includes(q) ||
-        c.oppositeParty.toLowerCase().includes(q) ||
-        c.courtName.toLowerCase().includes(q) ||
-        c.courtPlace.toLowerCase().includes(q)
-    );
-  }, [cases, query]);
+    return cases.filter((c) => {
+      if (courtFilter && c.courtId !== courtFilter) return false;
+      const day = c.disposedAt ? c.disposedAt.slice(0, 10) : "";
+      if (fromDate && (!day || day < fromDate)) return false;
+      if (toDate && (!day || day > toDate)) return false;
+      if (q) {
+        const hit = SEARCH_KEYS.some((k) =>
+          String(c[k] || "").toLowerCase().includes(q)
+        );
+        if (!hit) return false;
+      }
+      return true;
+    });
+  }, [cases, query, courtFilter, fromDate, toDate]);
+
+  const hasFilters = Boolean(
+    query.trim() || courtFilter || fromDate || toDate
+  );
+
+  function clearAll() {
+    setQuery("");
+    setCourtFilter("");
+    setFromDate("");
+    setToDate("");
+  }
 
   return (
     <>
-      {/* Search */}
+      {/* Filter bar */}
       <div
-        className="mt-7 flex items-center gap-3 rounded-xl px-5 py-3.5"
+        className="mt-7 rounded-xl p-4"
         style={{
           backgroundColor: "var(--color-app-paper)",
           boxShadow: "0 1px 0 var(--color-app-edge)",
         }}
       >
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          aria-hidden
-          style={{ color: "var(--color-app-fg-muted)" }}
-        >
-          <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="1.6" />
-          <path
-            d="M16 16l5 5"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-          />
-        </svg>
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search archived matters by file no., case no., CNR, party, court..."
-          className="flex-1 bg-transparent text-[14px] outline-none placeholder:text-app-fg-muted"
+        <div className="flex flex-wrap items-end gap-3">
+          {/* Search */}
+          <div className="min-w-[220px] flex-1">
+            <FieldLabel>Search</FieldLabel>
+            <div
+              className="mt-1.5 flex items-center gap-2 rounded-md border px-3 py-2"
+              style={{
+                borderColor: "var(--color-app-edge)",
+                backgroundColor: "var(--color-app-paper)",
+              }}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden
+                style={{ color: "var(--color-app-fg-muted)" }}
+              >
+                <circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="1.6" />
+                <path
+                  d="M16 16l5 5"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                />
+              </svg>
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="File no., case no., CNR, party, court…"
+                className="flex-1 bg-transparent text-[13px] outline-none"
+                style={{
+                  fontFamily: "var(--font-manrope), sans-serif",
+                  color: "var(--color-app-ink)",
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Court */}
+          <div className="min-w-[180px]">
+            <FieldLabel>Court</FieldLabel>
+            <select
+              value={courtFilter}
+              onChange={(e) => setCourtFilter(e.target.value)}
+              className="mt-1.5 block w-full rounded-md border px-3 py-2 text-[13px] outline-none"
+              style={{
+                fontFamily: "var(--font-manrope), sans-serif",
+                borderColor: "var(--color-app-edge)",
+                backgroundColor: "var(--color-app-paper)",
+                color: "var(--color-app-ink)",
+              }}
+            >
+              <option value="">All courts</option>
+              {courts.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Disposed from */}
+          <div>
+            <FieldLabel>Disposed from</FieldLabel>
+            <input
+              type="date"
+              value={fromDate}
+              max={toDate || undefined}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="mt-1.5 block rounded-md border px-3 py-2 text-[13px] outline-none"
+              style={{
+                fontFamily: "var(--font-manrope), sans-serif",
+                borderColor: "var(--color-app-edge)",
+                backgroundColor: "var(--color-app-paper)",
+                color: "var(--color-app-ink)",
+              }}
+            />
+          </div>
+
+          {/* Disposed to */}
+          <div>
+            <FieldLabel>Disposed to</FieldLabel>
+            <input
+              type="date"
+              value={toDate}
+              min={fromDate || undefined}
+              onChange={(e) => setToDate(e.target.value)}
+              className="mt-1.5 block rounded-md border px-3 py-2 text-[13px] outline-none"
+              style={{
+                fontFamily: "var(--font-manrope), sans-serif",
+                borderColor: "var(--color-app-edge)",
+                backgroundColor: "var(--color-app-paper)",
+                color: "var(--color-app-ink)",
+              }}
+            />
+          </div>
+
+          {hasFilters ? (
+            <button
+              onClick={clearAll}
+              className="rounded-md px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] transition-colors"
+              style={{
+                fontFamily: "var(--font-dm-mono), monospace",
+                backgroundColor: "var(--color-app-canvas-2)",
+                color: "var(--color-app-fg-muted)",
+              }}
+            >
+              Clear
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Count + export */}
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+        <p
+          className="text-[12px]"
           style={{
-            fontFamily: "var(--font-manrope), sans-serif",
-            color: "var(--color-app-ink)",
+            fontFamily: "var(--font-dm-mono), monospace",
+            color: "var(--color-app-fg-muted)",
           }}
-        />
-        {query.length > 0 && (
-          <button
-            onClick={() => setQuery("")}
-            className="text-[11px] uppercase tracking-[0.14em] transition-colors"
-            style={{
-              fontFamily: "var(--font-dm-mono), monospace",
-              color: "var(--color-app-fg-muted)",
-            }}
-          >
-            Clear
-          </button>
-        )}
+        >
+          {hasFilters ? (
+            <>
+              <span style={{ color: "var(--color-app-ink)", fontWeight: 600 }}>
+                {filtered.length}
+              </span>{" "}
+              of {cases.length} archived
+            </>
+          ) : (
+            <>
+              <span style={{ color: "var(--color-app-ink)", fontWeight: 600 }}>
+                {cases.length}
+              </span>{" "}
+              archived {cases.length === 1 ? "matter" : "matters"}
+            </>
+          )}
+        </p>
+        {isAdmin ? (
+          <DisposedExportMenu
+            courtId={courtFilter}
+            fromDate={fromDate}
+            toDate={toDate}
+            search={query}
+            disabled={filtered.length === 0}
+          />
+        ) : null}
       </div>
 
       {filtered.length === 0 ? (
         <div
-          className="mt-6 rounded-xl px-5 py-12 text-center"
+          className="mt-5 rounded-xl px-5 py-12 text-center"
           style={{
             backgroundColor: "var(--color-app-paper)",
             border: "1px dashed var(--color-app-edge)",
@@ -114,12 +280,21 @@ export default function DisposedCasesClient({
               color: "var(--color-app-fg-muted)",
             }}
           >
-            No archived matches for{" "}
-            <span style={{ color: "var(--color-app-ink)", fontWeight: 600 }}>
-              &ldquo;{query}&rdquo;
-            </span>
-            .
+            No archived matters match the current filters.
           </p>
+          {hasFilters ? (
+            <button
+              onClick={clearAll}
+              className="mt-4 inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-[12px] font-semibold"
+              style={{
+                fontFamily: "var(--font-manrope), sans-serif",
+                backgroundColor: "var(--color-app-canvas-2)",
+                color: "var(--color-app-ink)",
+              }}
+            >
+              Clear filters
+            </button>
+          ) : null}
         </div>
       ) : (
         <div className="mt-5 space-y-3">
@@ -132,13 +307,243 @@ export default function DisposedCasesClient({
   );
 }
 
-function DisposedCard({
-  c,
-  index,
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <label
+      className="text-[10px] font-semibold uppercase tracking-[0.18em]"
+      style={{
+        fontFamily: "var(--font-dm-mono), monospace",
+        color: "var(--color-app-fg-muted)",
+      }}
+    >
+      {children}
+    </label>
+  );
+}
+
+/* ─── Export menu (admin) ─── */
+
+function DisposedExportMenu({
+  courtId,
+  fromDate,
+  toDate,
+  search,
+  disabled,
 }: {
-  c: DisposedCaseRow;
-  index: number;
+  courtId: string;
+  fromDate: string;
+  toDate: string;
+  search: string;
+  disabled: boolean;
 }) {
+  const [open, setOpen] = useState(false);
+  const [working, setWorking] = useState<Format | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function trigger(format: Format) {
+    setError(null);
+    setWorking(format);
+    try {
+      // Same filter tuple the list is using, plus scope=disposed so the
+      // server narrows to the archive and dates apply to the disposal
+      // date. The server picks the disposed column set automatically.
+      const filters: Record<string, string> = { scope: "disposed" };
+      if (courtId) filters.courtId = courtId;
+      if (fromDate) filters.fromDate = fromDate;
+      if (toDate) filters.toDate = toDate;
+      if (search.trim()) {
+        filters.search = search.trim();
+        filters.searchScope = SEARCH_SCOPE;
+      }
+
+      const res = await fetch("/api/app/cases/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ format, filters }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data?.error || "Couldn't generate that export.");
+        setWorking(null);
+        return;
+      }
+      const disposition = res.headers.get("Content-Disposition") || "";
+      const match = /filename="?([^";]+)"?/i.exec(disposition);
+      const filename = (match && match[1]) || `disposed-cases.${format}`;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setOpen(false);
+    } catch {
+      setError("Network error. Try again.");
+    } finally {
+      setWorking(null);
+    }
+  }
+
+  const LABELS: Record<Format, string> = {
+    xlsx: "Excel (.xlsx)",
+    docx: "Word (.docx)",
+    pdf: "PDF",
+  };
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        disabled={Boolean(working) || disabled}
+        className="inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-[12px] font-semibold uppercase tracking-[0.18em] transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed"
+        style={{
+          fontFamily: "var(--font-dm-mono), monospace",
+          backgroundColor: "var(--color-app-ink)",
+          color: "var(--color-app-ivory)",
+          boxShadow: "0 8px 18px -10px rgba(10,17,36,0.45)",
+          opacity: working || disabled ? 0.6 : 1,
+        }}
+      >
+        {working ? (
+          <>
+            <span
+              className="inline-block h-3 w-3 animate-spin rounded-full"
+              style={{
+                borderWidth: 1.5,
+                borderStyle: "solid",
+                borderColor: "rgba(245,235,214,0.35)",
+                borderTopColor: "var(--color-app-copper)",
+              }}
+            />
+            Generating…
+          </>
+        ) : (
+          <>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path
+                d="M12 4v12m-5-5l5 5 5-5"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M4 18v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            Export
+            <span aria-hidden className="ml-0.5 text-[10px]" style={{ opacity: 0.75 }}>
+              ▾
+            </span>
+          </>
+        )}
+      </button>
+
+      {open && !working ? (
+        <>
+          <div
+            className="fixed inset-0 z-20"
+            onClick={() => setOpen(false)}
+            aria-hidden
+          />
+          <div
+            className="absolute right-0 z-30 mt-2 w-[230px] overflow-hidden rounded-md"
+            style={{
+              backgroundColor: "var(--color-app-paper)",
+              border: "1px solid var(--color-app-edge)",
+              boxShadow:
+                "0 16px 32px -12px rgba(10,17,36,0.25), 0 0 0 1px rgba(10,17,36,0.04)",
+            }}
+          >
+            <div
+              className="px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.18em]"
+              style={{
+                fontFamily: "var(--font-dm-mono), monospace",
+                color: "var(--color-app-fg-muted)",
+                borderBottom: "1px solid var(--color-app-edge-soft)",
+                backgroundColor: "var(--color-app-canvas-2)",
+              }}
+            >
+              Download archive
+            </div>
+            <ul className="py-1">
+              {(["xlsx", "docx", "pdf"] as const).map((f) => (
+                <li key={f}>
+                  <button
+                    type="button"
+                    onClick={() => trigger(f)}
+                    className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-[13px] font-semibold transition-colors"
+                    style={{
+                      fontFamily: "var(--font-manrope), sans-serif",
+                      color: "var(--color-app-ink)",
+                      backgroundColor: "transparent",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor =
+                        "var(--color-app-canvas-2)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "transparent";
+                    }}
+                  >
+                    <FormatBadge format={f} />
+                    {LABELS[f]}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {error ? (
+              <div
+                className="px-3 py-2 text-[11px]"
+                style={{
+                  fontFamily: "var(--font-manrope), sans-serif",
+                  backgroundColor: "var(--color-app-danger-soft)",
+                  color: "var(--color-app-danger)",
+                  borderTop: "1px solid var(--color-app-edge-soft)",
+                }}
+              >
+                {error}
+              </div>
+            ) : null}
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function FormatBadge({ format }: { format: Format }) {
+  const palette: Record<Format, { bg: string; fg: string }> = {
+    xlsx: { bg: "#1f6f43", fg: "#ffffff" },
+    docx: { bg: "#2b5797", fg: "#ffffff" },
+    pdf: { bg: "#9a2c2c", fg: "#ffffff" },
+  };
+  const p = palette[format];
+  return (
+    <span
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[9px] font-semibold uppercase tracking-[0.14em]"
+      style={{
+        fontFamily: "var(--font-dm-mono), monospace",
+        backgroundColor: p.bg,
+        color: p.fg,
+      }}
+    >
+      {format}
+    </span>
+  );
+}
+
+/* ─── Card ─── */
+
+function DisposedCard({ c, index }: { c: DisposedCaseRow; index: number }) {
   return (
     <Link
       href={`/app/cases/${c.id}`}
@@ -206,12 +611,7 @@ function DisposedCard({
           >
             <span style={{ color: "var(--color-app-fg-muted)" }}>Client: </span>
             {c.clientName ? (
-              <span
-                style={{
-                  color: "var(--color-app-ink)",
-                  fontWeight: 600,
-                }}
-              >
+              <span style={{ color: "var(--color-app-ink)", fontWeight: 600 }}>
                 {c.clientName}
               </span>
             ) : (
@@ -221,12 +621,7 @@ function DisposedCard({
               <>
                 {" "}
                 <span style={{ color: "var(--color-app-copper-deep)" }}>vs</span>{" "}
-                <span
-                  style={{
-                    color: "var(--color-app-ink)",
-                    fontWeight: 600,
-                  }}
-                >
+                <span style={{ color: "var(--color-app-ink)", fontWeight: 600 }}>
                   {c.oppositeParty}
                 </span>
               </>

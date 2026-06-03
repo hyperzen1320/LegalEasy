@@ -75,6 +75,7 @@ function toExportRow(r: HearingRow): CaseExportRow {
     advocateName: "",
     nextHearingDate: r.nextHearingDate,
     lastHearingDate: r.lastHearingDate,
+    disposedAt: null,
   };
 }
 

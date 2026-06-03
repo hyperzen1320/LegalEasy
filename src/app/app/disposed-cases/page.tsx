@@ -17,6 +17,7 @@ export default async function DisposedCasesPage() {
   const partnerId = session?.user?.partnerId
     ? new mongoose.Types.ObjectId(session.user.partnerId)
     : null;
+  const isAdmin = session?.user?.userType === "partner_admin";
 
   let cases: DisposedCaseRow[] = [];
 
@@ -37,6 +38,7 @@ export default async function DisposedCasesPage() {
       cnr: c.cnr,
       clientName: c.clientName,
       oppositeParty: c.oppositeParty,
+      courtId: c.courtId ? String(c.courtId) : "",
       courtName: c.courtName,
       courtPlace: c.courtPlace,
       status: c.status,
@@ -110,7 +112,7 @@ export default async function DisposedCasesPage() {
         {cases.length === 0 ? (
           <EmptyArchive />
         ) : (
-          <DisposedCasesClient cases={cases} />
+          <DisposedCasesClient cases={cases} isAdmin={isAdmin} />
         )}
       </div>
     </div>

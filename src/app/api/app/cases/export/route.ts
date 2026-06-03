@@ -14,6 +14,7 @@ import {
 } from "@/lib/case-filter";
 import {
   resolveColumns,
+  DISPOSED_COLUMN_KEYS,
   type CaseExportInput,
   type CaseExportRow,
   companyName,
@@ -110,11 +111,15 @@ export async function POST(request: Request) {
   };
   const filter = buildCaseFilter(filterInput);
 
+  // The archive reads best newest-disposal-first; the active roll keeps
+  // its soonest-hearing-first ordering.
+  const sortSpec: Record<string, 1 | -1> =
+    filterInput.scope === "disposed"
+      ? { disposedAt: -1 }
+      : { nextHearingDate: 1, updatedAt: -1 };
+
   const [docs, partner] = await Promise.all([
-    Case.find(filter)
-      .sort({ nextHearingDate: 1, updatedAt: -1 })
-      .limit(MAX_EXPORT_ROWS)
-      .lean(),
+    Case.find(filter).sort(sortSpec).limit(MAX_EXPORT_ROWS).lean(),
     Partner.findById(partnerObjId).lean(),
   ]);
 
@@ -175,9 +180,16 @@ export async function POST(request: Request) {
     lastHearingDate: c.lastHearingDate
       ? c.lastHearingDate.toISOString()
       : null,
+    disposedAt: c.disposedAt ? c.disposedAt.toISOString() : null,
   }));
 
-  const columns = resolveColumns(columnKeys);
+  // When the archive is exported without an explicit column choice, lead
+  // with the disposed-friendly default set (disposal date instead of the
+  // hearing dates).
+  const columns = resolveColumns(
+    columnKeys ??
+      (filterInput.scope === "disposed" ? DISPOSED_COLUMN_KEYS : null)
+  );
   const filterSummary = await buildFilterSummary(filterInput, partnerObjId);
 
   const exportInput: CaseExportInput = {
@@ -226,7 +238,9 @@ export async function POST(request: Request) {
     .slice(0, 10)
     .replace(/-/g, "");
   const safeCompany = slugify(companyName(exportInput.partner));
-  const filename = `${safeCompany}-case-report-${dateSlug}.${meta.ext}`;
+  const reportSlug =
+    filterInput.scope === "disposed" ? "disposed-cases" : "case-report";
+  const filename = `${safeCompany}-${reportSlug}-${dateSlug}.${meta.ext}`;
 
   return new Response(buffer as unknown as BodyInit, {
     status: 200,
@@ -248,6 +262,10 @@ async function buildFilterSummary(
   partnerId: mongoose.Types.ObjectId
 ): Promise<{ lines: string[] }> {
   const lines: string[] = [];
+
+  if (input.scope === "disposed") {
+    lines.push("Archive — Disposed matters");
+  }
 
   if (input.courtId && mongoose.isValidObjectId(input.courtId)) {
     const court = await Court.findOne({
@@ -282,7 +300,9 @@ async function buildFilterSummary(
   if (input.fromDate || input.toDate) {
     const from = input.fromDate ? formatShort(input.fromDate) : "—";
     const to = input.toDate ? formatShort(input.toDate) : "—";
-    lines.push(`Next hearing date — ${from} → ${to}`);
+    const dateLabel =
+      input.scope === "disposed" ? "Disposed between" : "Next hearing date";
+    lines.push(`${dateLabel} — ${from} → ${to}`);
   }
 
   if (input.search && input.search.trim()) {
