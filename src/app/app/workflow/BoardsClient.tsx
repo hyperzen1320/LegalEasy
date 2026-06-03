@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { BOARD_COLOR_STYLES } from "@/lib/board-defaults";
 import type { BoardColor } from "@/models/Board";
+import RequestDeleteDialog from "@/app/app/workflow/[id]/RequestDeleteDialog";
 
 export type BoardRow = {
   id: string;
@@ -28,13 +29,30 @@ const COLOR_OPTIONS: BoardColor[] = [
 
 export default function BoardsClient({
   initialBoards,
+  isAdmin,
 }: {
   initialBoards: BoardRow[];
+  isAdmin: boolean;
 }) {
+  const router = useRouter();
   const [boards, setBoards] = useState<BoardRow[]>(initialBoards);
   const [sort, setSort] = useState<"recent" | "name" | "created">("recent");
   const [query, setQuery] = useState("");
   const [adding, setAdding] = useState(false);
+  // When set, the create/edit form opens prefilled in edit mode for this
+  // board instead of creating a new one.
+  const [editingBoard, setEditingBoard] = useState<BoardRow | null>(null);
+
+  function handleUpdated(b: BoardRow) {
+    setBoards((prev) => prev.map((x) => (x.id === b.id ? { ...x, ...b } : x)));
+    setEditingBoard(null);
+    router.refresh();
+  }
+
+  function handleDeleted(id: string) {
+    setBoards((prev) => prev.filter((x) => x.id !== id));
+    router.refresh();
+  }
 
   const sorted = useMemo(() => {
     const list = [...boards];
@@ -121,21 +139,37 @@ export default function BoardsClient({
         />
       </div>
 
-      {/* Add form */}
-      {adding ? (
+      {/* Add / Edit form */}
+      {adding || editingBoard ? (
         <div className="mt-6 fade-up-sm">
           <CreateBoardForm
-            onCancel={() => setAdding(false)}
-            onSaved={handleAdded}
+            board={editingBoard}
+            onCancel={() => {
+              setAdding(false);
+              setEditingBoard(null);
+            }}
+            onSaved={editingBoard ? handleUpdated : handleAdded}
           />
         </div>
       ) : null}
 
       {/* Grid */}
       <div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-        {!adding ? <CreateTile onClick={() => setAdding(true)} /> : null}
+        {!adding && !editingBoard ? (
+          <CreateTile onClick={() => setAdding(true)} />
+        ) : null}
         {filtered.map((b, i) => (
-          <BoardTile key={b.id} board={b} index={i} />
+          <BoardTile
+            key={b.id}
+            board={b}
+            index={i}
+            isAdmin={isAdmin}
+            onEdit={() => {
+              setAdding(false);
+              setEditingBoard(b);
+            }}
+            onDeleted={handleDeleted}
+          />
         ))}
         {filtered.length === 0 && query ? (
           <div
@@ -167,12 +201,23 @@ export default function BoardsClient({
 
 /* ─── Tiles ─── */
 
-function BoardTile({ board, index }: { board: BoardRow; index: number }) {
+function BoardTile({
+  board,
+  index,
+  isAdmin,
+  onEdit,
+  onDeleted,
+}: {
+  board: BoardRow;
+  index: number;
+  isAdmin: boolean;
+  onEdit: () => void;
+  onDeleted: (id: string) => void;
+}) {
   const router = useRouter();
   const styles = BOARD_COLOR_STYLES[board.color] ?? BOARD_COLOR_STYLES.copper;
 
   function open() {
-    // Phase 2: per-board kanban. For now, hold-state to avoid 404s.
     router.push(`/app/workflow/${board.id}`);
   }
 
@@ -243,18 +288,261 @@ function BoardTile({ board, index }: { board: BoardRow; index: number }) {
             </p>
           ) : null}
         </div>
-        <button
-          onClick={open}
-          aria-label={`Open ${board.title}`}
-          className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors"
+        <div className="flex shrink-0 items-center gap-1.5">
+          <BoardMenu
+            board={board}
+            isAdmin={isAdmin}
+            onEdit={onEdit}
+            onDeleted={onDeleted}
+          />
+          <button
+            onClick={open}
+            aria-label={`Open ${board.title}`}
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors"
+            style={{
+              backgroundColor: "var(--color-app-canvas-2)",
+              color: "var(--color-app-copper-deep)",
+            }}
+          >
+            <ArrowIcon />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 3-dots menu on a board tile: Edit (opens the prefilled form up top) and
+// Delete. Boards are consequential, so deletion is admin-direct (with a
+// confirm) while everyone else routes through the delete-request flow.
+function BoardMenu({
+  board,
+  isAdmin,
+  onEdit,
+  onDeleted,
+}: {
+  board: BoardRow;
+  isAdmin: boolean;
+  onEdit: () => void;
+  onDeleted: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [requestOpen, setRequestOpen] = useState(false);
+  const [requestSent, setRequestSent] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  async function onDelete() {
+    setError(null);
+    setWorking(true);
+    try {
+      const res = await fetch(`/api/app/boards/${board.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (data?.code === "delete_request_required") {
+          setConfirming(false);
+          setRequestOpen(true);
+          setWorking(false);
+          return;
+        }
+        setError(data?.error ?? "Couldn't delete this board.");
+        setWorking(false);
+        return;
+      }
+      onDeleted(board.id);
+    } catch {
+      setError("Network error.");
+      setWorking(false);
+    }
+  }
+
+  if (requestSent) {
+    return (
+      <span
+        className="text-[11px]"
+        style={{
+          fontFamily: "var(--font-manrope), sans-serif",
+          color: "var(--color-app-aqua)",
+        }}
+      >
+        Request sent
+      </span>
+    );
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-label={`Manage ${board.title}`}
+        className="inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors"
+        style={{
+          backgroundColor: open
+            ? "var(--color-app-canvas-2)"
+            : "transparent",
+          color: "var(--color-app-fg-muted)",
+        }}
+        onMouseEnter={(e) => {
+          if (!open)
+            e.currentTarget.style.backgroundColor = "var(--color-app-canvas-2)";
+        }}
+        onMouseLeave={(e) => {
+          if (!open) e.currentTarget.style.backgroundColor = "transparent";
+        }}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="6" cy="12" r="1.6" />
+          <circle cx="12" cy="12" r="1.6" />
+          <circle cx="18" cy="12" r="1.6" />
+        </svg>
+      </button>
+
+      {open ? (
+        <div
+          className="absolute right-0 top-9 z-40 min-w-[200px] rounded-lg p-2"
           style={{
-            backgroundColor: "var(--color-app-canvas-2)",
-            color: "var(--color-app-copper-deep)",
+            backgroundColor: "var(--color-app-paper)",
+            boxShadow:
+              "0 16px 32px -10px rgba(10,17,36,0.25), 0 0 0 1px var(--color-app-edge)",
           }}
         >
-          <ArrowIcon />
-        </button>
-      </div>
+          {confirming ? (
+            <div className="px-2 py-1.5">
+              <p
+                className="text-[12px] leading-[1.5]"
+                style={{
+                  fontFamily: "var(--font-manrope), sans-serif",
+                  color: "var(--color-app-fg-soft)",
+                }}
+              >
+                Delete{" "}
+                <span
+                  style={{ color: "var(--color-app-ink)", fontWeight: 600 }}
+                >
+                  {board.title}
+                </span>
+                ? Its lists and cards go too.
+              </p>
+              {error ? (
+                <p
+                  className="mt-2 text-[11px]"
+                  style={{
+                    fontFamily: "var(--font-manrope), sans-serif",
+                    color: "var(--color-app-danger)",
+                  }}
+                >
+                  {error}
+                </p>
+              ) : null}
+              <div className="mt-3 flex justify-end gap-2">
+                <button
+                  onClick={() => setConfirming(false)}
+                  disabled={working}
+                  className="rounded-md border px-3 py-1.5 text-[12px] font-medium"
+                  style={{
+                    fontFamily: "var(--font-manrope), sans-serif",
+                    borderColor: "var(--color-app-edge)",
+                    color: "var(--color-app-fg-soft)",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={onDelete}
+                  disabled={working}
+                  className="rounded-md px-3 py-1.5 text-[12px] font-semibold"
+                  style={{
+                    fontFamily: "var(--font-manrope), sans-serif",
+                    backgroundColor: "var(--color-app-danger)",
+                    color: "white",
+                    opacity: working ? 0.6 : 1,
+                  }}
+                >
+                  {working ? "Deleting…" : "Delete"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <button
+                onClick={() => {
+                  setOpen(false);
+                  onEdit();
+                }}
+                className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-[13px] transition-colors"
+                style={{
+                  fontFamily: "var(--font-manrope), sans-serif",
+                  color: "var(--color-app-ink)",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor =
+                    "var(--color-app-canvas-2)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.backgroundColor = "transparent")
+                }
+              >
+                Edit board
+              </button>
+              <button
+                onClick={() => {
+                  if (isAdmin) {
+                    setConfirming(true);
+                  } else {
+                    setOpen(false);
+                    setRequestOpen(true);
+                  }
+                }}
+                className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-[13px] transition-colors"
+                style={{
+                  fontFamily: "var(--font-manrope), sans-serif",
+                  color: "var(--color-app-danger)",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor =
+                    "var(--color-app-danger-soft)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.backgroundColor = "transparent")
+                }
+              >
+                {isAdmin ? "Delete board" : "Request delete"}
+              </button>
+            </>
+          )}
+        </div>
+      ) : null}
+
+      {requestOpen ? (
+        <RequestDeleteDialog
+          target={{
+            type: "board",
+            id: board.id,
+            name: board.title,
+            hint: "Only the office admin can delete a whole board.",
+          }}
+          onClose={() => setRequestOpen(false)}
+          onSubmitted={() => {
+            setRequestOpen(false);
+            setRequestSent(true);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -304,16 +592,20 @@ function CreateTile({ onClick }: { onClick: () => void }) {
 /* ─── Create form ─── */
 
 function CreateBoardForm({
+  board,
   onCancel,
   onSaved,
 }: {
+  // null/undefined → create mode; a board → edit mode (PATCH + prefill).
+  board?: BoardRow | null;
   onCancel: () => void;
   onSaved: (b: BoardRow) => void;
 }) {
   const router = useRouter();
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [color, setColor] = useState<BoardColor>("forest");
+  const isEdit = Boolean(board);
+  const [title, setTitle] = useState(board?.title ?? "");
+  const [description, setDescription] = useState(board?.description ?? "");
+  const [color, setColor] = useState<BoardColor>(board?.color ?? "forest");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -326,18 +618,32 @@ function CreateBoardForm({
     }
     setSubmitting(true);
     try {
-      const res = await fetch("/api/app/boards", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description, color }),
-      });
+      const res = await fetch(
+        isEdit ? `/api/app/boards/${board!.id}` : "/api/app/boards",
+        {
+          method: isEdit ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title, description, color }),
+        }
+      );
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Couldn't save");
         setSubmitting(false);
         return;
       }
-      onSaved(data.board);
+      if (isEdit) {
+        // Preserve the tile's existing cardCount/createdAt — the PATCH
+        // response zeroes cardCount since it doesn't recount.
+        onSaved({
+          ...board!,
+          title: title.trim(),
+          description: description.trim(),
+          color,
+        });
+      } else {
+        onSaved(data.board);
+      }
       router.refresh();
     } catch {
       setError("Network error.");
@@ -362,7 +668,7 @@ function CreateBoardForm({
           color: "var(--color-app-copper-deep)",
         }}
       >
-        New board
+        {isEdit ? "Edit board" : "New board"}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -505,7 +811,13 @@ function CreateBoardForm({
             boxShadow: "0 6px 16px -10px rgba(197,133,58,0.55)",
           }}
         >
-          {submitting ? "Creating…" : "Create Board"}
+          {submitting
+            ? isEdit
+              ? "Saving…"
+              : "Creating…"
+            : isEdit
+              ? "Save changes"
+              : "Create Board"}
         </button>
       </div>
     </form>
