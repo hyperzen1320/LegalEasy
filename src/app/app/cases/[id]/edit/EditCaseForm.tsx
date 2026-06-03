@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import CourtCombobox from "../../CourtCombobox";
-import { appearingOptionsWith } from "@/lib/appearing-options";
+import AppearingForCombobox from "../../AppearingForCombobox";
 
 // Full case edit form. Mirrors AddCaseForm's field set (so the user's
 // mental model is identical between "Add" and "Edit") but PATCHes the
@@ -297,12 +297,11 @@ export default function EditCaseForm({
             placeholder="R. Murugan"
             invalid={missing.has("clientName")}
           />
-          <SelectField
+          <AppearingForCombobox
             id="appearingFor"
             label="Appearing For"
             value={appearingFor}
             onChange={setAppearingFor}
-            options={appearingOptionsWith(initial.appearingFor)}
           />
 
           <Field
@@ -573,79 +572,3 @@ function Field({
   );
 }
 
-function SelectField({
-  id,
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: string[];
-}) {
-  return (
-    <div>
-      <label
-        htmlFor={id}
-        className="text-[10px] font-semibold uppercase tracking-[0.22em]"
-        style={{
-          fontFamily: "var(--font-dm-mono), monospace",
-          color: "var(--color-app-fg-muted)",
-        }}
-      >
-        {label}
-      </label>
-      <div className="relative mt-2">
-        <select
-          id={id}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="block w-full appearance-none rounded-md border bg-transparent px-3.5 py-2.5 text-[14px] outline-none transition-all"
-          style={{
-            fontFamily: "var(--font-manrope), sans-serif",
-            borderColor: "var(--color-app-edge)",
-            backgroundColor: "var(--color-app-paper)",
-            color: "var(--color-app-ink)",
-            paddingRight: 36,
-          }}
-          onFocus={(e) => {
-            e.currentTarget.style.borderColor = "var(--color-app-copper)";
-            e.currentTarget.style.boxShadow =
-              "0 0 0 3px rgba(197,133,58,0.15)";
-          }}
-          onBlur={(e) => {
-            e.currentTarget.style.borderColor = "var(--color-app-edge)";
-            e.currentTarget.style.boxShadow = "none";
-          }}
-        >
-          {options.includes(value) ? null : (
-            <option value={value}>{value}</option>
-          )}
-          {options.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
-          ))}
-        </select>
-        <span
-          aria-hidden
-          className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2"
-          style={{ color: "var(--color-app-fg-muted)" }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M6 9l6 6 6-6"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </span>
-      </div>
-    </div>
-  );
-}
