@@ -13,6 +13,7 @@ export type DeleteRequestTargetType =
   | "client"
   | "court"
   | "case"
+  | "case_document"
   | "user"
   | "prompt";
 
@@ -54,7 +55,17 @@ const DeleteRequestSchema = new Schema<IDeleteRequest>(
     requesterEmail: { type: String, required: true, lowercase: true, trim: true },
     targetType: {
       type: String,
-      enum: ["list", "task", "board", "client", "court", "case", "user", "prompt"],
+      enum: [
+        "list",
+        "task",
+        "board",
+        "client",
+        "court",
+        "case",
+        "case_document",
+        "user",
+        "prompt",
+      ],
       required: true,
     },
     targetId: {

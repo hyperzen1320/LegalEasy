@@ -8,6 +8,7 @@ import { Board } from "@/models/Board";
 import { Client } from "@/models/Client";
 import { Court } from "@/models/Court";
 import { Case } from "@/models/Case";
+import { CaseDocument } from "@/models/CaseDocument";
 import { User } from "@/models/User";
 import { PromptTemplate } from "@/models/PromptTemplate";
 import { requirePartner } from "@/lib/partner-auth";
@@ -25,6 +26,7 @@ const VALID_TARGETS = [
   "client",
   "court",
   "case",
+  "case_document",
   "user",
   "prompt",
 ] as const;
@@ -97,6 +99,16 @@ async function resolveTargetSnapshot(
       return c
         ? { name: c.caseNo || c.fileNo || "", boardId: null }
         : null;
+    }
+    case "case_document": {
+      const d = await CaseDocument.findOne({
+        _id: targetId,
+        partnerId,
+        isDeleted: false,
+      })
+        .select("filename")
+        .lean();
+      return d ? { name: d.filename, boardId: null } : null;
     }
     case "user": {
       const u = await User.findOne({

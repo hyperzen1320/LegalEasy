@@ -4,8 +4,10 @@ import mongoose from "mongoose";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/db";
 import { Case } from "@/models/Case";
+import { CaseDocument } from "@/models/CaseDocument";
 import { Partner } from "@/models/Partner";
 import UpdateHearingForm from "./UpdateHearingForm";
+import ClientDocsPanel, { type ClientDoc } from "./ClientDocsPanel";
 import DeleteCaseButton from "./DeleteCaseButton";
 import ReopenCaseButton from "./ReopenCaseButton";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
@@ -61,18 +63,36 @@ export default async function CaseDetailPage({
   const partnerId = new mongoose.Types.ObjectId(session.user.partnerId);
 
   await connectDB();
-  const [c, partner] = await Promise.all([
+  const caseObjId = new mongoose.Types.ObjectId(id);
+  const [c, partner, docRecords] = await Promise.all([
     Case.findOne({
-      _id: new mongoose.Types.ObjectId(id),
+      _id: caseObjId,
       partnerId,
       isDeleted: false,
     }).lean(),
     Partner.findById(partnerId).lean(),
+    CaseDocument.find({
+      partnerId,
+      caseId: caseObjId,
+      isDeleted: false,
+    })
+      .sort({ createdAt: -1 })
+      .lean(),
   ]);
 
   if (!c) notFound();
 
   const officeName = partner?.branding?.officeName || partner?.name || "";
+  const isAdmin = session.user.userType === "partner_admin";
+  const clientDocs: ClientDoc[] = docRecords.map((d) => ({
+    id: String(d._id),
+    filename: d.filename,
+    contentType: d.contentType,
+    size: d.size,
+    uploadedByName: d.uploadedByName,
+    uploadedByUserId: d.uploadedByUserId ? String(d.uploadedByUserId) : null,
+    createdAt: d.createdAt.toISOString(),
+  }));
 
   const telLink = c.clientPhone
     ? `tel:${c.clientPhone.replace(/\s+/g, "")}`
@@ -387,13 +407,12 @@ export default async function CaseDetailPage({
           />
         </section>
 
-        {/* Update Hearing + Client Contact. id="update-hearing" is the
-            anchor target Hearing Track > Pending uses — clicking the
-            "Update hearing" button on a pending row jumps the user
-            straight here so the form is visible without scrolling. */}
+        {/* Update Hearing. id="update-hearing" is the anchor target
+            Hearing Track > Pending uses — clicking "Update hearing" on a
+            pending row jumps the user straight here. */}
         <section
           id="update-hearing"
-          className="fade-up-sm mt-6 scroll-mt-24 grid gap-4 lg:grid-cols-[1.1fr_1fr]"
+          className="fade-up-sm mt-6 scroll-mt-24"
           style={{ animationDelay: "220ms" }}
         >
           <UpdateHearingForm
@@ -413,13 +432,27 @@ export default async function CaseDetailPage({
               officeName,
             }}
           />
+        </section>
 
+        {/* Client contact (left) + Client docs (right). The uncle wanted
+            the contact moved aside to make room for a documents shelf on
+            the matter. */}
+        <section
+          className="fade-up-sm mt-6 grid items-start gap-4 lg:grid-cols-[1fr_1.25fr]"
+          style={{ animationDelay: "260ms" }}
+        >
           <ContactCard
             clientName={c.clientName}
             clientPhone={c.clientPhone}
             clientAddress={c.clientAddress}
             telLink={telLink}
             waLink={waLink}
+          />
+
+          <ClientDocsPanel
+            caseId={String(c._id)}
+            initialDocs={clientDocs}
+            isAdmin={isAdmin}
           />
         </section>
 
