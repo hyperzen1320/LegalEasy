@@ -4,7 +4,6 @@ import { auth } from "@/auth";
 import { connectDB } from "@/lib/db";
 import { Board } from "@/models/Board";
 import { BoardList } from "@/models/BoardList";
-import { BoardEdge } from "@/models/BoardEdge";
 import { Task } from "@/models/Task";
 import { User } from "@/models/User";
 import { BOARD_COLOR_STYLES } from "@/lib/board-defaults";
@@ -28,7 +27,7 @@ export default async function BoardCanvasPage({
 
   await connectDB();
 
-  const [board, lists, edgeDocs, tasks, members] = await Promise.all([
+  const [board, lists, tasks, members] = await Promise.all([
     Board.findOne({ _id: boardObjId, partnerId, isDeleted: false }),
     BoardList.find({
       partnerId,
@@ -37,11 +36,6 @@ export default async function BoardCanvasPage({
     })
       .sort({ sortOrder: 1, createdAt: 1 })
       .lean(),
-    BoardEdge.find({
-      partnerId,
-      boardId: boardObjId,
-      isDeleted: false,
-    }).lean(),
     Task.find({
       partnerId,
       boardId: boardObjId,
@@ -130,16 +124,6 @@ export default async function BoardCanvasPage({
         position: l.position || { x: 0, y: 0 },
         width: l.width || 320,
         color: l.color ?? null,
-      }))}
-      initialEdges={edgeDocs.map((e) => ({
-        id: String(e._id),
-        sourceListId: String(e.sourceListId),
-        targetListId: String(e.targetListId),
-        sourceHandle: e.sourceHandle,
-        targetHandle: e.targetHandle,
-        label: e.label,
-        color: e.color,
-        style: e.style,
       }))}
       initialTasks={tasks.map((t) => ({
         id: String(t._id),

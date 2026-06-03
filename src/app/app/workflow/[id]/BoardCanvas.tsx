@@ -9,12 +9,7 @@ import {
   Background,
   BackgroundVariant,
   MiniMap,
-  ConnectionMode,
   useNodesState,
-  useEdgesState,
-  addEdge,
-  type Connection,
-  type Edge,
   type Node,
   type NodeChange,
   type Viewport,
@@ -33,7 +28,6 @@ import {
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import ListNode, { type ListNodeData } from "./ListNode";
-import ConnectionEdge, { type ConnectionEdgeData } from "./ConnectionEdge";
 import CardPreview, { type PreviewTask } from "./CardPreview";
 import CardDetail from "./CardDetail";
 import BellDrawer from "./BellDrawer";
@@ -58,21 +52,9 @@ export type CanvasList = {
   color: string | null;
 };
 
-export type CanvasEdge = {
-  id: string;
-  sourceListId: string;
-  targetListId: string;
-  sourceHandle: string;
-  targetHandle: string;
-  label: string;
-  color: string | null;
-  style: "solid" | "dashed";
-};
-
 export type BoardMember = { id: string; name: string; role: string };
 
 const nodeTypes = { list: ListNode };
-const edgeTypes = { connection: ConnectionEdge };
 const proOptions = { hideAttribution: true };
 
 type BoardCanvasProps = {
@@ -84,7 +66,6 @@ type BoardCanvasProps = {
   gradient: [string, string];
   initialViewport: { x: number; y: number; zoom: number };
   initialLists: CanvasList[];
-  initialEdges: CanvasEdge[];
   initialTasks: PreviewTask[];
   members: BoardMember[];
   role: string;
@@ -106,7 +87,6 @@ function Inner({
   gradient,
   initialViewport,
   initialLists,
-  initialEdges,
   initialTasks,
   members,
   role,
@@ -133,20 +113,13 @@ function Inner({
   }, []);
 
   // Debounced resync of authoritative board state when the live feed
-  // reports changes that affect lists / tasks / edges and the actor was
-  // someone other than us. We don't trust activity metadata to carry
-  // every field needed to render — instead we re-pull the board from the
-  // /full endpoint, capped to once every 800ms regardless of how many
-  // events arrive in a burst.
-  //
-  // We hold the latest resync handler in a ref so the closure doesn't
-  // need to depend on `onResyncedEdges` (which is defined further down
-  // the component to avoid a forward ref).
+  // reports changes that affect lists / tasks and the actor was someone
+  // other than us. We don't trust activity metadata to carry every field
+  // needed to render — instead we re-pull the board from the /full
+  // endpoint, capped to once every 800ms regardless of how many events
+  // arrive in a burst.
   const resyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastResyncAtRef = useRef<number>(0);
-  const onResyncedEdgesRef = useRef<((edges: CanvasEdge[]) => void) | null>(
-    null
-  );
   const scheduleResync = useCallback(() => {
     const now = Date.now();
     const since = now - lastResyncAtRef.current;
@@ -162,7 +135,6 @@ function Inner({
         if (!res.ok) return;
         const data = (await res.json()) as {
           lists: CanvasList[];
-          edges: CanvasEdge[];
           tasks: PreviewTask[];
         };
         // Preserve any in-flight optimistic entities (temp:* ids) so we
@@ -192,9 +164,6 @@ function Inner({
           const optimistic = prev.filter((t) => isTempId(t.id));
           return [...fromServer, ...optimistic];
         });
-        if (data.edges && onResyncedEdgesRef.current) {
-          onResyncedEdgesRef.current(data.edges);
-        }
       } catch {
         /* ignore */
       }
@@ -208,7 +177,7 @@ function Inner({
   }, []);
 
   // Detect interesting cross-user events. Anything from a different actor
-  // that targets a list/task/edge means our state may be stale.
+  // that targets a list/task means our state may be stale.
   const lastSeenIndexRef = useRef(0);
   useEffect(() => {
     const start = lastSeenIndexRef.current;
@@ -444,98 +413,9 @@ function Inner({
     ]
   );
 
-  /* ─── Edge mutations ─── */
-
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-
-  const onEdgeLabelChange = useCallback(
-    async (edgeId: string, label: string) => {
-      const res = await fetch(`/api/app/edges/${edgeId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label }),
-      });
-      if (res.ok) {
-        setEdges((prev) =>
-          prev.map((e) =>
-            e.id === edgeId
-              ? {
-                  ...e,
-                  data: {
-                    ...((e.data as object) ?? {}),
-                    label,
-                  } as unknown as Record<string, unknown>,
-                }
-              : e
-          )
-        );
-      }
-    },
-    [setEdges]
-  );
-
-  const onEdgeDelete = useCallback(
-    async (edgeId: string) => {
-      const res = await fetch(`/api/app/edges/${edgeId}`, {
-        method: "DELETE",
-      });
-      if (res.ok) {
-        setEdges((prev) => prev.filter((e) => e.id !== edgeId));
-      }
-    },
-    [setEdges]
-  );
-
-  const buildEdges = useCallback(
-    (currentEdges: CanvasEdge[]): Edge[] =>
-      currentEdges.map<Edge>((e) => {
-        const data: ConnectionEdgeData = {
-          label: e.label,
-          color: e.color,
-          style: e.style,
-          accent,
-          canEdit,
-          onLabelChange: onEdgeLabelChange,
-          onDelete: onEdgeDelete,
-        };
-        return {
-          id: e.id,
-          source: e.sourceListId,
-          target: e.targetListId,
-          sourceHandle: e.sourceHandle,
-          targetHandle: e.targetHandle,
-          type: "connection",
-          data: data as unknown as Record<string, unknown>,
-        };
-      }),
-    [accent, canEdit, onEdgeLabelChange, onEdgeDelete]
-  );
-
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>(
     buildNodes(lists)
   );
-
-  // Initialize edges once
-  useEffect(() => {
-    setEdges(buildEdges(initialEdges));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Edge resync handler used by the live-feed reconciler. Replaces the
-  // current edge set with the server's authoritative list while
-  // preserving any optimistic temp edges still mid-flight. Held in a
-  // ref so the resync closure (declared earlier) can call into it.
-  useEffect(() => {
-    onResyncedEdgesRef.current = (canvasEdges: CanvasEdge[]) => {
-      setEdges((prev) => {
-        const optimistic = prev.filter((e) => isTempId(e.id));
-        return [...buildEdges(canvasEdges), ...optimistic];
-      });
-    };
-    return () => {
-      onResyncedEdgesRef.current = null;
-    };
-  }, [setEdges, buildEdges]);
 
   // Re-sync nodes when our local state changes (lists/tasks)
   useEffect(() => {
@@ -662,82 +542,6 @@ function Inner({
       }
     },
     [onNodesChange, queuePositionSave]
-  );
-
-  /* ─── Edge create / connect ─── */
-
-  const onConnect = useCallback(
-    async (conn: Connection) => {
-      if (!conn.source || !conn.target || conn.source === conn.target) return;
-      const targetHandle = conn.targetHandle || "left";
-      const sourceHandle = conn.sourceHandle || "right";
-
-      // Optimistic add
-      const tempId = `temp-${Date.now()}`;
-      const optimistic = addEdge(
-        {
-          ...conn,
-          id: tempId,
-          type: "connection",
-          data: {
-            label: "",
-            color: null,
-            style: "solid",
-            accent,
-            canEdit,
-            onLabelChange: onEdgeLabelChange,
-            onDelete: onEdgeDelete,
-          } as unknown as Record<string, unknown>,
-        },
-        edges
-      ).find((e) => e.id === tempId)!;
-      setEdges((prev) => [...prev, optimistic]);
-
-      const res = await fetch(`/api/app/boards/${boardId}/edges`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sourceListId: conn.source,
-          targetListId: conn.target,
-          sourceHandle,
-          targetHandle,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok && data.edge) {
-        setEdges((prev) =>
-          prev.map((e) =>
-            e.id === tempId
-              ? {
-                  ...e,
-                  id: data.edge.id,
-                  data: {
-                    label: data.edge.label,
-                    color: data.edge.color,
-                    style: data.edge.style,
-                    accent,
-                    canEdit,
-                    onLabelChange: onEdgeLabelChange,
-                    onDelete: onEdgeDelete,
-                  } as unknown as Record<string, unknown>,
-                }
-              : e
-          )
-        );
-      } else {
-        setEdges((prev) => prev.filter((e) => e.id !== tempId));
-      }
-    },
-    [
-      edges,
-      setEdges,
-      boardId,
-      accent,
-      canEdit,
-      onEdgeLabelChange,
-      onEdgeDelete,
-      router,
-    ]
   );
 
   /* ─── @dnd-kit for cards across lists ─── */
@@ -897,25 +701,18 @@ function Inner({
       >
         <ReactFlow
           nodes={nodes}
-          edges={edges}
           onNodesChange={handleNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={canEdit ? onConnect : undefined}
           onMoveEnd={onMoveEnd}
           nodeTypes={nodeTypes}
-          edgeTypes={edgeTypes}
           defaultViewport={initialViewport}
           minZoom={0.3}
           maxZoom={2}
           proOptions={proOptions}
-          connectionMode={ConnectionMode.Loose}
-          connectionRadius={50}
           panOnScroll
           selectionOnDrag={false}
           deleteKeyCode={null}
           fitView={false}
           nodesDraggable={canEdit && !locked}
-          nodesConnectable={canEdit && !locked}
           panOnDrag={!locked}
           zoomOnScroll={!locked}
           zoomOnPinch={!locked}
@@ -950,9 +747,9 @@ function Inner({
             />
           ) : null}
           {/* Locked shield. Sits ABOVE all canvas content (nodes,
-              edges, MiniMap) but BELOW the toolbar — covers every
-              click target that would otherwise mutate the board (Add
-              card, ⋮ menus, card opens, edge delete pills, etc.).
+              MiniMap) but BELOW the toolbar — covers every click
+              target that would otherwise mutate the board (Add card,
+              ⋮ menus, card opens, etc.).
               Each click increments `lockPulseSig` which flashes the
               Lock pill so the user knows where the block came from.
               The toolbar's higher z-index keeps Lock / Zoom / Fit /
