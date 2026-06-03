@@ -40,6 +40,19 @@ export async function GET(request: Request) {
   const guard = await requirePartner(request);
   if ("error" in guard) return guard.error;
 
+  // Attendance is now wholly office-admin only — the page redirects
+  // non-admins, and this is the server half of the same gate so a
+  // hand-crafted GET can't read the office register either.
+  if (guard.ctx.user.userType !== "partner_admin") {
+    return NextResponse.json(
+      { error: "Attendance is visible to the office admin only." },
+      {
+        status: 403,
+        headers: guard.ctx.isMobile ? corsHeaders() : undefined,
+      }
+    );
+  }
+
   await connectDB();
   const partnerId = new mongoose.Types.ObjectId(guard.ctx.user.partnerId);
   const isAdmin = guard.ctx.user.userType === "partner_admin";

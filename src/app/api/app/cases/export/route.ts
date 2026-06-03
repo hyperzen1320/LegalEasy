@@ -65,6 +65,20 @@ export async function POST(request: Request) {
   const guard = await requirePartner(request);
   if ("error" in guard) return guard.error;
 
+  // Exporting the rolls is office-admin only. The UI hides the menu for
+  // everyone else; this is the server half so a crafted POST can't pull
+  // the whole case register out as a file. (partner_admin is coerced to
+  // role "admin", so the role check covers it.)
+  if (guard.ctx.user.role !== "admin") {
+    return NextResponse.json(
+      { error: "Only the office admin can export the case rolls." },
+      {
+        status: 403,
+        headers: guard.ctx.isMobile ? corsHeaders() : undefined,
+      }
+    );
+  }
+
   const body = (await request.json().catch(() => ({}))) as ExportBody;
   const format = body.format;
   if (format !== "xlsx" && format !== "docx" && format !== "pdf") {

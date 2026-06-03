@@ -304,10 +304,14 @@ export default function CaseToolBar({
             visible={visibleColumns}
             onChange={onColumnsChange}
           />
-          <ExportMenu
-            filters={appliedFilters}
-            visibleColumns={visibleColumns}
-          />
+          {/* Export is office-admin only — the endpoint 403s anyone else,
+              so there's no point showing the menu to them. */}
+          {bootstrap.isAdmin ? (
+            <ExportMenu
+              filters={appliedFilters}
+              visibleColumns={visibleColumns}
+            />
+          ) : null}
         </div>
       </div>
     </section>
