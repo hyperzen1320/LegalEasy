@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/db";
 import { Activity } from "@/models/Activity";
@@ -20,6 +21,10 @@ export default async function ActivityPage() {
   if (!session?.user?.partnerId) {
     return null;
   }
+  // The full Activity explorer is office-admin only. (The bell dropdown
+  // + workflow live-feed still surface a non-admin's own delete requests
+  // — those run off separate, intentionally-open endpoints.)
+  if (session.user.userType !== "partner_admin") redirect("/app");
   const partnerId = new mongoose.Types.ObjectId(session.user.partnerId);
   const isAdmin = session.user.userType === "partner_admin";
 

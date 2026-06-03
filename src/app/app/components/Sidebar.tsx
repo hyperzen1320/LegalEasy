@@ -13,6 +13,10 @@ type NavItem = {
   // When set, the badge reads from this key on the polled live counters
   // so we can show an unread chat count next to Senior Desk.
   liveCountKey?: "chatUnread";
+  // Office-admin-only entries. Hidden from juniors/clerks/advocates/
+  // viewers in the rail; the pages and APIs enforce the same gate, so
+  // hiding here is just the first (cosmetic) of the three layers.
+  adminOnly?: boolean;
 };
 
 // Disposed Cases sits low in the rail (just above My Profile) because
@@ -32,7 +36,7 @@ const NAV: NavItem[] = [
     icon: IconSeniorDesk,
     liveCountKey: "chatUnread",
   },
-  { name: "Activity", href: "/app/activity", icon: IconActivity },
+  { name: "Activity", href: "/app/activity", icon: IconActivity, adminOnly: true },
   { name: "AI Assistant", href: "/app/ai", icon: IconAI },
   {
     name: "Disposed Cases",
@@ -41,18 +45,29 @@ const NAV: NavItem[] = [
   },
   { name: "My Profile", href: "/app/profile", icon: IconProfile },
   { name: "Users / Advocates", href: "/app/users", icon: IconUsers },
-  { name: "Attendance", href: "/app/attendance", icon: IconAttendance },
+  {
+    name: "Attendance",
+    href: "/app/attendance",
+    icon: IconAttendance,
+    adminOnly: true,
+  },
 ];
 
 export default function Sidebar({
   partnerName,
   user,
+  isAdmin,
 }: {
   partnerName: string;
   user: { firstName: string; lastName: string; email: string };
+  isAdmin: boolean;
 }) {
   const pathname = usePathname();
   const liveCounts = useLiveSidebarCounts();
+
+  // Drop admin-only entries (Activity, Attendance) for everyone who
+  // isn't the office admin. The page redirect + API 403 back this up.
+  const nav = NAV.filter((item) => !item.adminOnly || isAdmin);
 
   return (
     <aside
@@ -108,7 +123,7 @@ export default function Sidebar({
 
       {/* Nav */}
       <nav className="flex-1 px-3">
-        {NAV.map((item) => {
+        {nav.map((item) => {
           const isActive =
             item.href === "/app"
               ? pathname === "/app"

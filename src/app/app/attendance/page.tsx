@@ -12,6 +12,10 @@ export default async function AttendancePage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
+  // Attendance is office-admin only — juniors/clerks/advocates don't see
+  // it in the rail and can't reach the page directly either.
+  if (session.user.userType !== "partner_admin") redirect("/app");
+
   const isAdmin = session.user.userType === "partner_admin";
   const me = {
     id: session.user.id ?? "",

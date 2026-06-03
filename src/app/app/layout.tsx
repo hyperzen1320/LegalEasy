@@ -29,13 +29,14 @@ export default async function AppLayout({
     lastName: session.user.lastName ?? "",
     email: session.user.email ?? "",
   };
+  const isAdmin = session.user.userType === "partner_admin";
 
   return (
     <div
       className="app-shell grid min-h-screen"
       style={{ gridTemplateColumns: "260px 1fr" }}
     >
-      <Sidebar partnerName={partnerName} user={user} />
+      <Sidebar partnerName={partnerName} user={user} isAdmin={isAdmin} />
       {/* min-w-0 is the load-bearing class here. A CSS grid track's
           implicit min-width is `auto` — meaning "as wide as content".
           Without min-w-0 a wide child (the Case Vault table, the
