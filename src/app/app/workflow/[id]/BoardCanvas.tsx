@@ -664,6 +664,34 @@ function Inner({
     [tasksByList]
   );
 
+  // Move a card to another list from the card-detail panel (the "select
+  // a card → pick a list" path; drag-and-drop between lists is handled
+  // by onCardDragEnd above). Lands the card at the bottom of the target.
+  const moveCardToList = useCallback(
+    async (taskId: string, toListId: string) => {
+      const current = tasks.find((t) => t.id === taskId);
+      if (!current || current.listId === toListId) return;
+      const toIndex = (tasksByList.get(toListId) || []).length;
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === taskId
+            ? { ...t, listId: toListId, sortOrder: toIndex }
+            : t
+        )
+      );
+      try {
+        await fetch(`/api/app/tasks/${taskId}/move`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ toListId, toIndex }),
+        });
+      } catch {
+        // live feed reconciles if this optimistic move was wrong
+      }
+    },
+    [tasks, tasksByList]
+  );
+
   /* ─── Add list ─── */
 
   const onAddList = useCallback(async (titleInput: string) => {
@@ -871,6 +899,7 @@ function Inner({
         <CardDetail
           taskId={openTaskId}
           members={members}
+          lists={lists.map((l) => ({ id: l.id, title: l.title }))}
           canEdit={canEdit}
           onClose={() => setOpenTaskId(null)}
           onUpdated={(t) => {
@@ -878,6 +907,7 @@ function Inner({
               prev.map((x) => (x.id === t.id ? { ...x, ...t } : x))
             );
           }}
+          onMove={moveCardToList}
           onDeleted={() => {
             setTasks((prev) => prev.filter((t) => t.id !== openTaskId));
             setOpenTaskId(null);
