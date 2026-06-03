@@ -48,11 +48,26 @@ export async function PATCH(
   }
 
   const oldTitle = list.title;
+  const oldDescription = list.description || "";
+  const oldDateMs = list.listDate ? list.listDate.getTime() : null;
   if (typeof body.title === "string" && body.title.trim()) {
     list.title = body.title.trim();
   }
   if (typeof body.color === "string" || body.color === null) {
     list.color = body.color || null;
+  }
+  if (typeof body.description === "string") {
+    list.description = body.description.trim();
+  }
+  // listDate: an ISO string sets it; null / "" clears it back to "use the
+  // creation date". An unparseable value is ignored rather than nulled.
+  if (typeof body.listDate === "string" || body.listDate === null) {
+    if (body.listDate === null || body.listDate === "") {
+      list.listDate = null;
+    } else {
+      const d = new Date(body.listDate);
+      if (!Number.isNaN(d.getTime())) list.listDate = d;
+    }
   }
   if (typeof body.width === "number" && Number.isFinite(body.width)) {
     list.width = Math.max(240, Math.min(560, body.width));
@@ -83,6 +98,27 @@ export async function PATCH(
     });
   }
 
+  // Description / date edits emit list.updated so every other open canvas
+  // resyncs (the live feed triggers on any list.* event) — that's how an
+  // edit "updates for everyone".
+  const newDateMs = list.listDate ? list.listDate.getTime() : null;
+  const changedFields: string[] = [];
+  if (oldDescription !== (list.description || "")) {
+    changedFields.push("description");
+  }
+  if (oldDateMs !== newDateMs) changedFields.push("date");
+  if (changedFields.length > 0) {
+    await logWorkflowActivity(guard.ctx, {
+      action: "list.updated",
+      targetType: "list",
+      targetId: String(list._id),
+      targetName: list.title,
+      boardId: String(list.boardId),
+      message: `updated list **${list.title}** (${changedFields.join(", ")})`,
+      metadata: { fields: changedFields },
+    });
+  }
+
   return NextResponse.json(
     {
       ok: true,
@@ -90,6 +126,8 @@ export async function PATCH(
         id: String(list._id),
         title: list.title,
         sortOrder: list.sortOrder,
+        description: list.description || "",
+        listDate: (list.listDate ?? list.createdAt).toISOString(),
       },
     },
     { headers: guard.ctx.isMobile ? corsHeaders() : undefined }

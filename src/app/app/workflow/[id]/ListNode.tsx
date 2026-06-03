@@ -15,6 +15,8 @@ export type ListNodeData = {
   list: {
     id: string;
     title: string;
+    description: string;
+    listDate: string;
     sortOrder: number;
     width: number;
     color: string | null;
@@ -26,7 +28,8 @@ export type ListNodeData = {
   onTaskClick: (id: string) => void;
   onListRename: (listId: string, title: string) => void;
   onListDelete: (listId: string) => void;
-  onListColorChange: (listId: string, color: string | null) => void;
+  onListDescriptionChange: (listId: string, description: string) => void;
+  onListDateChange: (listId: string, listDate: string) => void;
   onTaskAdd: (listId: string, title: string) => void;
 };
 
@@ -167,7 +170,8 @@ export default function ListNode(props: NodeProps & { data: ListNodeData }) {
         </span>
         {canEdit ? (
           <ListMenu
-            stripeColor={stripeColor}
+            description={list.description}
+            listDate={list.listDate}
             open={menu}
             onOpen={() => setMenu(true)}
             onClose={() => setMenu(false)}
@@ -175,10 +179,8 @@ export default function ListNode(props: NodeProps & { data: ListNodeData }) {
               setMenu(false);
               setEditing(true);
             }}
-            onColorChange={(c) => {
-              setMenu(false);
-              data.onListColorChange(list.id, c);
-            }}
+            onDescriptionChange={(d) => data.onListDescriptionChange(list.id, d)}
+            onDateChange={(d) => data.onListDateChange(list.id, d)}
             onDelete={() => {
               setMenu(false);
               if (
@@ -369,35 +371,43 @@ function SortableCard({
 
 /* ─── List menu ─── */
 
-const COLOR_PRESETS: { v: string | null; hex: string; label: string }[] = [
-  { v: null, hex: "transparent", label: "Default" },
-  { v: "#3a5a40", hex: "#3a5a40", label: "Forest" },
-  { v: "#c5853a", hex: "#c5853a", label: "Copper" },
-  { v: "#56a0a8", hex: "#56a0a8", label: "Sea" },
-  { v: "#c14a37", hex: "#c14a37", label: "Terracotta" },
-  { v: "#d4a373", hex: "#d4a373", label: "Ochre" },
-  { v: "#6b2737", hex: "#6b2737", label: "Plum" },
-  { v: "#0a1124", hex: "#0a1124", label: "Ink" },
-];
-
 function ListMenu({
-  stripeColor,
+  description,
+  listDate,
   open,
   onOpen,
   onClose,
   onRename,
+  onDescriptionChange,
+  onDateChange,
   onDelete,
-  onColorChange,
 }: {
-  stripeColor: string;
+  description: string;
+  listDate: string;
   open: boolean;
   onOpen: () => void;
   onClose: () => void;
   onRename: () => void;
+  onDescriptionChange: (description: string) => void;
+  onDateChange: (listDate: string) => void;
   onDelete: () => void;
-  onColorChange: (color: string | null) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  // Local draft for the description — commit on blur rather than PATCHing
+  // every keystroke. Re-sync if the prop changes underneath us (a
+  // collaborator edited it and the live feed resynced the board).
+  const [descDraft, setDescDraft] = useState(description);
+  useEffect(() => setDescDraft(description), [description]);
+
+  // <input type="date"> wants a yyyy-mm-dd value; listDate is a full ISO.
+  const dateValue = listDate ? listDate.slice(0, 10) : "";
+
+  function commitDescription() {
+    if (descDraft.trim() !== (description || "").trim()) {
+      onDescriptionChange(descDraft.trim());
+    }
+  }
+
   return (
     <div
       ref={ref}
@@ -423,16 +433,18 @@ function ListMenu({
         <>
           <div className="fixed inset-0 z-30" onClick={onClose} />
           <div
-            className="absolute right-0 top-9 z-40 min-w-[200px] rounded-lg p-2"
+            className="absolute right-0 top-9 z-40 w-[252px] rounded-lg p-2"
             style={{
               backgroundColor: "var(--color-app-paper)",
               boxShadow:
                 "0 16px 32px -10px rgba(10,17,36,0.25), 0 0 0 1px var(--color-app-edge)",
             }}
+            onPointerDown={(e) => e.stopPropagation()}
           >
+            {/* Name */}
             <button
               onClick={onRename}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] rounded transition-colors"
+              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[13px] rounded transition-colors"
               style={{
                 fontFamily: "var(--font-manrope), sans-serif",
                 color: "var(--color-app-ink)",
@@ -445,38 +457,64 @@ function ListMenu({
                 (e.currentTarget.style.backgroundColor = "transparent")
               }
             >
-              Rename list
+              <span>Edit name</span>
+              <PencilGlyph />
             </button>
-            <div
-              className="px-3 py-1.5 mt-1 text-[10px] font-semibold uppercase tracking-[0.18em]"
-              style={{
-                fontFamily: "var(--font-dm-mono), monospace",
-                color: "var(--color-app-fg-muted)",
-              }}
-            >
-              Colour
+
+            {/* Date — defaults to the list's creation date, editable here. */}
+            <div className="px-3 pt-2">
+              <label
+                className="text-[10px] font-semibold uppercase tracking-[0.18em]"
+                style={{
+                  fontFamily: "var(--font-dm-mono), monospace",
+                  color: "var(--color-app-fg-muted)",
+                }}
+              >
+                Date
+              </label>
+              <input
+                type="date"
+                value={dateValue}
+                onChange={(e) => onDateChange(e.target.value)}
+                className="mt-1.5 block w-full rounded-md border px-2.5 py-1.5 text-[12.5px] outline-none"
+                style={{
+                  fontFamily: "var(--font-manrope), sans-serif",
+                  borderColor: "var(--color-app-edge)",
+                  backgroundColor: "var(--color-app-paper)",
+                  color: "var(--color-app-ink)",
+                }}
+              />
             </div>
-            <div className="px-2 pb-1 grid grid-cols-4 gap-1.5">
-              {COLOR_PRESETS.map((c) => (
-                <button
-                  key={c.label}
-                  onClick={() => onColorChange(c.v)}
-                  title={c.label}
-                  aria-label={c.label}
-                  className="h-7 rounded transition-transform hover:scale-110"
-                  style={{
-                    backgroundColor:
-                      c.v === null ? "var(--color-app-canvas-2)" : c.hex,
-                    border:
-                      stripeColor === (c.v ?? "")
-                        ? "2px solid var(--color-app-ink)"
-                        : "1px solid var(--color-app-edge)",
-                  }}
-                />
-              ))}
+
+            {/* Description — collaboratively editable; commits on blur. */}
+            <div className="px-3 pt-2.5">
+              <label
+                className="text-[10px] font-semibold uppercase tracking-[0.18em]"
+                style={{
+                  fontFamily: "var(--font-dm-mono), monospace",
+                  color: "var(--color-app-fg-muted)",
+                }}
+              >
+                Description
+              </label>
+              <textarea
+                value={descDraft}
+                onChange={(e) => setDescDraft(e.target.value)}
+                onBlur={commitDescription}
+                placeholder="What goes in this list?"
+                rows={3}
+                className="mt-1.5 block w-full resize-none rounded-md border px-2.5 py-1.5 text-[12.5px] leading-[1.5] outline-none"
+                style={{
+                  fontFamily: "var(--font-manrope), sans-serif",
+                  borderColor: "var(--color-app-edge)",
+                  backgroundColor: "var(--color-app-paper)",
+                  color: "var(--color-app-ink)",
+                }}
+              />
             </div>
+
             <div
-              className="my-1.5 mx-2 border-t"
+              className="my-1.5 mx-1 border-t"
               style={{ borderColor: "var(--color-app-edge-soft)" }}
             />
             <button
@@ -500,5 +538,31 @@ function ListMenu({
         </>
       ) : null}
     </div>
+  );
+}
+
+function PencilGlyph() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+      style={{ color: "var(--color-app-fg-muted)" }}
+    >
+      <path
+        d="M4 20h4l10-10-4-4L4 16v4z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M14 6l4 4"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }
