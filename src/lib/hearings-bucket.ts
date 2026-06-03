@@ -2,24 +2,22 @@ import mongoose from "mongoose";
 import { Case } from "@/models/Case";
 import { Client } from "@/models/Client";
 import { istDayStart } from "@/lib/ist-day";
+import {
+  type Bucket,
+  type HearingRow,
+  filterHearingRows,
+} from "@/lib/hearing-row";
 
-export type Bucket = "today" | "tomorrow" | "pending";
+// Re-export the client-safe types + search so existing server-side
+// imports (`from "@/lib/hearings-bucket"`) keep working unchanged.
+export { filterHearingRows };
+export type { Bucket, HearingRow };
 
-export type HearingRow = {
-  id: string;
-  caseNo: string;
-  fileNo: string;
-  cnr: string;
-  clientName: string;
-  clientPhone: string;
-  clientWhatsapp: string;
-  oppositeParty: string;
-  courtName: string;
-  courtPlace: string;
-  status: string;
-  nextHearingDate: string | null;
-  lastHearingDate: string | null;
-};
+// How many cases the "All" bucket loads in one shot. A single chambers
+// rarely has this many *active* (non-disposed) matters at once; when it
+// does, the UI surfaces a "showing N of M" note and points to Case Vault
+// (which paginates) for the long tail. Search filters within this set.
+const ALL_LIMIT = 500;
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -30,7 +28,7 @@ export async function loadHearingsBucket(
   bucket: Bucket
 ): Promise<{
   items: HearingRow[];
-  counts: { today: number; tomorrow: number; pending: number };
+  counts: { today: number; tomorrow: number; pending: number; all: number };
 }> {
   // Disposed cases never appear in any hearing bucket (today/tomorrow/
   // pending) — they're archived and live in /app/disposed-cases.
@@ -78,6 +76,22 @@ export async function loadHearingsBucket(
         .sort({ lastHearingDate: -1, updatedAt: -1 })
         .lean(),
     ]).then(([overdue, undated]) => [...overdue, ...undated]);
+  } else if (bucket === "all") {
+    // Every active matter, soonest next-date first, undated last. Capped
+    // at ALL_LIMIT — the count below carries the true total so the UI can
+    // tell the user when it's showing a slice.
+    docsPromise = Promise.all([
+      Case.find({ ...baseFilter, nextHearingDate: { $ne: null } })
+        .sort({ nextHearingDate: 1 })
+        .limit(ALL_LIMIT)
+        .lean(),
+      Case.find({ ...baseFilter, nextHearingDate: null })
+        .sort({ caseNo: 1, updatedAt: -1 })
+        .limit(ALL_LIMIT)
+        .lean(),
+    ]).then(([dated, undated]) =>
+      [...dated, ...undated].slice(0, ALL_LIMIT)
+    );
   } else {
     const offset = bucket === "today" ? 0 : 1;
     const start = istDayStart(now, offset);
@@ -90,7 +104,7 @@ export async function loadHearingsBucket(
       .lean() as Promise<unknown[]>;
   }
 
-  const [docsUnknown, todayCount, tomorrowCount, pendingCount] =
+  const [docsUnknown, todayCount, tomorrowCount, pendingCount, allCount] =
     await Promise.all([
       docsPromise,
       Case.countDocuments({
@@ -108,6 +122,9 @@ export async function loadHearingsBucket(
           { nextHearingDate: { $ne: null, $lt: todayStart } },
         ],
       }),
+      // Every active, non-disposed matter — the true "All" total even
+      // when the loaded list is capped at ALL_LIMIT.
+      Case.countDocuments(baseFilter),
     ]);
 
   const docs = docsUnknown as Array<{
@@ -210,6 +227,7 @@ export async function loadHearingsBucket(
       today: todayCount,
       tomorrow: tomorrowCount,
       pending: pendingCount,
+      all: allCount,
     },
   };
 }
