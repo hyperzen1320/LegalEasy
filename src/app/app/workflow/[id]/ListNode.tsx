@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { type NodeProps } from "@xyflow/react";
 import { useDroppable } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -30,29 +30,8 @@ export type ListNodeData = {
   onTaskAdd: (listId: string, title: string) => void;
 };
 
-// Connection handles. Pattern borrowed from ScopeOut's MindMap canvas:
-//
-//  • An INVISIBLE React Flow <Handle> at each side, sized 1×1 — these are
-//    the actual connection anchor points used for snap-on-drop.
-//  • A VISIBLE 28×28 "+" connector pill positioned 18px outside the node
-//    that doubles as the drag handle (it sits inside the React Flow
-//    handle's stacking context with pointerEvents pass-through).
-//  • The pill scales up + glows on hover so the user gets unmistakable
-//    feedback that this is what they grab to draw a connection.
-//  • Only renders on hover/selection of the node — a clean canvas at
-//    rest, an obvious affordance the moment the cursor enters.
-//
-// The pill is also a real <Handle> with the same id as the invisible
-// dot, so React Flow accepts a connection drag started on it. We render
-// both for redundancy: the invisible dot keeps the snap radius working
-// when a connection is dropped near the node edge, and the visible pill
-// is what the user actually grabs.
-
-const CONNECTOR_SIZE = 28;
-const CONNECTOR_OFFSET = 18; // distance from the node edge to the pill center
-
 export default function ListNode(props: NodeProps & { data: ListNodeData }) {
-  const { data, selected, id: nodeId } = props;
+  const { data, selected } = props;
   const { list, tasks, accent, canEdit, onTaskClick } = data;
 
   const droppable = useDroppable({
@@ -352,112 +331,7 @@ export default function ListNode(props: NodeProps & { data: ListNodeData }) {
         </div>
       ) : null}
 
-      {/* Connection pills. One <Handle> per side, sized 28×28 with a
-          bold "+" inside and a clear coloured fill so it reads as a
-          button rather than a vague dot. Centered on the node edge so
-          the edge endpoint snaps cleanly. Visible at 0.5 opacity at
-          rest (subtle but discoverable), and pops to 1.0 + a small
-          scale on hover. */}
-      {(["top", "right", "bottom", "left"] as const).map((side) => (
-        <ConnectionPill
-          key={side}
-          side={side}
-          color={stripeColor}
-          canEdit={canEdit}
-        />
-      ))}
     </div>
-  );
-}
-
-function ConnectionPill({
-  side,
-  color,
-  canEdit,
-}: {
-  side: "top" | "right" | "bottom" | "left";
-  color: string;
-  canEdit: boolean;
-}) {
-  const sideToPos: Record<typeof side, Position> = {
-    top: Position.Top,
-    right: Position.Right,
-    bottom: Position.Bottom,
-    left: Position.Left,
-  };
-
-  // Pill is half inside / half outside the node so the connection
-  // endpoint snaps onto the node edge while the visible affordance
-  // extends outside, away from the cards/header where the user might
-  // accidentally try to drag-pan.
-  const pos: React.CSSProperties = {};
-  switch (side) {
-    case "top":
-      pos.top = -CONNECTOR_SIZE / 2;
-      pos.left = "50%";
-      pos.transform = "translateX(-50%)";
-      break;
-    case "right":
-      pos.right = -CONNECTOR_SIZE / 2;
-      pos.top = "50%";
-      pos.transform = "translateY(-50%)";
-      break;
-    case "bottom":
-      pos.bottom = -CONNECTOR_SIZE / 2;
-      pos.left = "50%";
-      pos.transform = "translateX(-50%)";
-      break;
-    case "left":
-      pos.left = -CONNECTOR_SIZE / 2;
-      pos.top = "50%";
-      pos.transform = "translateY(-50%)";
-      break;
-  }
-
-  return (
-    <Handle
-      type="source"
-      position={sideToPos[side]}
-      id={side}
-      isConnectable={canEdit}
-      className="le-connection-pill"
-      style={{
-        ...pos,
-        width: CONNECTOR_SIZE,
-        height: CONNECTOR_SIZE,
-        minWidth: CONNECTOR_SIZE,
-        minHeight: CONNECTOR_SIZE,
-        borderRadius: 999,
-        backgroundColor: color,
-        border: "2px solid #fff",
-        boxShadow: `0 4px 10px -2px ${color}66`,
-        cursor: "crosshair",
-        opacity: canEdit ? 0.55 : 0,
-        transition:
-          "opacity 160ms ease, transform 160ms ease, box-shadow 160ms ease",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        color: "#fff",
-        fontSize: 15,
-        fontWeight: 700,
-        lineHeight: 1,
-        fontFamily: "system-ui, -apple-system, sans-serif",
-        // Make sure the pill is above sibling content so it's grabbable
-        // even when a card extends to the list edge.
-        zIndex: 5,
-      }}
-    >
-      <span
-        aria-hidden
-        style={{
-          transform: "translateY(-1px)",
-          pointerEvents: "none",
-        }}
-      >
-        +
-      </span>
-    </Handle>
   );
 }
 
