@@ -22,6 +22,8 @@ export type CaseExportRow = {
   advocateName: string;
   nextHearingDate: string | null;
   lastHearingDate: string | null;
+  // Only populated for the Disposed archive export; empty for active rolls.
+  disposedAt: string | null;
 };
 
 export type CaseExportColumn = {
@@ -58,6 +60,7 @@ export const ALL_COLUMNS: CaseExportColumn[] = [
   { key: "oppositeAdvocate", label: "Opp. Advocate", width: 16 },
   { key: "lastHearingDate", label: "Prev Date", width: 12, align: "center" },
   { key: "nextHearingDate", label: "Next Date", width: 12, align: "center" },
+  { key: "disposedAt", label: "Disposed On", width: 13, align: "center" },
 ];
 
 // Default selection used when the client doesn't send a `columns` list.
@@ -77,6 +80,22 @@ export const DEFAULT_COLUMN_KEYS = [
   "status",
   "lastHearingDate",
   "nextHearingDate",
+];
+
+// Default columns for the Disposed archive export. Drops the next/prev
+// hearing dates (meaningless once a matter is closed) in favour of the
+// disposal date, and leads with file/case/CNR + parties + court.
+export const DISPOSED_COLUMN_KEYS = [
+  "sno",
+  "fileNo",
+  "caseNo",
+  "cnr",
+  "clientName",
+  "oppositeParty",
+  "courtName",
+  "courtPlace",
+  "status",
+  "disposedAt",
 ];
 
 export type CaseExportPartner = {
@@ -128,7 +147,11 @@ export function valueFor(
   index: number
 ): string {
   if (col.key === "sno") return String(index + 1);
-  if (col.key === "lastHearingDate" || col.key === "nextHearingDate") {
+  if (
+    col.key === "lastHearingDate" ||
+    col.key === "nextHearingDate" ||
+    col.key === "disposedAt"
+  ) {
     const v = row[col.key];
     if (!v) return "";
     const d = new Date(v);

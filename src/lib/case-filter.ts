@@ -6,8 +6,15 @@ import mongoose from "mongoose";
 // downloads always agree. Keeping the logic here means the API routes
 // don't drift apart over time.
 
+export type CaseScope = "active" | "disposed";
+
 export type CaseFilterInput = {
   partnerId: mongoose.Types.ObjectId;
+  // "active" (default) keeps the historic behaviour — Case Vault, Hearing
+  // Track, dashboard. "disposed" flips to the archive: only matters with a
+  // disposal date, and the date range applies to `disposedAt` instead of
+  // the next hearing date.
+  scope?: CaseScope | null;
   courtId?: string | null;
   courtPlace?: string | null;
   advocateId?: string | null;
@@ -55,16 +62,19 @@ function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// Returns a Mongo filter document for the Case collection. Always
-// includes the active-case constraints (not deleted, not disposed).
+// Returns a Mongo filter document for the Case collection. Defaults to
+// the active-case constraints (not deleted, not disposed); pass
+// scope: "disposed" to query the archive instead.
 export function buildCaseFilter(
   input: CaseFilterInput
 ): Record<string, unknown> {
+  const scope: CaseScope = input.scope === "disposed" ? "disposed" : "active";
   const filter: Record<string, unknown> = {
     partnerId: input.partnerId,
     isDeleted: false,
-    disposedAt: null,
   };
+  // disposedAt is set below — for active it's null; for disposed it's
+  // { $ne: null }, optionally narrowed by the disposal-date range.
 
   if (input.courtId && mongoose.isValidObjectId(input.courtId)) {
     filter.courtId = new mongoose.Types.ObjectId(input.courtId);
@@ -104,8 +114,16 @@ export function buildCaseFilter(
       dateRange.$lte = d;
     }
   }
-  if (Object.keys(dateRange).length > 0) {
-    filter.nextHearingDate = dateRange;
+  const hasRange = Object.keys(dateRange).length > 0;
+
+  if (scope === "disposed") {
+    // Archive: disposed matters only. A date range narrows by disposal
+    // date (a range already excludes nulls, so it implies "disposed").
+    filter.disposedAt = hasRange ? dateRange : { $ne: null };
+  } else {
+    // Active: never disposed; a date range narrows by next hearing date.
+    filter.disposedAt = null;
+    if (hasRange) filter.nextHearingDate = dateRange;
   }
 
   const query = (input.search || "").trim();
@@ -145,7 +163,9 @@ export function readCaseFilterParams(
     const v = source[k];
     return typeof v === "string" ? v : null;
   };
+  const scopeRaw = get("scope");
   return {
+    scope: scopeRaw === "disposed" ? "disposed" : "active",
     courtId: get("courtId"),
     courtPlace: get("courtPlace"),
     advocateId: get("advocateId"),
