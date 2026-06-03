@@ -15,15 +15,20 @@ export default async function HearingTrackPage({
   const sp = await searchParams;
   const tabParam = typeof sp.tab === "string" ? sp.tab : undefined;
   const bucket: Bucket =
-    tabParam === "tomorrow" || tabParam === "pending" ? tabParam : "today";
+    tabParam === "tomorrow" ||
+    tabParam === "pending" ||
+    tabParam === "all"
+      ? tabParam
+      : "today";
 
   const session = await auth();
   const partnerId = session?.user?.partnerId
     ? new mongoose.Types.ObjectId(session.user.partnerId)
     : null;
+  const isAdmin = session?.user?.userType === "partner_admin";
 
   let items: Awaited<ReturnType<typeof loadHearingsBucket>>["items"] = [];
-  let counts = { today: 0, tomorrow: 0, pending: 0 };
+  let counts = { today: 0, tomorrow: 0, pending: 0, all: 0 };
   let officeName = "";
 
   if (partnerId) {
@@ -45,6 +50,7 @@ export default async function HearingTrackPage({
           items={items}
           counts={counts}
           officeName={officeName}
+          isAdmin={isAdmin}
         />
       </div>
     </div>

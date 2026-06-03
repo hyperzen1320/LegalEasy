@@ -1,70 +1,129 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  filterHearingRows,
+  type HearingRow,
+  type Bucket,
+} from "@/lib/hearing-row";
+import { parseDateInputLocal } from "@/lib/whatsapp";
 
-export type Bucket = "today" | "tomorrow" | "pending";
+export type { HearingRow, Bucket };
 
-export type HearingRow = {
-  id: string;
-  caseNo: string;
-  fileNo: string;
-  cnr: string;
-  clientName: string;
-  clientPhone: string;
-  clientWhatsapp: string;
-  oppositeParty: string;
-  courtName: string;
-  courtPlace: string;
-  status: string;
-  nextHearingDate: string | null;
-  lastHearingDate: string | null;
-};
+type Counts = { today: number; tomorrow: number; pending: number; all: number };
 
 export default function HearingTrackClient({
   bucket,
   items,
   counts,
   officeName,
+  isAdmin,
 }: {
   bucket: Bucket;
   items: HearingRow[];
-  counts: { today: number; tomorrow: number; pending: number };
+  counts: Counts;
   officeName: string;
+  isAdmin: boolean;
 }) {
+  // Search filters the loaded bucket client-side — instant, and it carries
+  // across tab switches (the component isn't remounted on navigation) so a
+  // query you typed on Today still narrows Pending.
+  const [query, setQuery] = useState("");
+  const filtered = useMemo(
+    () => filterHearingRows(items, query),
+    [items, query]
+  );
+
+  // The "All" bucket is capped server-side; tell the user when they're
+  // looking at a slice so the count never silently lies.
+  const truncated = bucket === "all" && counts.all > items.length;
+
   return (
     <>
       {/* Header */}
-      <div>
-        <h2
-          className="text-[40px] font-semibold tracking-tight leading-[1.1]"
-          style={{
-            fontFamily: "var(--font-crimson), Georgia, serif",
-            color: "var(--color-app-ink)",
-          }}
-        >
-          Hearing Track
-        </h2>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2
+            className="text-[40px] font-semibold tracking-tight leading-[1.1]"
+            style={{
+              fontFamily: "var(--font-crimson), Georgia, serif",
+              color: "var(--color-app-ink)",
+            }}
+          >
+            Hearing Track
+          </h2>
+          <p
+            className="mt-2 text-[13px]"
+            style={{
+              fontFamily: "var(--font-manrope), sans-serif",
+              color: "var(--color-app-fg-muted)",
+            }}
+          >
+            Date-wise, pending, and the full register.
+          </p>
+        </div>
+        {isAdmin ? (
+          <HearingExportMenu bucket={bucket} query={query} />
+        ) : null}
+      </div>
+
+      {/* Tab strip + search */}
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+        <Tabs bucket={bucket} counts={counts} />
+        <HearingSearch value={query} onChange={setQuery} />
+      </div>
+
+      {/* Slice note for the capped All bucket */}
+      {truncated ? (
         <p
-          className="mt-2 text-[13px]"
+          className="mt-4 text-[12px]"
           style={{
             fontFamily: "var(--font-manrope), sans-serif",
             color: "var(--color-app-fg-muted)",
           }}
         >
-          Date-wise and pending matters.
+          Showing the {items.length.toLocaleString("en-IN")} soonest of{" "}
+          <span style={{ color: "var(--color-app-ink)", fontWeight: 600 }}>
+            {counts.all.toLocaleString("en-IN")}
+          </span>{" "}
+          active matters. Narrow with search, or browse the full register in{" "}
+          <Link
+            href="/app/cases"
+            className="underline"
+            style={{ color: "var(--color-app-copper-deep)" }}
+          >
+            Case Vault
+          </Link>
+          .
         </p>
-      </div>
+      ) : null}
 
-      {/* Tab strip */}
-      <Tabs bucket={bucket} counts={counts} />
+      {/* Result count while searching */}
+      {query.trim() ? (
+        <p
+          className="mt-4 text-[12px]"
+          style={{
+            fontFamily: "var(--font-dm-mono), monospace",
+            color: "var(--color-app-fg-muted)",
+          }}
+        >
+          {filtered.length} of {items.length} matching “{query.trim()}”
+        </p>
+      ) : null}
 
       {/* List */}
       <div className="mt-6">
-        {items.length === 0 ? (
-          <EmptyState bucket={bucket} />
+        {filtered.length === 0 ? (
+          query.trim() ? (
+            <NoMatches query={query.trim()} onClear={() => setQuery("")} />
+          ) : (
+            <EmptyState bucket={bucket} />
+          )
         ) : bucket === "pending" ? (
           <div className="space-y-4">
-            {items.map((c, i) => (
+            {filtered.map((c, i) => (
               <PendingCard
                 key={c.id}
                 c={c}
@@ -75,13 +134,14 @@ export default function HearingTrackClient({
           </div>
         ) : (
           <div className="space-y-3">
-            {items.map((c, i) => (
+            {filtered.map((c, i) => (
               <ScheduledRow
                 key={c.id}
                 c={c}
                 index={i}
                 officeName={officeName}
                 bucket={bucket}
+                showDate={bucket === "all"}
               />
             ))}
           </div>
@@ -93,22 +153,17 @@ export default function HearingTrackClient({
 
 /* ─── Tabs ─── */
 
-function Tabs({
-  bucket,
-  counts,
-}: {
-  bucket: Bucket;
-  counts: { today: number; tomorrow: number; pending: number };
-}) {
+function Tabs({ bucket, counts }: { bucket: Bucket; counts: Counts }) {
   const tabs: { key: Bucket; label: string; count: number }[] = [
     { key: "today", label: "Today", count: counts.today },
     { key: "tomorrow", label: "Tomorrow", count: counts.tomorrow },
     { key: "pending", label: "Pending", count: counts.pending },
+    { key: "all", label: "All", count: counts.all },
   ];
 
   return (
     <div
-      className="mt-6 inline-flex items-center gap-1 rounded-xl p-1"
+      className="inline-flex items-center gap-1 rounded-xl p-1"
       style={{
         backgroundColor: "var(--color-app-paper)",
         boxShadow: "0 1px 0 var(--color-app-edge)",
@@ -162,26 +217,307 @@ function Tabs({
   );
 }
 
-/* ─── Today/Tomorrow row ─── */
+/* ─── Search ─── */
+
+function HearingSearch({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="relative" style={{ minWidth: 260 }}>
+      <span
+        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
+        style={{ color: "var(--color-app-fg-muted)" }}
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <circle
+            cx="11"
+            cy="11"
+            r="6.5"
+            stroke="currentColor"
+            strokeWidth="1.7"
+          />
+          <path
+            d="M16 16l5 5"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            strokeLinecap="round"
+          />
+        </svg>
+      </span>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Search case, client, CNR, court…"
+        className="w-full rounded-lg border py-2.5 pl-9 pr-9 text-[13px] outline-none transition-colors"
+        style={{
+          fontFamily: "var(--font-manrope), sans-serif",
+          borderColor: "var(--color-app-edge)",
+          backgroundColor: "var(--color-app-paper)",
+          color: "var(--color-app-ink)",
+        }}
+        onFocus={(e) => {
+          e.currentTarget.style.borderColor = "var(--color-app-copper)";
+          e.currentTarget.style.boxShadow = "0 0 0 3px rgba(197,133,58,0.15)";
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.borderColor = "var(--color-app-edge)";
+          e.currentTarget.style.boxShadow = "none";
+        }}
+      />
+      {value ? (
+        <button
+          type="button"
+          aria-label="Clear search"
+          onClick={() => onChange("")}
+          className="absolute right-2.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full transition-colors"
+          style={{
+            backgroundColor: "var(--color-app-canvas-2)",
+            color: "var(--color-app-fg-muted)",
+          }}
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path
+              d="M6 6l12 12M18 6L6 18"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+            />
+          </svg>
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/* ─── Export menu (admin) ─── */
+
+function HearingExportMenu({
+  bucket,
+  query,
+}: {
+  bucket: Bucket;
+  query: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [working, setWorking] = useState<"xlsx" | "docx" | "pdf" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function trigger(format: "xlsx" | "docx" | "pdf") {
+    setError(null);
+    setWorking(format);
+    try {
+      const params = new URLSearchParams({ bucket, format });
+      if (query.trim()) params.set("q", query.trim());
+      const res = await fetch(`/api/app/hearings/export?${params.toString()}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data?.error || "Couldn't generate that export.");
+        setWorking(null);
+        return;
+      }
+      const disposition = res.headers.get("Content-Disposition") || "";
+      const match = /filename="?([^";]+)"?/i.exec(disposition);
+      const filename = (match && match[1]) || `hearing-track.${format}`;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setOpen(false);
+    } catch {
+      setError("Network error. Try again.");
+    } finally {
+      setWorking(null);
+    }
+  }
+
+  const LABELS: Record<"xlsx" | "docx" | "pdf", string> = {
+    xlsx: "Excel (.xlsx)",
+    docx: "Word (.docx)",
+    pdf: "PDF",
+  };
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        disabled={Boolean(working)}
+        className="inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-[12px] font-semibold uppercase tracking-[0.18em] transition-all hover:-translate-y-0.5"
+        style={{
+          fontFamily: "var(--font-dm-mono), monospace",
+          backgroundColor: "var(--color-app-ink)",
+          color: "var(--color-app-ivory)",
+          boxShadow: "0 8px 18px -10px rgba(10,17,36,0.45)",
+          opacity: working ? 0.7 : 1,
+        }}
+      >
+        {working ? (
+          <>
+            <span
+              className="inline-block h-3 w-3 animate-spin rounded-full"
+              style={{
+                borderWidth: 1.5,
+                borderStyle: "solid",
+                borderColor: "rgba(245,235,214,0.35)",
+                borderTopColor: "var(--color-app-copper)",
+              }}
+            />
+            Generating…
+          </>
+        ) : (
+          <>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path
+                d="M12 4v12m-5-5l5 5 5-5"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M4 18v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            Export
+            <span aria-hidden className="ml-0.5 text-[10px]" style={{ opacity: 0.75 }}>
+              ▾
+            </span>
+          </>
+        )}
+      </button>
+
+      {open && !working ? (
+        <>
+          <div
+            className="fixed inset-0 z-20"
+            onClick={() => setOpen(false)}
+            aria-hidden
+          />
+          <div
+            className="absolute right-0 z-30 mt-2 w-[230px] overflow-hidden rounded-md"
+            style={{
+              backgroundColor: "var(--color-app-paper)",
+              border: "1px solid var(--color-app-edge)",
+              boxShadow:
+                "0 16px 32px -12px rgba(10,17,36,0.25), 0 0 0 1px rgba(10,17,36,0.04)",
+            }}
+          >
+            <div
+              className="px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.18em]"
+              style={{
+                fontFamily: "var(--font-dm-mono), monospace",
+                color: "var(--color-app-fg-muted)",
+                borderBottom: "1px solid var(--color-app-edge-soft)",
+                backgroundColor: "var(--color-app-canvas-2)",
+              }}
+            >
+              Download this view
+            </div>
+            <ul className="py-1">
+              {(["xlsx", "docx", "pdf"] as const).map((f) => (
+                <li key={f}>
+                  <button
+                    type="button"
+                    onClick={() => trigger(f)}
+                    className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-[13px] font-semibold transition-colors"
+                    style={{
+                      fontFamily: "var(--font-manrope), sans-serif",
+                      color: "var(--color-app-ink)",
+                      backgroundColor: "transparent",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor =
+                        "var(--color-app-canvas-2)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "transparent";
+                    }}
+                  >
+                    <FormatBadge format={f} />
+                    {LABELS[f]}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {error ? (
+              <div
+                className="px-3 py-2 text-[11px]"
+                style={{
+                  fontFamily: "var(--font-manrope), sans-serif",
+                  backgroundColor: "var(--color-app-danger-soft)",
+                  color: "var(--color-app-danger)",
+                  borderTop: "1px solid var(--color-app-edge-soft)",
+                }}
+              >
+                {error}
+              </div>
+            ) : null}
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function FormatBadge({ format }: { format: "xlsx" | "docx" | "pdf" }) {
+  const palette: Record<string, { bg: string; fg: string }> = {
+    xlsx: { bg: "#1f6f43", fg: "#ffffff" },
+    docx: { bg: "#2b5797", fg: "#ffffff" },
+    pdf: { bg: "#9a2c2c", fg: "#ffffff" },
+  };
+  const p = palette[format];
+  return (
+    <span
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[9px] font-semibold uppercase tracking-[0.14em]"
+      style={{
+        fontFamily: "var(--font-dm-mono), monospace",
+        backgroundColor: p.bg,
+        color: p.fg,
+      }}
+    >
+      {format}
+    </span>
+  );
+}
+
+/* ─── Today/Tomorrow/All row ─── */
 
 function ScheduledRow({
   c,
   index,
   officeName,
   bucket,
+  showDate,
 }: {
   c: HearingRow;
   index: number;
   officeName: string;
   bucket: Bucket;
+  showDate: boolean;
 }) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
   const courtLine = [c.courtName, c.courtPlace].filter(Boolean).join(", ");
   const telLink = buildTelLink(c);
   const waLink = buildWhatsAppLink(c, officeName, bucket);
 
   return (
     <div
-      className="fade-up-sm group relative flex items-center gap-5 rounded-xl p-5 transition-[box-shadow,transform] duration-200 ease-out hover:-translate-y-0.5"
+      className="fade-up-sm rounded-xl transition-[box-shadow,transform] duration-200 ease-out"
       style={{
         backgroundColor: "var(--color-app-paper)",
         boxShadow: "0 1px 0 var(--color-app-edge)",
@@ -189,95 +525,109 @@ function ScheduledRow({
         animationDelay: `${Math.min(index, 10) * 35}ms`,
       }}
     >
-      <Link
-        href={`/app/cases/${c.id}`}
-        className="min-w-0 flex-1"
-        style={{ display: "block" }}
-      >
-        <div className="flex flex-wrap items-baseline gap-3">
-          <span
-            className="text-[22px] font-semibold tracking-tight"
-            style={{
-              fontFamily: "var(--font-crimson), Georgia, serif",
-              color: "var(--color-app-ink)",
-            }}
-          >
-            {c.caseNo}
-          </span>
-          {c.status ? (
+      <div className="group flex items-center gap-5 p-5">
+        <Link
+          href={`/app/cases/${c.id}`}
+          className="min-w-0 flex-1"
+          style={{ display: "block" }}
+        >
+          <div className="flex flex-wrap items-baseline gap-3">
             <span
-              className="rounded-md px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em]"
+              className="text-[22px] font-semibold tracking-tight"
               style={{
-                fontFamily: "var(--font-dm-mono), monospace",
-                backgroundColor: "var(--color-app-aqua-soft)",
-                color: "var(--color-app-aqua)",
+                fontFamily: "var(--font-crimson), Georgia, serif",
+                color: "var(--color-app-ink)",
               }}
             >
-              {c.status}
+              {c.caseNo}
             </span>
-          ) : null}
-        </div>
-        {(c.clientName || courtLine) && (
-          <div
-            className="mt-1.5 text-[13px]"
-            style={{
-              fontFamily: "var(--font-manrope), sans-serif",
-              color: "var(--color-app-fg-soft)",
-            }}
-          >
-            {c.clientName ? (
+            {showDate ? <NextDateChip iso={c.nextHearingDate} /> : null}
+            {c.status ? (
               <span
+                className="rounded-md px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em]"
                 style={{
-                  color: "var(--color-app-ink)",
-                  fontWeight: 600,
+                  fontFamily: "var(--font-dm-mono), monospace",
+                  backgroundColor: "var(--color-app-aqua-soft)",
+                  color: "var(--color-app-aqua)",
                 }}
               >
-                {c.clientName}
-              </span>
-            ) : null}
-            {c.clientName && courtLine ? (
-              <span style={{ color: "var(--color-app-copper-deep)" }}>
-                {" "}
-                ·{" "}
-              </span>
-            ) : null}
-            {courtLine ? (
-              <span style={{ color: "var(--color-app-fg-muted)" }}>
-                {courtLine}
+                {c.status}
               </span>
             ) : null}
           </div>
-        )}
-      </Link>
-
-      {/* Action cluster */}
-      <div className="flex shrink-0 items-center gap-2">
-        <ContactIconButton
-          href={telLink}
-          icon={<PhoneIcon />}
-          ariaLabel={`Call ${c.clientName || "client"}`}
-          variant="ink-ghost"
-        />
-        <ContactIconButton
-          href={waLink}
-          icon={<WhatsAppIcon />}
-          ariaLabel={`WhatsApp ${c.clientName || "client"}`}
-          variant="whatsapp"
-          newTab
-        />
-        <Link
-          href={`/app/cases/${c.id}`}
-          className="inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-[12px] font-semibold transition-all hover:-translate-y-0.5"
-          style={{
-            fontFamily: "var(--font-manrope), sans-serif",
-            backgroundColor: "var(--color-app-copper)",
-            color: "var(--color-app-copper-text)",
-            boxShadow: "0 6px 16px -10px rgba(197,133,58,0.6)",
-          }}
-        >
-          Open
+          {(c.clientName || courtLine) && (
+            <div
+              className="mt-1.5 text-[13px]"
+              style={{
+                fontFamily: "var(--font-manrope), sans-serif",
+                color: "var(--color-app-fg-soft)",
+              }}
+            >
+              {c.clientName ? (
+                <span style={{ color: "var(--color-app-ink)", fontWeight: 600 }}>
+                  {c.clientName}
+                </span>
+              ) : null}
+              {c.clientName && courtLine ? (
+                <span style={{ color: "var(--color-app-copper-deep)" }}> · </span>
+              ) : null}
+              {courtLine ? (
+                <span style={{ color: "var(--color-app-fg-muted)" }}>
+                  {courtLine}
+                </span>
+              ) : null}
+            </div>
+          )}
         </Link>
+
+        {/* Action cluster */}
+        <div className="flex shrink-0 items-center gap-2">
+          <ContactIconButton
+            href={telLink}
+            icon={<PhoneIcon />}
+            ariaLabel={`Call ${c.clientName || "client"}`}
+            variant="ink-ghost"
+          />
+          <ContactIconButton
+            href={waLink}
+            icon={<WhatsAppIcon />}
+            ariaLabel={`WhatsApp ${c.clientName || "client"}`}
+            variant="whatsapp"
+            newTab
+          />
+          <button
+            type="button"
+            onClick={() => setEditing((v) => !v)}
+            className="inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-[12px] font-semibold transition-all hover:-translate-y-0.5"
+            style={{
+              fontFamily: "var(--font-manrope), sans-serif",
+              backgroundColor: editing
+                ? "var(--color-app-ink)"
+                : "var(--color-app-copper)",
+              color: editing
+                ? "var(--color-app-ivory)"
+                : "var(--color-app-copper-text)",
+              boxShadow: editing
+                ? "none"
+                : "0 6px 16px -10px rgba(197,133,58,0.6)",
+            }}
+          >
+            <CalendarIcon />
+            {editing ? "Close" : "Update"}
+          </button>
+        </div>
       </div>
+
+      {editing ? (
+        <InlineHearingUpdate
+          row={c}
+          officeName={officeName}
+          onClose={() => {
+            setEditing(false);
+            router.refresh();
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -293,19 +643,20 @@ function PendingCard({
   index: number;
   officeName: string;
 }) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
   const telLink = buildTelLink(c);
   const waLink = buildWhatsAppLink(c, officeName, "pending");
 
   // Two flavours of pending — the previous date passed without being
   // replaced (overdue) or the matter was never given a next date
-  // (undated). The badge + tagline change accordingly so the advocate
-  // can tell at a glance which case is asking what.
+  // (undated). The badge + tagline change accordingly.
   const overdueDays = overdueDaysFor(c.nextHearingDate);
   const isOverdue = overdueDays !== null;
 
   return (
     <div
-      className="fade-up-sm rounded-xl p-6"
+      className="fade-up-sm rounded-xl"
       style={{
         backgroundColor: "var(--color-app-paper)",
         boxShadow: "0 1px 0 var(--color-app-edge)",
@@ -315,203 +666,486 @@ function PendingCard({
         animationDelay: `${Math.min(index, 10) * 35}ms`,
       }}
     >
-      {/* Top row */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <Link
-            href={`/app/cases/${c.id}`}
-            className="text-[24px] font-semibold tracking-tight transition-colors hover:opacity-70"
-            style={{
-              fontFamily: "var(--font-crimson), Georgia, serif",
-              color: "var(--color-app-ink)",
-              display: "inline-block",
-            }}
-          >
-            {c.caseNo}
-          </Link>
-          {c.status ? (
-            <span
-              className="ml-3 rounded-md px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em]"
+      <div className="p-6">
+        {/* Top row */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <Link
+              href={`/app/cases/${c.id}`}
+              className="text-[24px] font-semibold tracking-tight transition-colors hover:opacity-70"
               style={{
-                fontFamily: "var(--font-dm-mono), monospace",
-                backgroundColor: "var(--color-app-aqua-soft)",
-                color: "var(--color-app-aqua)",
-                verticalAlign: "middle",
+                fontFamily: "var(--font-crimson), Georgia, serif",
+                color: "var(--color-app-ink)",
+                display: "inline-block",
               }}
             >
-              {c.status}
-            </span>
-          ) : null}
-          <div
-            className="mt-1.5 text-[13px]"
-            style={{
-              fontFamily: "var(--font-manrope), sans-serif",
-              color: "var(--color-app-fg-soft)",
-            }}
-          >
-            {c.clientName ? (
+              {c.caseNo}
+            </Link>
+            {c.status ? (
               <span
-                style={{ color: "var(--color-app-ink)", fontWeight: 600 }}
-              >
-                {c.clientName}
-              </span>
-            ) : (
-              <span style={{ color: "var(--color-app-fg-muted)" }}>—</span>
-            )}
-            {c.cnr ? (
-              <>
-                <span style={{ color: "var(--color-app-copper-deep)" }}>
-                  {" "}
-                  ·{" "}
-                </span>
-                <span style={{ color: "var(--color-app-fg-muted)" }}>
-                  CNR {c.cnr}
-                </span>
-              </>
-            ) : null}
-          </div>
-          {/* The "last date" line is only useful for undated matters —
-              for overdue ones the next date is itself the meaningful
-              past date and we surface it in the badge column instead. */}
-          {!isOverdue && c.lastHearingDate ? (
-            <div
-              className="mt-1 text-[12px]"
-              style={{
-                fontFamily: "var(--font-dm-mono), monospace",
-                color: "var(--color-app-fg-muted)",
-              }}
-            >
-              Last date:{" "}
-              <span
-                style={{
-                  color: "var(--color-app-ink)",
-                  fontWeight: 600,
-                }}
-              >
-                {c.lastHearingDate.slice(0, 10)}
-              </span>
-            </div>
-          ) : null}
-        </div>
-
-        {/* Badge column */}
-        <div className="flex shrink-0 flex-col items-end gap-1.5">
-          {isOverdue ? (
-            <>
-              <span
-                className="rounded-md px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                className="ml-3 rounded-md px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em]"
                 style={{
                   fontFamily: "var(--font-dm-mono), monospace",
-                  backgroundColor: "var(--color-app-danger-soft)",
-                  color: "var(--color-app-danger)",
+                  backgroundColor: "var(--color-app-aqua-soft)",
+                  color: "var(--color-app-aqua)",
+                  verticalAlign: "middle",
                 }}
               >
-                {formatOverdue(overdueDays)}
+                {c.status}
               </span>
-              <span
-                className="text-[11px]"
+            ) : null}
+            <div
+              className="mt-1.5 text-[13px]"
+              style={{
+                fontFamily: "var(--font-manrope), sans-serif",
+                color: "var(--color-app-fg-soft)",
+              }}
+            >
+              {c.clientName ? (
+                <span style={{ color: "var(--color-app-ink)", fontWeight: 600 }}>
+                  {c.clientName}
+                </span>
+              ) : (
+                <span style={{ color: "var(--color-app-fg-muted)" }}>—</span>
+              )}
+              {c.cnr ? (
+                <>
+                  <span style={{ color: "var(--color-app-copper-deep)" }}> · </span>
+                  <span style={{ color: "var(--color-app-fg-muted)" }}>
+                    CNR {c.cnr}
+                  </span>
+                </>
+              ) : null}
+            </div>
+            {!isOverdue && c.lastHearingDate ? (
+              <div
+                className="mt-1 text-[12px]"
                 style={{
                   fontFamily: "var(--font-dm-mono), monospace",
                   color: "var(--color-app-fg-muted)",
                 }}
               >
-                Was{" "}
+                Last date:{" "}
+                <span style={{ color: "var(--color-app-ink)", fontWeight: 600 }}>
+                  {c.lastHearingDate.slice(0, 10)}
+                </span>
+              </div>
+            ) : null}
+          </div>
+
+          {/* Badge column */}
+          <div className="flex shrink-0 flex-col items-end gap-1.5">
+            {isOverdue ? (
+              <>
                 <span
+                  className="rounded-md px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
                   style={{
-                    color: "var(--color-app-ink)",
-                    fontWeight: 600,
+                    fontFamily: "var(--font-dm-mono), monospace",
+                    backgroundColor: "var(--color-app-danger-soft)",
+                    color: "var(--color-app-danger)",
                   }}
                 >
-                  {(c.nextHearingDate || "").slice(0, 10)}
+                  {formatOverdue(overdueDays)}
                 </span>
+                <span
+                  className="text-[11px]"
+                  style={{
+                    fontFamily: "var(--font-dm-mono), monospace",
+                    color: "var(--color-app-fg-muted)",
+                  }}
+                >
+                  Was{" "}
+                  <span style={{ color: "var(--color-app-ink)", fontWeight: 600 }}>
+                    {(c.nextHearingDate || "").slice(0, 10)}
+                  </span>
+                </span>
+              </>
+            ) : (
+              <span
+                className="rounded-md px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                style={{
+                  fontFamily: "var(--font-dm-mono), monospace",
+                  backgroundColor: "var(--color-app-copper)",
+                  color: "var(--color-app-copper-text)",
+                }}
+              >
+                No next date
               </span>
-            </>
-          ) : (
-            <span
-              className="rounded-md px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
-              style={{
-                fontFamily: "var(--font-dm-mono), monospace",
-                backgroundColor: "var(--color-app-copper)",
-                color: "var(--color-app-copper-text)",
-              }}
-            >
-              No next date
-            </span>
-          )}
+            )}
+          </div>
+        </div>
+
+        {/* Action row — Update hearing (inline), Call, WhatsApp. The Update
+            button opens the editor right here so the advocate can set the
+            next date and message the client without leaving the page. */}
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setEditing((v) => !v)}
+            className="inline-flex items-center gap-1.5 rounded-md px-5 py-2.5 text-[13px] font-semibold transition-all hover:-translate-y-0.5"
+            style={{
+              fontFamily: "var(--font-manrope), sans-serif",
+              backgroundColor: editing
+                ? "var(--color-app-ink)"
+                : "var(--color-app-copper)",
+              color: editing
+                ? "var(--color-app-ivory)"
+                : "var(--color-app-copper-text)",
+              boxShadow: editing
+                ? "none"
+                : "0 8px 20px -10px rgba(197,133,58,0.6)",
+            }}
+          >
+            <CalendarIcon />
+            {editing ? "Close" : "Update hearing"}
+          </button>
+          <ContactPillButton
+            href={telLink}
+            icon={<PhoneIcon />}
+            label="Call"
+            variant="ghost"
+          />
+          <ContactPillButton
+            href={waLink}
+            icon={<WhatsAppIcon />}
+            label="WhatsApp"
+            variant="whatsapp"
+            newTab
+          />
         </div>
       </div>
 
-      {/* Action row — Update hearing primary, Call + WhatsApp secondary.
-          The Update hearing link drops the user onto the case detail
-          page with the URL fragment that scrolls them directly to the
-          Update Hearing form. They edit there, save, and the next page
-          load removes this row from the Pending bucket. */}
-      <div className="mt-5 flex flex-wrap items-center gap-2">
-        <Link
-          href={`/app/cases/${c.id}#update-hearing`}
-          className="inline-flex items-center gap-1.5 rounded-md px-5 py-2.5 text-[13px] font-semibold transition-all hover:-translate-y-0.5"
-          style={{
-            fontFamily: "var(--font-manrope), sans-serif",
-            backgroundColor: "var(--color-app-copper)",
-            color: "var(--color-app-copper-text)",
-            boxShadow: "0 8px 20px -10px rgba(197,133,58,0.6)",
+      {editing ? (
+        <InlineHearingUpdate
+          row={c}
+          officeName={officeName}
+          onClose={() => {
+            setEditing(false);
+            router.refresh();
           }}
-        >
-          <CalendarIcon />
-          Update hearing
-          <span aria-hidden style={{ opacity: 0.8 }}>
-            →
-          </span>
-        </Link>
-        <ContactPillButton
-          href={telLink}
-          icon={<PhoneIcon />}
-          label="Call"
-          variant="ghost"
         />
-        <ContactPillButton
-          href={waLink}
-          icon={<WhatsAppIcon />}
-          label="WhatsApp"
-          variant="whatsapp"
-          newTab
-        />
-      </div>
+      ) : null}
     </div>
   );
 }
 
-// Whole-day diff between nextHearingDate and today in the browser's
-// local timezone. Returns null when the date is missing, or 0+ for an
-// overdue (today is not in pending so 0 shouldn't normally appear; we
-// still handle it to avoid edge-case crashes).
-function overdueDaysFor(iso: string | null): number | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  const dDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const today = new Date();
-  const tDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const diff = Math.floor(
-    (tDay.getTime() - dDay.getTime()) / (1000 * 60 * 60 * 24)
+/* ─── Inline hearing update ─── */
+
+// The compact editor that drops into a card. It PATCHes the case exactly
+// like the full Update-Hearing form on the case page, then surfaces Call /
+// WhatsApp for the just-saved date right here. Closing the editor refreshes
+// the list so the row re-buckets (a freshly-dated matter leaves Pending).
+function InlineHearingUpdate({
+  row,
+  officeName,
+  onClose,
+}: {
+  row: HearingRow;
+  officeName: string;
+  onClose: () => void;
+}) {
+  const [nextDate, setNextDate] = useState(
+    row.nextHearingDate ? row.nextHearingDate.slice(0, 10) : ""
   );
-  return diff > 0 ? diff : null;
+  const [status, setStatus] = useState(row.status || "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [savedDate, setSavedDate] = useState("");
+
+  const dirty =
+    nextDate !== (row.nextHearingDate ? row.nextHearingDate.slice(0, 10) : "") ||
+    status !== (row.status || "");
+
+  async function save() {
+    setError(null);
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/app/cases/${row.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nextHearingDate: nextDate || null, status }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data?.error ?? "Couldn't update");
+        setSaving(false);
+        return;
+      }
+      setSavedDate(nextDate);
+      setSaved(true);
+      setSaving(false);
+    } catch {
+      setError("Network error.");
+      setSaving(false);
+    }
+  }
+
+  // Notify links built from the SAVED date so the message quotes what's on
+  // record, not a half-typed edit.
+  const savedIso = saved
+    ? parseDateInputLocal(savedDate)?.toISOString() ?? null
+    : null;
+  const notifyRow: HearingRow = { ...row, nextHearingDate: savedIso };
+  const telLink = buildTelLink(notifyRow);
+  const waLink = buildWhatsAppLink(notifyRow, officeName, "pending");
+  const hasContact = Boolean(telLink || waLink);
+  const showNotify = saved && !dirty;
+
+  return (
+    <div
+      className="border-t px-6 py-5"
+      style={{
+        borderColor: "var(--color-app-edge-soft)",
+        backgroundColor: "var(--color-app-canvas-2)",
+        borderBottomLeftRadius: 12,
+        borderBottomRightRadius: 12,
+      }}
+    >
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label
+            className="text-[10px] font-semibold uppercase tracking-[0.18em]"
+            style={{
+              fontFamily: "var(--font-dm-mono), monospace",
+              color: "var(--color-app-fg-muted)",
+            }}
+          >
+            Next hearing date
+          </label>
+          <input
+            type="date"
+            value={nextDate}
+            onChange={(e) => {
+              setNextDate(e.target.value);
+              setSaved(false);
+            }}
+            className="mt-2 block w-full rounded-md border px-3 py-2 text-[13px] outline-none transition-colors"
+            style={{
+              fontFamily: "var(--font-manrope), sans-serif",
+              borderColor: "var(--color-app-edge)",
+              backgroundColor: "var(--color-app-paper)",
+              color: "var(--color-app-ink)",
+            }}
+          />
+          <p
+            className="mt-1.5 text-[11px]"
+            style={{
+              fontFamily: "var(--font-manrope), sans-serif",
+              color: "var(--color-app-fg-muted)",
+            }}
+          >
+            Leave blank to keep it pending.
+          </p>
+        </div>
+        <div>
+          <label
+            className="text-[10px] font-semibold uppercase tracking-[0.18em]"
+            style={{
+              fontFamily: "var(--font-dm-mono), monospace",
+              color: "var(--color-app-fg-muted)",
+            }}
+          >
+            Status / Stage
+          </label>
+          <input
+            type="text"
+            value={status}
+            onChange={(e) => {
+              setStatus(e.target.value);
+              setSaved(false);
+            }}
+            placeholder="Filed, Evidence, Arguments…"
+            className="mt-2 block w-full rounded-md border px-3 py-2 text-[13px] outline-none transition-colors"
+            style={{
+              fontFamily: "var(--font-manrope), sans-serif",
+              borderColor: "var(--color-app-edge)",
+              backgroundColor: "var(--color-app-paper)",
+              color: "var(--color-app-ink)",
+            }}
+          />
+          <p
+            className="mt-1.5 text-[11px]"
+            style={{
+              fontFamily: "var(--font-manrope), sans-serif",
+              color: "var(--color-app-fg-muted)",
+            }}
+          >
+            Type{" "}
+            <span style={{ fontWeight: 600, color: "var(--color-app-ink)" }}>
+              Disposed
+            </span>{" "}
+            to archive this matter.
+          </p>
+        </div>
+      </div>
+
+      {error ? (
+        <div
+          className="mt-4 rounded-md px-4 py-3 text-[13px]"
+          style={{
+            fontFamily: "var(--font-manrope), sans-serif",
+            backgroundColor: "var(--color-app-danger-soft)",
+            border: "1px solid var(--color-app-danger)",
+            color: "var(--color-app-ink)",
+          }}
+        >
+          {error}
+        </div>
+      ) : null}
+
+      <div className="mt-5 flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-[12px] font-semibold uppercase tracking-[0.16em]"
+          style={{
+            fontFamily: "var(--font-dm-mono), monospace",
+            color: "var(--color-app-fg-muted)",
+          }}
+        >
+          {saved ? "Done" : "Cancel"}
+        </button>
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving || !dirty}
+          className="inline-flex items-center gap-2 rounded-md px-5 py-2.5 text-[13px] font-semibold transition-all"
+          style={{
+            fontFamily: "var(--font-manrope), sans-serif",
+            backgroundColor: dirty
+              ? "var(--color-app-copper)"
+              : "var(--color-app-paper)",
+            color: dirty
+              ? "var(--color-app-copper-text)"
+              : "var(--color-app-fg-muted)",
+            opacity: saving ? 0.6 : 1,
+            cursor: dirty && !saving ? "pointer" : "default",
+            boxShadow: dirty ? "0 8px 20px -10px rgba(197,133,58,0.6)" : "none",
+          }}
+        >
+          {saving ? "Saving…" : saved && !dirty ? "Saved" : "Save Update"}
+        </button>
+      </div>
+
+      {showNotify ? (
+        <div
+          className="mt-5 rounded-lg p-4"
+          style={{
+            backgroundColor: "var(--color-app-paper)",
+            border: "1px solid var(--color-app-edge)",
+          }}
+        >
+          <div
+            className="text-[10px] font-semibold uppercase tracking-[0.18em]"
+            style={{
+              fontFamily: "var(--font-dm-mono), monospace",
+              color: "var(--color-app-copper-deep)",
+            }}
+          >
+            Hearing saved — notify {row.clientName || "the client"}
+          </div>
+          {hasContact ? (
+            <div className="mt-3 flex flex-wrap gap-3">
+              {telLink ? (
+                <a
+                  href={telLink}
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-[13px] font-semibold transition-all hover:-translate-y-0.5"
+                  style={{
+                    fontFamily: "var(--font-manrope), sans-serif",
+                    backgroundColor: "var(--color-app-ink)",
+                    color: "var(--color-app-ivory)",
+                    boxShadow: "0 8px 20px -10px rgba(10,17,36,0.4)",
+                    minWidth: 130,
+                  }}
+                >
+                  <PhoneIcon />
+                  Call
+                </a>
+              ) : null}
+              {waLink ? (
+                <a
+                  href={waLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-[13px] font-semibold transition-all hover:-translate-y-0.5"
+                  style={{
+                    fontFamily: "var(--font-manrope), sans-serif",
+                    backgroundColor: "#25d366",
+                    color: "#0b3d22",
+                    boxShadow: "0 8px 20px -10px rgba(37,211,102,0.5)",
+                    minWidth: 130,
+                  }}
+                >
+                  <WhatsAppIcon />
+                  WhatsApp
+                </a>
+              ) : null}
+            </div>
+          ) : (
+            <p
+              className="mt-2 text-[12px]"
+              style={{
+                fontFamily: "var(--font-manrope), sans-serif",
+                color: "var(--color-app-fg-muted)",
+              }}
+            >
+              No phone or WhatsApp on file for this client.
+            </p>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
-function formatOverdue(days: number | null): string {
-  if (days === null || days <= 0) return "Overdue";
-  if (days === 1) return "Overdue · yesterday";
-  if (days < 7) return `Overdue · ${days} days`;
-  if (days < 30) {
-    const weeks = Math.floor(days / 7);
-    return `Overdue · ${weeks}w`;
+/* ─── Next-date chip (All tab) ─── */
+
+function NextDateChip({ iso }: { iso: string | null }) {
+  if (!iso) {
+    return (
+      <Chip bg="var(--color-app-edge)" fg="var(--color-app-fg-muted)">
+        No date
+      </Chip>
+    );
   }
-  if (days < 365) {
-    const months = Math.floor(days / 30);
-    return `Overdue · ${months}mo`;
+  const overdue = overdueDaysFor(iso);
+  const dateStr = formatDateShort(iso);
+  if (overdue) {
+    return (
+      <Chip bg="var(--color-app-danger-soft)" fg="var(--color-app-danger)">
+        Overdue · {dateStr}
+      </Chip>
+    );
   }
-  const years = Math.floor(days / 365);
-  return `Overdue · ${years}y`;
+  return (
+    <Chip bg="var(--color-app-copper)" fg="var(--color-app-copper-text)">
+      {dateStr}
+    </Chip>
+  );
+}
+
+function Chip({
+  bg,
+  fg,
+  children,
+}: {
+  bg: string;
+  fg: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <span
+      className="rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]"
+      style={{
+        fontFamily: "var(--font-dm-mono), monospace",
+        backgroundColor: bg,
+        color: fg,
+      }}
+    >
+      {children}
+    </span>
+  );
 }
 
 /* ─── Contact buttons ─── */
@@ -529,8 +1163,6 @@ function ContactIconButton({
   variant: "ink-ghost" | "whatsapp";
   newTab?: boolean;
 }) {
-  // Filled, high-contrast circles. Saturated when active; muted-but-readable
-  // when disabled so the buttons never look like ghosts.
   const enabled =
     variant === "whatsapp"
       ? {
@@ -546,10 +1178,7 @@ function ContactIconButton({
 
   const disabled =
     variant === "whatsapp"
-      ? {
-          backgroundColor: "#9bbfa8",
-          color: "#ffffff",
-        }
+      ? { backgroundColor: "#9bbfa8", color: "#ffffff" }
       : {
           backgroundColor: "var(--color-app-fg-muted)",
           color: "var(--color-app-ivory)",
@@ -647,7 +1276,7 @@ function ContactPillButton({
   );
 }
 
-/* ─── Empty state ─── */
+/* ─── Empty states ─── */
 
 function EmptyState({ bucket }: { bucket: Bucket }) {
   const copy =
@@ -661,10 +1290,15 @@ function EmptyState({ bucket }: { bucket: Bucket }) {
             title: "Tomorrow looks clear.",
             body: "No matters are listed for tomorrow yet — a quiet day to plan ahead.",
           }
-        : {
-            title: "No pending dates. Inbox zero.",
-            body: "Every matter in the vault has its next hearing date set, and no past hearings are sitting un-updated. Matters land here when a hearing date is missing or has passed without being re-listed.",
-          };
+        : bucket === "all"
+          ? {
+              title: "No active matters yet.",
+              body: "Every case you add to the vault shows up here with its next hearing date, ready to update.",
+            }
+          : {
+              title: "No pending dates. Inbox zero.",
+              body: "Every matter in the vault has its next hearing date set, and no past hearings are sitting un-updated. Matters land here when a hearing date is missing or has passed without being re-listed.",
+            };
 
   return (
     <div
@@ -692,6 +1326,56 @@ function EmptyState({ bucket }: { bucket: Bucket }) {
       >
         {copy.body}
       </p>
+    </div>
+  );
+}
+
+function NoMatches({
+  query,
+  onClear,
+}: {
+  query: string;
+  onClear: () => void;
+}) {
+  return (
+    <div
+      className="rounded-xl px-5 py-12 text-center"
+      style={{
+        backgroundColor: "var(--color-app-paper)",
+        border: "1px dashed var(--color-app-edge)",
+      }}
+    >
+      <h3
+        className="text-[20px] font-semibold tracking-tight"
+        style={{
+          fontFamily: "var(--font-crimson), Georgia, serif",
+          color: "var(--color-app-ink)",
+        }}
+      >
+        No matter matches “{query}”.
+      </h3>
+      <p
+        className="mx-auto mt-2 max-w-md text-[13px] leading-7"
+        style={{
+          fontFamily: "var(--font-manrope), sans-serif",
+          color: "var(--color-app-fg-muted)",
+        }}
+      >
+        Try a case number, client name, CNR, or court — or switch tabs. The
+        search looks within this tab&rsquo;s list.
+      </p>
+      <button
+        type="button"
+        onClick={onClear}
+        className="mt-4 inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-[12px] font-semibold"
+        style={{
+          fontFamily: "var(--font-manrope), sans-serif",
+          backgroundColor: "var(--color-app-canvas-2)",
+          color: "var(--color-app-ink)",
+        }}
+      >
+        Clear search
+      </button>
     </div>
   );
 }
@@ -757,17 +1441,50 @@ function buildWhatsAppLink(
   return `https://wa.me/${wa}?text=${encodeURIComponent(lines.join("\n"))}`;
 }
 
+function overdueDaysFor(iso: string | null): number | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const dDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const today = new Date();
+  const tDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const diff = Math.floor(
+    (tDay.getTime() - dDay.getTime()) / (1000 * 60 * 60 * 24)
+  );
+  return diff > 0 ? diff : null;
+}
+
+function formatOverdue(days: number | null): string {
+  if (days === null || days <= 0) return "Overdue";
+  if (days === 1) return "Overdue · yesterday";
+  if (days < 7) return `Overdue · ${days} days`;
+  if (days < 30) {
+    const weeks = Math.floor(days / 7);
+    return `Overdue · ${weeks}w`;
+  }
+  if (days < 365) {
+    const months = Math.floor(days / 30);
+    return `Overdue · ${months}mo`;
+  }
+  const years = Math.floor(days / 365);
+  return `Overdue · ${years}y`;
+}
+
+function formatDateShort(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
+  return d.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 /* ─── Icons ─── */
 
 function CalendarIcon({ size = 14 }: { size?: number }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden
-    >
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
       <rect
         x="3"
         y="5"
@@ -783,23 +1500,14 @@ function CalendarIcon({ size = 14 }: { size?: number }) {
         strokeWidth="1.8"
         strokeLinecap="round"
       />
-      <path
-        d="M9 14h2v2H9z"
-        fill="currentColor"
-      />
+      <path d="M9 14h2v2H9z" fill="currentColor" />
     </svg>
   );
 }
 
 function PhoneIcon({ size = 18 }: { size?: number }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden
-    >
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
       <path
         d="M22 16.92v3a2 2 0 0 1-2.18 2 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.37 1.9.72 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.35 1.85.59 2.81.72A2 2 0 0 1 22 16.92z"
         stroke="currentColor"
