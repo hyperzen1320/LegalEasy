@@ -46,6 +46,10 @@ import {
 export type CanvasList = {
   id: string;
   title: string;
+  description: string;
+  // ISO string. Defaults to the list's creation date; editable from the
+  // ⋮ menu.
+  listDate: string;
   sortOrder: number;
   position: { x: number; y: number };
   width: number;
@@ -256,28 +260,63 @@ function Inner({
     },
     []
   );
-  const onListColorChange = useCallback(
-    async (listId: string, color: string | null) => {
-      let previous: string | null | undefined = undefined;
+  // Description + date edits follow the same optimistic-then-confirm
+  // shape as rename. The server emits list.updated on success, so other
+  // open canvases resync and the edit lands "for everyone".
+  const onListDescriptionChange = useCallback(
+    async (listId: string, description: string) => {
+      let previous: string | null = null;
       setLists((prev) =>
         prev.map((l) => {
           if (l.id !== listId) return l;
-          previous = l.color;
-          return { ...l, color };
+          previous = l.description;
+          return { ...l, description };
         })
       );
       try {
         const res = await fetch(`/api/app/lists/${listId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ color }),
+          body: JSON.stringify({ description }),
         });
-        if (!res.ok) throw new Error("recolour_failed");
+        if (!res.ok) throw new Error("describe_failed");
       } catch {
-        if (previous !== undefined) {
+        if (previous !== null) {
           const restored = previous;
           setLists((prev) =>
-            prev.map((l) => (l.id === listId ? { ...l, color: restored } : l))
+            prev.map((l) =>
+              l.id === listId ? { ...l, description: restored } : l
+            )
+          );
+        }
+      }
+    },
+    []
+  );
+  const onListDateChange = useCallback(
+    async (listId: string, listDate: string) => {
+      let previous: string | null = null;
+      setLists((prev) =>
+        prev.map((l) => {
+          if (l.id !== listId) return l;
+          previous = l.listDate;
+          return { ...l, listDate };
+        })
+      );
+      try {
+        const res = await fetch(`/api/app/lists/${listId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ listDate }),
+        });
+        if (!res.ok) throw new Error("date_failed");
+      } catch {
+        if (previous !== null) {
+          const restored = previous;
+          setLists((prev) =>
+            prev.map((l) =>
+              l.id === listId ? { ...l, listDate: restored } : l
+            )
           );
         }
       }
@@ -388,7 +427,8 @@ function Inner({
           onTaskClick,
           onListRename,
           onListDelete,
-          onListColorChange,
+          onListDescriptionChange,
+          onListDateChange,
           onTaskAdd,
         };
         return {
@@ -408,7 +448,8 @@ function Inner({
       onTaskClick,
       onListRename,
       onListDelete,
-      onListColorChange,
+      onListDescriptionChange,
+      onListDateChange,
       onTaskAdd,
     ]
   );
@@ -623,6 +664,34 @@ function Inner({
     [tasksByList]
   );
 
+  // Move a card to another list from the card-detail panel (the "select
+  // a card → pick a list" path; drag-and-drop between lists is handled
+  // by onCardDragEnd above). Lands the card at the bottom of the target.
+  const moveCardToList = useCallback(
+    async (taskId: string, toListId: string) => {
+      const current = tasks.find((t) => t.id === taskId);
+      if (!current || current.listId === toListId) return;
+      const toIndex = (tasksByList.get(toListId) || []).length;
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === taskId
+            ? { ...t, listId: toListId, sortOrder: toIndex }
+            : t
+        )
+      );
+      try {
+        await fetch(`/api/app/tasks/${taskId}/move`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ toListId, toIndex }),
+        });
+      } catch {
+        // live feed reconciles if this optimistic move was wrong
+      }
+    },
+    [tasks, tasksByList]
+  );
+
   /* ─── Add list ─── */
 
   const onAddList = useCallback(async (titleInput: string) => {
@@ -635,6 +704,8 @@ function Inner({
     const tempList: CanvasList = {
       id: tempId,
       title: trimmed,
+      description: "",
+      listDate: new Date().toISOString(),
       sortOrder: lists.length,
       position: newPos,
       width: 320,
@@ -660,6 +731,8 @@ function Inner({
             ? {
                 id: data.list.id,
                 title: data.list.title,
+                description: "",
+                listDate: new Date().toISOString(),
                 sortOrder: data.list.sortOrder,
                 position: newPos,
                 width: 320,
@@ -826,6 +899,7 @@ function Inner({
         <CardDetail
           taskId={openTaskId}
           members={members}
+          lists={lists.map((l) => ({ id: l.id, title: l.title }))}
           canEdit={canEdit}
           onClose={() => setOpenTaskId(null)}
           onUpdated={(t) => {
@@ -833,6 +907,7 @@ function Inner({
               prev.map((x) => (x.id === t.id ? { ...x, ...t } : x))
             );
           }}
+          onMove={moveCardToList}
           onDeleted={() => {
             setTasks((prev) => prev.filter((t) => t.id !== openTaskId));
             setOpenTaskId(null);

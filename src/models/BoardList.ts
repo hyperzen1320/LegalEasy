@@ -5,6 +5,12 @@ export interface IBoardList {
   partnerId: Types.ObjectId;
   boardId: Types.ObjectId;
   title: string;
+  // Free-form note shown in the list's ⋮ menu; collaboratively editable.
+  description: string;
+  // A date the list carries. Defaults (in the UI) to the list's creation
+  // date and is editable from the ⋮ menu. null until the user sets one,
+  // in which case the serializers fall back to createdAt.
+  listDate: Date | null;
   sortOrder: number;
   // Free-form canvas position (used by the React Flow board canvas)
   position: { x: number; y: number };
@@ -30,6 +36,8 @@ const BoardListSchema = new Schema<IBoardList>(
       required: true,
     },
     title: { type: String, required: true, trim: true },
+    description: { type: String, default: "", trim: true },
+    listDate: { type: Date, default: null },
     sortOrder: { type: Number, default: 0 },
     position: {
       x: { type: Number, default: 0 },

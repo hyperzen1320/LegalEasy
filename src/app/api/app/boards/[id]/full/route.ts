@@ -86,6 +86,8 @@ export async function GET(
       lists: lists.map((l) => ({
         id: String(l._id),
         title: l.title,
+        description: l.description || "",
+        listDate: (l.listDate ?? l.createdAt).toISOString(),
         sortOrder: l.sortOrder,
         position: l.position || { x: 0, y: 0 },
         width: l.width || 320,

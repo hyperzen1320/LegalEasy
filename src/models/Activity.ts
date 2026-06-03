@@ -21,6 +21,7 @@ export type WorkflowActivityAction =
   | "board.deleted"
   | "list.created"
   | "list.renamed"
+  | "list.updated"
   | "list.reordered"
   | "list.deleted"
   | "task.created"

@@ -30,17 +30,21 @@ type ActivityEntry = {
 export default function CardDetail({
   taskId,
   members,
+  lists,
   canEdit,
   onClose,
   onUpdated,
+  onMove,
   onDeleted,
   onRequestDelete,
 }: {
   taskId: string;
   members: BoardMember[];
+  lists: { id: string; title: string }[];
   canEdit: boolean;
   onClose: () => void;
   onUpdated: (t: Partial<CanvasTask> & { id: string }) => void;
+  onMove: (taskId: string, toListId: string) => void;
   onDeleted: () => void;
   onRequestDelete?: (target: {
     type: "task";
@@ -122,6 +126,15 @@ export default function CardDetail({
         return;
       }
     }
+  }
+
+  // Move the card to another list. Hands the move off to the canvas
+  // (which owns the optimistic task state + the /move call) and reflects
+  // it locally so the picker shows the new list immediately.
+  function handleMove(toListId: string) {
+    if (!task || task.listId === toListId) return;
+    onMove(task.id, toListId);
+    setTask((prev) => (prev ? { ...prev, listId: toListId } : prev));
   }
 
   async function addChecklist(title: string) {
@@ -269,8 +282,14 @@ export default function CardDetail({
               onClose={onClose}
             />
 
-            {/* Quick row: assignee · due · priority */}
-            <div className="mt-5 grid gap-4 md:grid-cols-3">
+            {/* Quick row: list · assignee · due · priority */}
+            <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <ListPicker
+                value={task.listId}
+                lists={lists}
+                disabled={!canEdit}
+                onChange={handleMove}
+              />
               <AssigneePicker
                 value={task.assignee?.id ?? null}
                 members={members}
@@ -536,6 +555,55 @@ function Section({
 }
 
 /* ─── Field pickers ─── */
+
+// Move-to-list. The chambers wanted a second way to move a card besides
+// drag-and-drop: open the card, pick a list, it moves there.
+function ListPicker({
+  value,
+  lists,
+  disabled,
+  onChange,
+}: {
+  value: string;
+  lists: { id: string; title: string }[];
+  disabled: boolean;
+  onChange: (id: string) => void;
+}) {
+  return (
+    <div>
+      <label
+        className="text-[10px] font-semibold uppercase tracking-[0.18em]"
+        style={{
+          fontFamily: "var(--font-dm-mono), monospace",
+          color: "var(--color-app-fg-muted)",
+        }}
+      >
+        List
+      </label>
+      <div className="relative mt-2">
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+          className="block w-full appearance-none rounded-md border px-3 py-2 text-[13px] outline-none transition-colors"
+          style={{
+            fontFamily: "var(--font-manrope), sans-serif",
+            borderColor: "var(--color-app-edge)",
+            backgroundColor: "var(--color-app-paper)",
+            color: "var(--color-app-ink)",
+            paddingRight: 32,
+          }}
+        >
+          {lists.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.title}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+}
 
 function AssigneePicker({
   value,
