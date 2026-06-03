@@ -11,6 +11,7 @@ import { Task } from "@/models/Task";
 import { Client } from "@/models/Client";
 import { Court } from "@/models/Court";
 import { Case } from "@/models/Case";
+import { CaseDocument } from "@/models/CaseDocument";
 import { User } from "@/models/User";
 import { PromptTemplate } from "@/models/PromptTemplate";
 import type { DeleteRequestTargetType } from "@/models/DeleteRequest";
@@ -139,6 +140,15 @@ export async function performSoftDelete(args: {
       p.isDeleted = true;
       await p.save();
       return { ok: true, targetName: p.title, boardId: null };
+    }
+    case "case_document": {
+      // Soft-delete the metadata row; the GridFS binary is left in place
+      // (consistent with the rest of the app's recoverable soft-deletes).
+      const d = await CaseDocument.findOne({ _id: targetId, partnerId });
+      if (!d) return { ok: false, targetName: "", boardId: null };
+      d.isDeleted = true;
+      await d.save();
+      return { ok: true, targetName: d.filename, boardId: null };
     }
     default:
       return { ok: false, targetName: "", boardId: null };

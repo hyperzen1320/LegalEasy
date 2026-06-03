@@ -7,6 +7,7 @@ export type RequestTargetType =
   | "task"
   | "board"
   | "case"
+  | "case_document"
   | "client"
   | "court"
   | "prompt"
@@ -24,6 +25,7 @@ const TYPE_LABEL: Record<RequestTargetType, string> = {
   task: "card",
   board: "board",
   case: "case",
+  case_document: "document",
   client: "client",
   court: "court",
   prompt: "prompt",
