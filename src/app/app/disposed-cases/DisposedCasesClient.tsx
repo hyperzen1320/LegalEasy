@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import CnrLink from "@/app/app/components/CnrLink";
 
 export type DisposedCaseRow = {
   id: string;
@@ -246,7 +247,11 @@ function DisposedCard({
             {(c.courtName || c.courtPlace) && c.cnr ? (
               <span style={{ color: "var(--color-app-copper-deep)" }}> · </span>
             ) : null}
-            {c.cnr ? <span>CNR {c.cnr}</span> : null}
+            {c.cnr ? (
+              <span>
+                CNR <CnrLink cnr={c.cnr} />
+              </span>
+            ) : null}
           </div>
         )}
 

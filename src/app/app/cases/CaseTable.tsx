@@ -8,6 +8,7 @@ import {
   type CaseFilters,
   type CaseRow,
 } from "./case-vault-types";
+import CnrLink from "@/app/app/components/CnrLink";
 
 // The main table. Renders one row per case with the visible-columns
 // subset, plus a sticky Actions column on the right. Rows are tabbable
@@ -269,7 +270,7 @@ function renderCell(
     case "clientWhatsapp":
       return row.clientWhatsapp ? mono(row.clientWhatsapp) : muted("—");
     case "cnr":
-      return row.cnr ? mono(row.cnr) : muted("—");
+      return row.cnr ? <CnrLink cnr={row.cnr} /> : muted("—");
     case "iaNumbers":
       return row.iaNumbers ? mono(row.iaNumbers) : muted("—");
     case "courtName":

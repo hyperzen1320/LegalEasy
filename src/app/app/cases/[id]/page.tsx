@@ -9,6 +9,7 @@ import UpdateHearingForm from "./UpdateHearingForm";
 import DeleteCaseButton from "./DeleteCaseButton";
 import ReopenCaseButton from "./ReopenCaseButton";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
+import CnrLink from "@/app/app/components/CnrLink";
 
 export const dynamic = "force-dynamic";
 
@@ -255,7 +256,7 @@ export default async function CaseDetailPage({
                     color: "rgba(245,235,214,0.55)",
                   }}
                 >
-                  CNR {c.cnr}
+                  CNR <CnrLink cnr={c.cnr} tone="ivory" />
                 </div>
               ) : null}
 
