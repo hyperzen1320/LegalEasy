@@ -52,10 +52,12 @@ export default async function WorkflowPage() {
     }));
   }
 
+  const isAdmin = session?.user?.userType === "partner_admin";
+
   return (
     <div className="px-10 py-8">
       <div className="mx-auto max-w-[1280px]">
-        <BoardsClient initialBoards={boards} />
+        <BoardsClient initialBoards={boards} isAdmin={isAdmin} />
       </div>
     </div>
   );
