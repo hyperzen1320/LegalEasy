@@ -856,6 +856,8 @@ function Inner({
             locked={locked}
             onToggleLock={() => setLocked((v) => !v)}
             onOpenHelp={() => setHelpOpen(true)}
+            boardId={boardId}
+            boardTitle={board.title}
             lockPulseSig={lockPulseSig}
           />
         </ReactFlow>
