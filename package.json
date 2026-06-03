@@ -24,6 +24,8 @@
     "bcryptjs": "^3.0.3",
     "docx": "^9.7.0",
     "exceljs": "^4.4.0",
+    "html-to-image": "^1.11.13",
+    "jspdf": "^2.5.2",
     "mongoose": "^9.5.0",
     "next": "16.2.4",
     "next-auth": "^5.0.0-beta.31",

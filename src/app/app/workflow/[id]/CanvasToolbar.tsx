@@ -7,7 +7,13 @@
 // and a help button that opens the keyboard shortcuts modal.
 
 import { useEffect, useRef, useState } from "react";
-import { useReactFlow } from "@xyflow/react";
+import {
+  useReactFlow,
+  getNodesBounds,
+  getViewportForBounds,
+} from "@xyflow/react";
+import { toPng } from "html-to-image";
+import { jsPDF } from "jspdf";
 
 type Props = {
   showMinimap: boolean;
@@ -15,11 +21,17 @@ type Props = {
   locked: boolean;
   onToggleLock: () => void;
   onOpenHelp: () => void;
+  // For the Save → Data (Excel) export, which hits the server for the
+  // authoritative board state, and to name the downloaded files.
+  boardId: string;
+  boardTitle: string;
   // Incrementing counter — every change triggers a brief flash+shake on
   // the Lock pill so the user can see WHERE the block came from when
   // they try to edit a locked canvas.
   lockPulseSig?: number;
 };
+
+type SaveKind = "png" | "pdf" | "xlsx";
 
 export default function CanvasToolbar({
   showMinimap,
@@ -27,11 +39,18 @@ export default function CanvasToolbar({
   locked,
   onToggleLock,
   onOpenHelp,
+  boardId,
+  boardTitle,
   lockPulseSig = 0,
 }: Props) {
   const rf = useReactFlow();
   const [zoomOpen, setZoomOpen] = useState(false);
   const [zoom, setZoom] = useState(100);
+  const [saveOpen, setSaveOpen] = useState(false);
+  // Which export is in flight (disables the row + shows a spinner) and the
+  // last error, shown inline under the menu rather than as a browser alert.
+  const [saving, setSaving] = useState<SaveKind | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   // Triggered by lockPulseSig. We use a counter so re-mounting the
   // animation key forces it to replay even if the user keeps clicking
@@ -65,6 +84,186 @@ export default function CanvasToolbar({
     window.addEventListener("mousedown", onDocClick);
     return () => window.removeEventListener("mousedown", onDocClick);
   }, [zoomOpen]);
+
+  // Click-outside to close the Save popover.
+  useEffect(() => {
+    if (!saveOpen) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (
+        wrapperRef.current &&
+        !wrapperRef.current.contains(e.target as Node)
+      ) {
+        setSaveOpen(false);
+      }
+    };
+    window.addEventListener("mousedown", onDocClick);
+    return () => window.removeEventListener("mousedown", onDocClick);
+  }, [saveOpen]);
+
+  // ─── Save / export ────────────────────────────────────────────────────
+  // A board can leave the canvas three ways: as a Picture (PNG) or a
+  // Full page (PDF) — both captured from the rendered canvas, fitted so
+  // the whole board is in frame — or as Data (Excel), pulled from the
+  // server so it reflects the authoritative board state, not the view.
+
+  function fileBase(): string {
+    const slug =
+      (boardTitle || "board")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "") || "board";
+    const d = new Date();
+    const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}${String(d.getDate()).padStart(2, "0")}`;
+    return `${slug}-${stamp}`;
+  }
+
+  function triggerDownload(href: string, filename: string) {
+    const a = document.createElement("a");
+    a.href = href;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  function imageSize(
+    dataUrl: string
+  ): Promise<{ width: number; height: number }> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () =>
+        resolve({ width: img.naturalWidth, height: img.naturalHeight });
+      img.onerror = () =>
+        reject(new Error("Couldn't read the captured image."));
+      img.src = dataUrl;
+    });
+  }
+
+  // Render the React Flow node layer to a PNG data URL, fitted to all
+  // nodes. We capture `.react-flow__viewport` (the node layer only — the
+  // minimap and controls are siblings, so they stay out of the shot) and
+  // hand it a transform that frames every node.
+  async function captureCanvasPng(): Promise<string> {
+    const nodes = rf.getNodes();
+    if (nodes.length === 0) {
+      throw new Error("This board is empty — add a list or card first.");
+    }
+    const bounds = getNodesBounds(nodes);
+    const ratio =
+      bounds.height > 0 && bounds.width > 0
+        ? bounds.height / bounds.width
+        : 0.66;
+    const imageWidth = 2000;
+    const imageHeight = Math.min(
+      3200,
+      Math.max(800, Math.round(imageWidth * ratio))
+    );
+    const viewport = getViewportForBounds(
+      bounds,
+      imageWidth,
+      imageHeight,
+      0.1,
+      2,
+      0.08
+    );
+    const el = document.querySelector<HTMLElement>(".react-flow__viewport");
+    if (!el) throw new Error("Couldn't find the canvas to capture.");
+    const pane = document.querySelector<HTMLElement>(".react-flow");
+    const background = pane
+      ? getComputedStyle(pane).backgroundColor || "#f1e9d8"
+      : "#f1e9d8";
+    return toPng(el, {
+      backgroundColor: background,
+      width: imageWidth,
+      height: imageHeight,
+      pixelRatio: 2,
+      cacheBust: true,
+      style: {
+        width: `${imageWidth}px`,
+        height: `${imageHeight}px`,
+        transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+      },
+    });
+  }
+
+  async function doSavePng() {
+    const dataUrl = await captureCanvasPng();
+    triggerDownload(dataUrl, `${fileBase()}.png`);
+  }
+
+  async function doSavePdf() {
+    const dataUrl = await captureCanvasPng();
+    const dims = await imageSize(dataUrl);
+    const landscape = dims.width >= dims.height;
+    const pdf = new jsPDF({
+      orientation: landscape ? "landscape" : "portrait",
+      unit: "pt",
+      format: "a4",
+    });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const margin = 28;
+    const scale = Math.min(
+      (pageW - margin * 2) / dims.width,
+      (pageH - margin * 2) / dims.height
+    );
+    const w = dims.width * scale;
+    const h = dims.height * scale;
+    pdf.addImage(
+      dataUrl,
+      "PNG",
+      (pageW - w) / 2,
+      (pageH - h) / 2,
+      w,
+      h,
+      undefined,
+      "FAST"
+    );
+    pdf.save(`${fileBase()}.pdf`);
+  }
+
+  async function doSaveXlsx() {
+    const res = await fetch(
+      `/api/app/boards/${boardId}/export?format=xlsx`,
+      { cache: "no-store" }
+    );
+    if (!res.ok) {
+      let msg = "Couldn't generate the Excel export.";
+      try {
+        const j = (await res.json()) as { error?: string };
+        if (j?.error) msg = j.error;
+      } catch {
+        /* non-JSON error body — keep the default message */
+      }
+      throw new Error(msg);
+    }
+    const blob = await res.blob();
+    const cd = res.headers.get("Content-Disposition") || "";
+    const match = cd.match(/filename="?([^"]+)"?/);
+    const filename = match?.[1] || `${fileBase()}.xlsx`;
+    const url = URL.createObjectURL(blob);
+    triggerDownload(url, filename);
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+
+  async function handleSave(kind: SaveKind) {
+    if (saving) return;
+    setSaveError(null);
+    setSaving(kind);
+    try {
+      if (kind === "png") await doSavePng();
+      else if (kind === "pdf") await doSavePdf();
+      else await doSaveXlsx();
+      setSaveOpen(false);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Export failed.");
+    } finally {
+      setSaving(null);
+    }
+  }
 
   // Keyboard shortcuts: F = fit, L = lock, +/- = zoom, M = minimap, ? = help.
   useEffect(() => {
@@ -126,7 +325,10 @@ export default function CanvasToolbar({
       <ToolButton
         label="Zoom"
         sublabel={`${zoom}%`}
-        onClick={() => setZoomOpen((v) => !v)}
+        onClick={() => {
+          setZoomOpen((v) => !v);
+          setSaveOpen(false);
+        }}
         active={zoomOpen}
       >
         <svg
@@ -273,6 +475,116 @@ export default function CanvasToolbar({
           />
         </svg>
       </ToolButton>
+
+      <Divider />
+
+      <ToolButton
+        label="Save"
+        sublabel="↓"
+        onClick={() => {
+          setSaveOpen((v) => !v);
+          setZoomOpen(false);
+          setSaveError(null);
+        }}
+        active={saveOpen}
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          aria-hidden
+        >
+          <path
+            d="M12 3v11m0 0l-4-4m4 4l4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </ToolButton>
+
+      {saveOpen ? (
+        <div
+          className="absolute bottom-full right-0 mb-2 overflow-hidden rounded-xl"
+          style={{
+            backgroundColor: "rgba(255,255,255,0.98)",
+            boxShadow:
+              "0 18px 36px -12px rgba(10,17,36,0.30), 0 0 0 1px rgba(10,17,36,0.06)",
+            minWidth: 256,
+          }}
+        >
+          <div
+            className="px-3 pt-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em]"
+            style={{
+              fontFamily: "var(--font-dm-mono), monospace",
+              color: "var(--color-app-fg-muted)",
+            }}
+          >
+            Download board
+          </div>
+          <SaveOption
+            title="Picture"
+            sub="PNG image of the canvas"
+            busy={saving === "png"}
+            disabled={saving !== null}
+            onClick={() => handleSave("png")}
+          >
+            <path
+              d="M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinejoin="round"
+              fill="none"
+            />
+            <circle cx="9" cy="9" r="1.4" fill="currentColor" />
+          </SaveOption>
+          <SaveOption
+            title="Full page"
+            sub="PDF, the whole board in frame"
+            busy={saving === "pdf"}
+            disabled={saving !== null}
+            onClick={() => handleSave("pdf")}
+          >
+            <path
+              d="M7 3h7l4 4v14H7zM14 3v4h4"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinejoin="round"
+              fill="none"
+            />
+          </SaveOption>
+          <SaveOption
+            title="Data"
+            sub="Excel — every card as a row"
+            busy={saving === "xlsx"}
+            disabled={saving !== null}
+            onClick={() => handleSave("xlsx")}
+            last
+          >
+            <path
+              d="M7 3h7l4 4v14H7zM14 3v4h4M9.5 12l5 5M14.5 12l-5 5"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              fill="none"
+            />
+          </SaveOption>
+          {saveError ? (
+            <div
+              className="px-3 pb-3 pt-1 text-[11px] leading-snug"
+              style={{
+                fontFamily: "var(--font-manrope), sans-serif",
+                color: "var(--color-app-danger)",
+              }}
+            >
+              {saveError}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {zoomOpen ? (
         <div
@@ -453,5 +765,97 @@ function Divider() {
       className="mx-0.5 h-7 w-px"
       style={{ backgroundColor: "var(--color-app-edge-soft)" }}
     />
+  );
+}
+
+function SaveOption({
+  title,
+  sub,
+  busy,
+  disabled,
+  onClick,
+  children,
+  last,
+}: {
+  title: string;
+  sub: string;
+  busy: boolean;
+  disabled: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  last?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed"
+      style={{
+        fontFamily: "var(--font-manrope), sans-serif",
+        borderTop: "1px solid var(--color-app-edge-soft)",
+        borderBottomLeftRadius: last ? 12 : 0,
+        borderBottomRightRadius: last ? 12 : 0,
+        opacity: disabled && !busy ? 0.5 : 1,
+      }}
+      onMouseEnter={(e) => {
+        if (!disabled)
+          e.currentTarget.style.backgroundColor =
+            "var(--color-app-canvas-2)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = "transparent";
+      }}
+    >
+      <span
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+        style={{
+          backgroundColor: "var(--color-app-canvas-2)",
+          color: "var(--color-app-ink)",
+        }}
+      >
+        {busy ? (
+          <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
+            <circle
+              cx="12"
+              cy="12"
+              r="9"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeDasharray="44"
+              strokeDashoffset="14"
+            >
+              <animateTransform
+                attributeName="transform"
+                type="rotate"
+                from="0 12 12"
+                to="360 12 12"
+                dur="0.7s"
+                repeatCount="indefinite"
+              />
+            </circle>
+          </svg>
+        ) : (
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
+            {children}
+          </svg>
+        )}
+      </span>
+      <span className="min-w-0">
+        <span
+          className="block text-[13px] font-semibold"
+          style={{ color: "var(--color-app-ink)" }}
+        >
+          {title}
+        </span>
+        <span
+          className="block text-[11px]"
+          style={{ color: "var(--color-app-fg-muted)" }}
+        >
+          {sub}
+        </span>
+      </span>
+    </button>
   );
 }
