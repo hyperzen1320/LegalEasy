@@ -146,15 +146,23 @@ export async function requirePartner(
           ),
         };
       }
-      const VALID: PartnerRole[] = [
-        "admin",
-        "advocate",
-        "junior",
-        "clerk",
-        "viewer",
-      ];
-      if (u.role && VALID.includes(u.role as PartnerRole)) {
-        role = u.role as PartnerRole;
+      // The partner admin is ALWAYS the office admin — their authority is
+      // their userType, not the User.role field, which is frequently left
+      // at a staff default (e.g. "advocate") when the account is set up.
+      // Only read the stored role for staff; never let it downgrade the
+      // admin out of admin-only actions (export, direct delete, approving
+      // delete requests). This restores the intent of the line above.
+      if (userType !== "partner_admin") {
+        const VALID: PartnerRole[] = [
+          "admin",
+          "advocate",
+          "junior",
+          "clerk",
+          "viewer",
+        ];
+        if (u.role && VALID.includes(u.role as PartnerRole)) {
+          role = u.role as PartnerRole;
+        }
       }
     }
   }

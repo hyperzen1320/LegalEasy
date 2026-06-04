@@ -71,7 +71,7 @@ export default function Sidebar({
 
   return (
     <aside
-      className="sticky top-0 flex h-screen w-[260px] flex-col border-r"
+      className="sticky top-0 flex h-screen w-[260px] flex-col overflow-hidden border-r"
       style={{
         backgroundColor: "var(--color-app-ink)",
         borderColor: "var(--color-app-ink-3)",
@@ -121,8 +121,12 @@ export default function Sidebar({
         Workspace
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 px-3">
+      {/* Nav — min-h-0 lets this flex child shrink below its content so it
+          becomes the scroll region instead of overflowing the panel. On
+          short/zoomed viewports (and the admin's longer list) the menu
+          scrolls here rather than spilling the bottom items + user card
+          onto the page's cream background below the panel. */}
+      <nav className="min-h-0 flex-1 overflow-y-auto px-3">
         {nav.map((item) => {
           const isActive =
             item.href === "/app"
