@@ -127,7 +127,7 @@ export default async function CaseDetailPage({
   const disposedDateLabel = c.disposedAt ? fmtDate(c.disposedAt) : "";
 
   return (
-    <div className="px-10 py-8">
+    <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
       <div className="mx-auto max-w-[1100px]">
         {/* Breadcrumb + Edit shortcut */}
         <div className="fade-up-sm flex items-center justify-between gap-3">

@@ -57,10 +57,15 @@ export default function Sidebar({
   partnerName,
   user,
   isAdmin,
+  drawerOpen = false,
+  onClose,
 }: {
   partnerName: string;
   user: { firstName: string; lastName: string; email: string };
   isAdmin: boolean;
+  // Below lg the sidebar is an off-canvas drawer driven by AppShell.
+  drawerOpen?: boolean;
+  onClose?: () => void;
 }) {
   const pathname = usePathname();
   const liveCounts = useLiveSidebarCounts();
@@ -71,12 +76,32 @@ export default function Sidebar({
 
   return (
     <aside
-      className="sticky top-0 flex h-screen w-[260px] flex-col overflow-hidden border-r"
+      className={`fixed inset-y-0 left-0 z-50 flex h-screen w-[260px] flex-col overflow-hidden border-r transition-transform duration-300 ease-in-out lg:sticky lg:inset-y-auto lg:left-auto lg:top-0 lg:z-auto lg:translate-x-0 lg:transition-none ${
+        drawerOpen ? "translate-x-0" : "-translate-x-full"
+      }`}
       style={{
         backgroundColor: "var(--color-app-ink)",
         borderColor: "var(--color-app-ink-3)",
       }}
     >
+      {/* Mobile-only close — the desktop rail has no dismiss. */}
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close menu"
+        className="absolute right-3 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-md lg:hidden"
+        style={{ color: "var(--color-app-ivory-soft)" }}
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <path
+            d="M6 6l12 12M18 6L6 18"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+        </svg>
+      </button>
+
       {/* Brand */}
       <Link
         href="/app"

@@ -103,7 +103,7 @@ export default async function PartnerDashboard() {
           : "Good evening";
 
   return (
-    <div className="px-10 py-8">
+    <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
       <div className="mx-auto max-w-[1280px] space-y-8">
         <Hero
           greeting={greeting}
@@ -143,7 +143,7 @@ function Hero({
 
   return (
     <section
-      className="fade-up-sm relative overflow-hidden rounded-2xl px-10 py-12"
+      className="fade-up-sm relative overflow-hidden rounded-2xl px-6 py-8 sm:px-10 sm:py-12"
       style={{
         background: `linear-gradient(135deg, var(--color-app-ink) 0%, var(--color-app-ink-2) 100%)`,
       }}

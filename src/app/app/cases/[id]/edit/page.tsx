@@ -66,7 +66,7 @@ export default async function EditCasePage({
   };
 
   return (
-    <div className="px-10 py-8">
+    <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
       <div className="mx-auto max-w-[1100px]">
         <Link
           href={`/app/cases/${initial.id}`}

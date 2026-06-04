@@ -82,7 +82,7 @@ export default async function CaseVaultPage() {
   }
 
   return (
-    <div className="px-10 py-8">
+    <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
       <div className="mx-auto max-w-[1280px]">
         <div className="flex items-end justify-between gap-4">
           <div>
