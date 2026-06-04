@@ -9,6 +9,7 @@ import {
   type Bucket,
 } from "@/lib/hearing-row";
 import { parseDateInputLocal } from "@/lib/whatsapp";
+import CnrLink from "@/app/app/components/CnrLink";
 
 export type { HearingRow, Bucket };
 
@@ -158,7 +159,7 @@ function Tabs({ bucket, counts }: { bucket: Bucket; counts: Counts }) {
     { key: "today", label: "Today", count: counts.today },
     { key: "tomorrow", label: "Tomorrow", count: counts.tomorrow },
     { key: "pending", label: "Pending", count: counts.pending },
-    { key: "all", label: "All", count: counts.all },
+    { key: "all", label: "All Cases", count: counts.all },
   ];
 
   return (
@@ -712,7 +713,7 @@ function PendingCard({
                 <>
                   <span style={{ color: "var(--color-app-copper-deep)" }}> · </span>
                   <span style={{ color: "var(--color-app-fg-muted)" }}>
-                    CNR {c.cnr}
+                    CNR <CnrLink cnr={c.cnr} />
                   </span>
                 </>
               ) : null}
