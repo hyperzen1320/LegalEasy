@@ -2,6 +2,12 @@ import Link from "next/link";
 import { connectDB } from "@/lib/db";
 import { Plan } from "@/models/Plan";
 
+// This landing page reads live pricing from the database, so it must render
+// at request time — it can't be statically prerendered at build, where no
+// database exists. Without this, `next build` tries to prerender "/" and
+// crashes (MongooseError: uri must be a string).
+export const dynamic = "force-dynamic";
+
 type LandingPlan = {
   key: string;
   num: string;

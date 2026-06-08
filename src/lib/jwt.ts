@@ -1,10 +1,16 @@
 import { SignJWT, jwtVerify, type JWTPayload } from "jose";
 
-const secretRaw = process.env.AUTH_SECRET;
-if (!secretRaw) {
-  throw new Error("AUTH_SECRET is not set in environment");
+// Lazily resolve the HMAC key. We don't throw at module-load time because
+// `next build` imports this file while prerendering pages, where no runtime
+// env is present; the check fires only when a token is actually signed or
+// verified at runtime (where AUTH_SECRET exists).
+function getJwtSecret(): Uint8Array {
+  const raw = process.env.AUTH_SECRET;
+  if (!raw) {
+    throw new Error("AUTH_SECRET is not set in environment");
+  }
+  return new TextEncoder().encode(raw);
 }
-const secret = new TextEncoder().encode(secretRaw);
 
 export type MobileJWTPayload = {
   sub: string;
@@ -22,13 +28,13 @@ export async function signMobileJWT(
     .setProtectedHeader({ alg: "HS256", typ: "JWT" })
     .setIssuedAt()
     .setExpirationTime("30d")
-    .sign(secret);
+    .sign(getJwtSecret());
 }
 
 export async function verifyMobileJWT(
   token: string
 ): Promise<MobileJWTPayload> {
-  const { payload } = await jwtVerify(token, secret);
+  const { payload } = await jwtVerify(token, getJwtSecret());
   return {
     sub: String(payload.sub),
     email: String(payload.email),
