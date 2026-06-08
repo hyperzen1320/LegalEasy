@@ -3,11 +3,12 @@ import mongoose from "mongoose";
 const MONGODB_URI = process.env.MONGODB_URI;
 const MONGODB_DB = process.env.MONGODB_DB || "legaleasy_dev";
 
-if (!MONGODB_URI) {
-  throw new Error(
-    "MONGODB_URI is not defined. Set it in .env.local (and pass --env-file=.env.local to scripts)."
-  );
-}
+// We deliberately do NOT throw here at module-load time. `next build`
+// evaluates these modules while collecting page data and prerendering
+// pages, where no runtime env is present (the real values are injected at
+// container start). Throwing at import broke the production Docker build.
+// The guard lives in connectDB() instead, so it only fires if something
+// actually tries to reach the database without a URI.
 
 interface MongooseCache {
   conn: typeof mongoose | null;
@@ -25,8 +26,14 @@ globalForMongoose.__mongooseCache = cached;
 export async function connectDB(): Promise<typeof mongoose> {
   if (cached.conn) return cached.conn;
 
+  if (!MONGODB_URI) {
+    throw new Error(
+      "MONGODB_URI is not defined. Set it in .env (self-host) or .env.local (dev)."
+    );
+  }
+
   if (!cached.promise) {
-    cached.promise = mongoose.connect(MONGODB_URI!, {
+    cached.promise = mongoose.connect(MONGODB_URI, {
       dbName: MONGODB_DB,
       bufferCommands: false,
       serverSelectionTimeoutMS: 10000,
