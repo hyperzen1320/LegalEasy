@@ -28,6 +28,11 @@ export default function PrivateChatPanel({
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // On phones the rail and thread can't share the screen, so we show one at
+  // a time: the rail (list) by default, the thread once a room is opened.
+  // selectedId stays set across the toggle so the lg+ two-column layout is
+  // unaffected and tapping Back never refetches the thread.
+  const [mobileThread, setMobileThread] = useState(false);
 
   // Auto-select the most-recent room on first load.
   useEffect(() => {
@@ -40,7 +45,9 @@ export default function PrivateChatPanel({
   useEffect(() => {
     if (!selectedId) return;
     if (!rooms.some((r) => r.id === selectedId)) {
-      setSelectedId(rooms[0]?.id ?? null);
+      const next = rooms[0]?.id ?? null;
+      setSelectedId(next);
+      if (!next) setMobileThread(false);
     }
   }, [rooms, selectedId]);
 
@@ -62,6 +69,7 @@ export default function PrivateChatPanel({
         const newId = data?.room?.id as string | undefined;
         if (newId) {
           setSelectedId(newId);
+          setMobileThread(true);
           onRoomsChange();
         }
       }
@@ -72,20 +80,28 @@ export default function PrivateChatPanel({
 
   return (
     <div
-      className="grid h-full min-h-[420px] grid-cols-[300px_1fr] overflow-hidden rounded-2xl"
+      className="grid h-full min-h-[420px] grid-cols-1 overflow-hidden rounded-2xl lg:grid-cols-[300px_1fr]"
       style={{
         backgroundColor: "var(--color-app-canvas-2)",
         border: "1px solid var(--color-app-edge)",
       }}
     >
       <Rail
+        className={mobileThread ? "hidden lg:flex" : "flex"}
         me={me}
         rooms={rooms}
         selectedId={selectedId}
-        onSelect={setSelectedId}
+        onSelect={(id) => {
+          setSelectedId(id);
+          setMobileThread(true);
+        }}
         onNewChat={() => setPickerOpen(true)}
       />
-      <div className="flex min-w-0 flex-col overflow-hidden">
+      <div
+        className={`${
+          mobileThread ? "flex" : "hidden lg:flex"
+        } min-w-0 flex-col overflow-hidden`}
+      >
         {selected ? (
           <Thread
             key={selected.id}
@@ -93,6 +109,7 @@ export default function PrivateChatPanel({
             partnerId={null}
             me={me}
             onSent={onRoomsChange}
+            onBack={() => setMobileThread(false)}
           />
         ) : (
           <EmptyPane onNewChat={() => setPickerOpen(true)} />
@@ -118,12 +135,14 @@ export default function PrivateChatPanel({
 }
 
 function Rail({
+  className = "",
   me,
   rooms,
   selectedId,
   onSelect,
   onNewChat,
 }: {
+  className?: string;
   me: SeniorDeskMember;
   rooms: ChatRoomDTO[];
   selectedId: string | null;
@@ -132,7 +151,7 @@ function Rail({
 }) {
   return (
     <div
-      className="flex flex-col"
+      className={`flex-col ${className}`}
       style={{
         backgroundColor: "var(--color-app-paper)",
         borderRight: "1px solid var(--color-app-edge)",
@@ -306,11 +325,13 @@ function Thread({
   partnerId,
   me,
   onSent,
+  onBack,
 }: {
   room: ChatRoomDTO;
   partnerId: string | null;
   me: SeniorDeskMember;
   onSent: () => void;
+  onBack: () => void;
 }) {
   const chat = useChatRoom(room.id, partnerId);
 
@@ -320,7 +341,7 @@ function Thread({
 
   return (
     <>
-      <ThreadHeader room={room} />
+      <ThreadHeader room={room} onBack={onBack} />
       <MessageList
         messages={chat.messages}
         loading={chat.loading}
@@ -352,17 +373,40 @@ function Thread({
   );
 }
 
-function ThreadHeader({ room }: { room: ChatRoomDTO }) {
+function ThreadHeader({
+  room,
+  onBack,
+}: {
+  room: ChatRoomDTO;
+  onBack: () => void;
+}) {
   const isInactive = room.otherUser?.active === false;
   return (
     <div
-      className="flex items-center justify-between gap-4 px-6 py-4"
+      className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6"
       style={{
         backgroundColor: "var(--color-app-paper)",
         borderBottom: "1px solid var(--color-app-edge)",
       }}
     >
       <div className="flex items-center gap-3 min-w-0">
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label="Back to chats"
+          className="-ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-md lg:hidden"
+          style={{ color: "var(--color-app-fg-soft)" }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path
+              d="M15 5l-7 7 7 7"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
         <div
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold"
           style={{

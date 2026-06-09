@@ -67,7 +67,7 @@ export default function ClientCrewClient({
       <div className="flex items-end justify-between gap-4">
         <div>
           <h2
-            className="text-[40px] font-semibold tracking-tight leading-[1.1]"
+            className="text-[30px] font-semibold tracking-tight leading-[1.1] sm:text-[40px]"
             style={{
               fontFamily: "var(--font-crimson), Georgia, serif",
               color: "var(--color-app-ink)",

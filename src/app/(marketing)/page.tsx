@@ -513,7 +513,7 @@ function DropCap({ letter }: { letter: string }) {
 
 function ExportFeature() {
   return (
-    <section id="export" className="border-t border-rule/40">
+    <section id="export" className="overflow-hidden border-t border-rule/40">
       <div className="mx-auto max-w-[1320px] px-6 py-24 md:px-10 md:py-32">
         <div className="grid gap-16 md:grid-cols-12">
           <div className="md:col-span-5">

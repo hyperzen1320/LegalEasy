@@ -189,7 +189,7 @@ export default function BellDropdown() {
 
       {open ? (
         <div
-          className="absolute right-0 z-40 mt-2 w-[380px] overflow-hidden rounded-xl"
+          className="absolute right-0 z-40 mt-2 w-[min(380px,calc(100vw-2rem))] overflow-hidden rounded-xl"
           style={{
             backgroundColor: "var(--color-app-paper)",
             border: "1px solid var(--color-app-edge)",

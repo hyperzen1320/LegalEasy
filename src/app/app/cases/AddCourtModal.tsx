@@ -99,7 +99,7 @@ export default function AddCourtModal({
       <form
         onSubmit={submit}
         onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-[520px] overflow-hidden rounded-2xl"
+        className="max-h-[85vh] w-full max-w-[520px] overflow-y-auto rounded-2xl"
         style={{
           backgroundColor: "var(--color-app-paper)",
           boxShadow:

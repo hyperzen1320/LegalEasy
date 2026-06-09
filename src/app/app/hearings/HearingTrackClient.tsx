@@ -47,7 +47,7 @@ export default function HearingTrackClient({
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2
-            className="text-[40px] font-semibold tracking-tight leading-[1.1]"
+            className="text-[30px] font-semibold tracking-tight leading-[1.1] sm:text-[40px]"
             style={{
               fontFamily: "var(--font-crimson), Georgia, serif",
               color: "var(--color-app-ink)",
@@ -164,7 +164,7 @@ function Tabs({ bucket, counts }: { bucket: Bucket; counts: Counts }) {
 
   return (
     <div
-      className="inline-flex items-center gap-1 rounded-xl p-1"
+      className="inline-flex max-w-full flex-wrap items-center gap-1 rounded-xl p-1"
       style={{
         backgroundColor: "var(--color-app-paper)",
         boxShadow: "0 1px 0 var(--color-app-edge)",
@@ -177,7 +177,7 @@ function Tabs({ bucket, counts }: { bucket: Bucket; counts: Counts }) {
             key={t.key}
             href={`/app/hearings?tab=${t.key}`}
             scroll={false}
-            className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-[14px] transition-all"
+            className="inline-flex items-center gap-2 rounded-lg px-3 py-2.5 text-[14px] transition-all sm:px-5"
             style={{
               fontFamily: "var(--font-manrope), sans-serif",
               backgroundColor: active

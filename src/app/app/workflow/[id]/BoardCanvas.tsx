@@ -1293,11 +1293,10 @@ function AddListComposer({
           }
         }}
         placeholder="Name this list…"
-        className="rounded-sm bg-white/95 px-2 py-1 text-[12px] outline-none"
+        className="w-[44vw] min-w-[120px] max-w-[180px] rounded-sm bg-white/95 px-2 py-1 text-[12px] outline-none"
         style={{
           fontFamily: "var(--font-manrope), sans-serif",
           color: "var(--color-app-ink)",
-          width: 180,
         }}
       />
       <button

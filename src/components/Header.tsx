@@ -1,4 +1,5 @@
 import Link from "next/link";
+import MobileMenu from "./MobileMenu";
 
 const NAV = [
   { name: "Cabinet", href: "#cabinet" },
@@ -39,10 +40,10 @@ export default function Header() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-3">
+        <div className="hidden items-center gap-3 md:flex">
           <Link
             href="/login"
-            className="hidden font-body text-[15px] text-ink-2 transition-colors hover:text-ink md:inline"
+            className="font-body text-[15px] text-ink-2 transition-colors hover:text-ink"
           >
             Sign in
           </Link>
@@ -56,6 +57,8 @@ export default function Header() {
             </span>
           </Link>
         </div>
+
+        <MobileMenu nav={NAV} />
       </div>
 
       <div className="h-px bg-gradient-to-r from-transparent via-brass/40 to-transparent" />
