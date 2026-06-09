@@ -95,7 +95,7 @@ export default function NewChatPicker({
           />
         </div>
 
-        <div className="max-h-[420px] overflow-y-auto px-2 py-2">
+        <div className="max-h-[min(420px,52vh)] overflow-y-auto px-2 py-2">
           {filtered.length === 0 ? (
             <div
               className="px-4 py-8 text-center text-[12.5px]"

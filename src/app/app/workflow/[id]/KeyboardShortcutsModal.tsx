@@ -33,7 +33,7 @@ export default function KeyboardShortcutsModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-[440px] rounded-2xl overflow-hidden"
+        className="max-h-[85vh] w-full max-w-[440px] overflow-y-auto rounded-2xl"
         style={{
           backgroundColor: "var(--color-app-paper)",
           boxShadow:

@@ -59,7 +59,7 @@ export default function ComingSoon({
             </div>
 
             <h3
-              className="mt-6 text-[40px] font-semibold tracking-tight leading-[1.05]"
+              className="mt-6 text-[30px] font-semibold tracking-tight leading-[1.05] sm:text-[40px]"
               style={{
                 fontFamily: "var(--font-crimson), Georgia, serif",
                 color: "var(--color-app-ink)",

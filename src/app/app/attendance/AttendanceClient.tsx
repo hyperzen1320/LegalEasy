@@ -292,7 +292,7 @@ export default function AttendanceClient({
             Office attendance
           </div>
           <h2
-            className="mt-1 text-[40px] font-semibold tracking-tight leading-[1.1]"
+            className="mt-1 text-[30px] font-semibold tracking-tight leading-[1.1] sm:text-[40px]"
             style={{
               fontFamily: "var(--font-crimson), Georgia, serif",
               color: "var(--color-app-ink)",

@@ -184,7 +184,7 @@ function Hero({
 
       {/* Greeting */}
       <h2
-        className="mt-5 text-[56px] font-semibold leading-[1.04] tracking-tight"
+        className="mt-5 text-[38px] font-semibold leading-[1.05] tracking-tight sm:text-[56px] sm:leading-[1.04]"
         style={{
           fontFamily: "var(--font-crimson), Georgia, serif",
           color: "var(--color-app-ivory)",

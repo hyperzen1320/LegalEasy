@@ -114,7 +114,7 @@ export default function DisposedCasesClient({
           boxShadow: "0 1px 0 var(--color-app-edge)",
         }}
       >
-        <div className="flex flex-wrap items-end gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
           {/* Search */}
           <div className="min-w-[220px] flex-1">
             <FieldLabel>Search</FieldLabel>

@@ -238,7 +238,7 @@ export default async function CaseDetailPage({
 
         {/* Hero card */}
         <section
-          className="fade-up-sm relative mt-5 overflow-hidden rounded-2xl px-9 py-9"
+          className="fade-up-sm relative mt-5 overflow-hidden rounded-2xl px-5 py-7 sm:px-9 sm:py-9"
           style={{
             backgroundColor: "var(--color-app-ink)",
             color: "var(--color-app-ivory)",
@@ -261,7 +261,7 @@ export default async function CaseDetailPage({
                 </div>
               ) : null}
               <h1
-                className="mt-2 text-[44px] font-semibold leading-[1.05] tracking-tight"
+                className="mt-2 text-[32px] font-semibold leading-[1.05] tracking-tight sm:text-[44px]"
                 style={{
                   fontFamily: "var(--font-crimson), Georgia, serif",
                 }}
@@ -482,7 +482,7 @@ export default async function CaseDetailPage({
                 .map((h, i) => (
                   <div
                     key={i}
-                    className="grid grid-cols-[140px_1fr] gap-4 border-b pb-3 last:border-0 last:pb-0"
+                    className="grid grid-cols-[84px_1fr] gap-3 border-b pb-3 last:border-0 last:pb-0 sm:grid-cols-[140px_1fr] sm:gap-4"
                     style={{ borderColor: "var(--color-app-edge-soft)" }}
                   >
                     <div
@@ -565,7 +565,7 @@ function InfoCard({
 }) {
   return (
     <div
-      className="rounded-xl p-5"
+      className="rounded-xl p-4 sm:p-5"
       style={{
         backgroundColor: "var(--color-app-paper)",
         boxShadow: "0 1px 0 var(--color-app-edge)",

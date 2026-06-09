@@ -175,7 +175,7 @@ export default function CaseToolBar({
 
           {/* Spacer eats remaining horizontal room so Apply hugs the
               right edge regardless of which sub-rows the filters land on. */}
-          <div className="flex-1 basis-0" />
+          <div className="hidden flex-1 basis-0 sm:block" />
 
           {hasStructuralFilters ? (
             <button
@@ -341,7 +341,7 @@ function SelectField({
     // Compact filter cell. The min-w-0 lets it shrink past the label
     // width when the toolbar runs out of horizontal room — the row
     // wraps cleanly instead of forcing the parent wider.
-    <div className="min-w-0 basis-[150px] flex-1">
+    <div className="min-w-0 basis-full flex-1 sm:basis-[150px]">
       <label
         className="block text-[9px] font-semibold uppercase tracking-[0.18em]"
         style={{
@@ -396,7 +396,7 @@ function DateField({
   onChange: (v: string) => void;
 }) {
   return (
-    <div className="min-w-0 basis-[140px] flex-1">
+    <div className="min-w-0 basis-full flex-1 sm:basis-[140px]">
       <label
         className="block text-[9px] font-semibold uppercase tracking-[0.18em]"
         style={{

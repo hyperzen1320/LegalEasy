@@ -51,7 +51,7 @@ export default async function SeniorDeskPage() {
       <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
         <div className="mx-auto max-w-[1100px]">
           <h2
-            className="text-[40px] font-semibold tracking-tight"
+            className="text-[30px] font-semibold tracking-tight sm:text-[40px]"
             style={{
               fontFamily: "var(--font-crimson), Georgia, serif",
               color: "var(--color-app-ink)",

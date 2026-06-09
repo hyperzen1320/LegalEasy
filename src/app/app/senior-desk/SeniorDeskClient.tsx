@@ -138,7 +138,7 @@ export default function SeniorDeskClient({
     // bottom of the viewport instead of clipping off-screen on shorter
     // displays.
     <div
-      className="flex flex-col overflow-hidden px-10 pt-6 pb-5"
+      className="flex flex-col overflow-hidden px-4 pt-6 pb-5 sm:px-6 lg:px-10"
       style={{ height: "calc(100vh - 68px)" }}
     >
       <div className="mx-auto flex w-full min-h-0 max-w-[1280px] flex-1 flex-col">
@@ -235,7 +235,7 @@ function Toggle({
     { key: "reminders", label: "Reminders", unread: reminderUnread },
   ];
   return (
-    <div className="mt-7 flex items-center gap-2">
+    <div className="mt-7 flex flex-wrap items-center gap-2">
       {items.map((it) => {
         const active = tab === it.key;
         return (

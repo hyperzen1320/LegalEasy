@@ -95,7 +95,7 @@ export default function RequestDeleteDialog({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-[480px] rounded-2xl overflow-hidden"
+        className="max-h-[90vh] w-full max-w-[480px] overflow-y-auto rounded-2xl"
         style={{
           backgroundColor: "var(--color-app-paper)",
           boxShadow:
