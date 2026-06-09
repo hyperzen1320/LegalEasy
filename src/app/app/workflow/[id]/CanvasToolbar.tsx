@@ -312,7 +312,7 @@ export default function CanvasToolbar({
   return (
     <div
       ref={wrapperRef}
-      className="absolute bottom-5 left-5 z-30 flex items-center"
+      className="absolute bottom-5 left-1/2 z-30 flex -translate-x-1/2 items-center sm:left-5 sm:translate-x-0"
       style={{
         backgroundColor: "rgba(255,255,255,0.95)",
         backdropFilter: "blur(10px)",
@@ -694,12 +694,11 @@ function ToolButton({
   return (
     <button
       onClick={onClick}
-      className="relative flex flex-col items-center gap-0.5 rounded-full px-3 py-2 transition-colors"
+      className="relative flex min-w-[44px] flex-col items-center gap-0.5 rounded-full px-3 py-2 transition-colors sm:min-w-[56px]"
       style={{
         fontFamily: "var(--font-manrope), sans-serif",
         backgroundColor: active ? "var(--color-app-ink)" : "transparent",
         color: active ? "var(--color-app-ivory)" : "var(--color-app-ink)",
-        minWidth: 56,
       }}
       onMouseEnter={(e) => {
         if (!active) {
@@ -745,7 +744,7 @@ function ToolButton({
       `}</style>
       {children}
       <span
-        className="text-[9px] uppercase tracking-[0.16em]"
+        className="hidden text-[9px] uppercase tracking-[0.16em] sm:block"
         style={{
           fontFamily: "var(--font-dm-mono), monospace",
           color: active

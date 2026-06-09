@@ -513,7 +513,7 @@ function DropCap({ letter }: { letter: string }) {
 
 function ExportFeature() {
   return (
-    <section id="export" className="overflow-hidden border-t border-rule/40">
+    <section id="export" className="border-t border-rule/40">
       <div className="mx-auto max-w-[1320px] px-6 py-24 md:px-10 md:py-32">
         <div className="grid gap-16 md:grid-cols-12">
           <div className="md:col-span-5">
@@ -549,8 +549,15 @@ function ExportFeature() {
             </ul>
           </div>
 
-          <div className="md:col-span-6 md:col-start-7">
-            <DocumentPreview />
+          <div className="min-w-0 md:col-span-6 md:col-start-7">
+            {/* On phones the editorial document preview is wider than the
+                viewport (its table sets a ~400px min-width). min-w-0 lets the
+                grid column shrink below that, and the wrapper scrolls the
+                preview horizontally instead of overflowing the page. Desktop
+                keeps the seal overhang via md:overflow-visible. */}
+            <div className="overflow-x-auto overflow-y-hidden pt-6 md:overflow-visible md:pt-0">
+              <DocumentPreview />
+            </div>
           </div>
         </div>
       </div>

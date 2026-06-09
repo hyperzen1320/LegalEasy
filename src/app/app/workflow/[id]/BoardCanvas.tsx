@@ -1124,15 +1124,19 @@ function CanvasTopBar({
         {/* Live presence: who is on this board right now (replaces the
             static member avatar stack — the live signal is far more
             useful for canvas collaboration). */}
-        <PresenceDock active={presence} />
+        {/* Presence is supplementary on a phone — hide it (and its divider)
+            so the bell + Add list never get pushed off the right edge. */}
+        <div className="hidden sm:contents">
+          <PresenceDock active={presence} />
 
-        <div
-          style={{
-            width: 1,
-            height: 22,
-            backgroundColor: "var(--color-app-edge)",
-          }}
-        />
+          <div
+            style={{
+              width: 1,
+              height: 22,
+              backgroundColor: "var(--color-app-edge)",
+            }}
+          />
+        </div>
 
         {/* Stats chip — total lists · total cards */}
         <div

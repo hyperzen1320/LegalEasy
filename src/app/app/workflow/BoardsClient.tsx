@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { BOARD_COLOR_STYLES } from "@/lib/board-defaults";
 import type { BoardColor } from "@/models/Board";
@@ -333,16 +334,41 @@ function BoardMenu({
   const [requestOpen, setRequestOpen] = useState(false);
   const [requestSent, setRequestSent] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  // The dropdown is portaled to <body> (below) so it escapes the board
+  // card's `overflow-hidden` (which clipped it) and the neighbouring cards'
+  // stacking context (which painted over it). We measure the trigger on open
+  // and position the menu `fixed`, right-aligned to the button.
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(
+    null
+  );
 
+  function openMenu() {
+    const r = btnRef.current?.getBoundingClientRect();
+    if (r) {
+      const width = 220;
+      const left = Math.max(
+        8,
+        Math.min(r.right - width, window.innerWidth - width - 8)
+      );
+      setCoords({ top: r.bottom + 6, left });
+    }
+    setOpen(true);
+  }
+
+  // Close on scroll/resize so the fixed menu never drifts from its trigger.
   useEffect(() => {
     if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+    const onMove = () => {
+      setOpen(false);
+      setConfirming(false);
     };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    window.addEventListener("scroll", onMove, true);
+    window.addEventListener("resize", onMove);
+    return () => {
+      window.removeEventListener("scroll", onMove, true);
+      window.removeEventListener("resize", onMove);
+    };
   }, [open]);
 
   async function onDelete() {
@@ -388,7 +414,15 @@ function BoardMenu({
   return (
     <div ref={ref} className="relative">
       <button
-        onClick={() => setOpen((v) => !v)}
+        ref={btnRef}
+        onClick={() => {
+          if (open) {
+            setOpen(false);
+            setConfirming(false);
+          } else {
+            openMenu();
+          }
+        }}
         aria-label={`Manage ${board.title}`}
         className="inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors"
         style={{
@@ -412,15 +446,27 @@ function BoardMenu({
         </svg>
       </button>
 
-      {open ? (
-        <div
-          className="absolute right-0 top-9 z-40 min-w-[200px] rounded-lg p-2"
-          style={{
-            backgroundColor: "var(--color-app-paper)",
-            boxShadow:
-              "0 16px 32px -10px rgba(10,17,36,0.25), 0 0 0 1px var(--color-app-edge)",
-          }}
-        >
+      {open && coords ? (
+        createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[55]"
+              onClick={() => {
+                setOpen(false);
+                setConfirming(false);
+              }}
+              aria-hidden
+            />
+            <div
+              className="fixed z-[56] w-[220px] max-w-[calc(100vw-1rem)] rounded-lg p-2"
+              style={{
+                top: coords.top,
+                left: coords.left,
+                backgroundColor: "var(--color-app-paper)",
+                boxShadow:
+                  "0 16px 32px -10px rgba(10,17,36,0.25), 0 0 0 1px var(--color-app-edge)",
+              }}
+            >
           {confirming ? (
             <div className="px-2 py-1.5">
               <p
@@ -525,7 +571,10 @@ function BoardMenu({
               </button>
             </>
           )}
-        </div>
+            </div>
+          </>,
+          document.body
+        )
       ) : null}
 
       {requestOpen ? (
