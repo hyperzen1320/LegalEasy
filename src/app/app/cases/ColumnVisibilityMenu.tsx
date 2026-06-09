@@ -83,7 +83,7 @@ export default function ColumnVisibilityMenu({
 
       {open ? (
         <div
-          className="absolute right-0 z-30 mt-2 w-[240px] overflow-hidden rounded-md"
+          className="absolute left-0 z-30 mt-2 w-[240px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-md sm:left-auto sm:right-0"
           style={{
             backgroundColor: "var(--color-app-paper)",
             border: "1px solid var(--color-app-edge)",

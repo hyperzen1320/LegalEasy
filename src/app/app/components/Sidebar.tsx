@@ -76,7 +76,7 @@ export default function Sidebar({
 
   return (
     <aside
-      className={`fixed inset-y-0 left-0 z-50 flex h-screen w-[260px] flex-col overflow-hidden border-r transition-transform duration-300 ease-in-out lg:sticky lg:inset-y-auto lg:left-auto lg:top-0 lg:z-auto lg:translate-x-0 lg:transition-none ${
+      className={`fixed inset-y-0 left-0 z-50 flex h-dvh w-[260px] flex-col overflow-hidden border-r transition-transform duration-300 ease-in-out lg:sticky lg:inset-y-auto lg:left-auto lg:top-0 lg:z-auto lg:translate-x-0 lg:transition-none ${
         drawerOpen ? "translate-x-0" : "-translate-x-full"
       }`}
       style={{
@@ -105,7 +105,7 @@ export default function Sidebar({
       {/* Brand */}
       <Link
         href="/app"
-        className="flex items-center gap-3 px-5 pb-5 pt-7 transition-opacity hover:opacity-90"
+        className="flex shrink-0 items-center gap-3 px-5 pb-5 pt-7 transition-opacity hover:opacity-90"
       >
         <BrandMark />
         <div className="leading-none min-w-0">
@@ -216,7 +216,7 @@ export default function Sidebar({
 
       {/* User card */}
       <div
-        className="border-t p-4"
+        className="shrink-0 border-t p-4"
         style={{ borderColor: "var(--color-app-ink-3)" }}
       >
         <div className="flex items-center gap-3 rounded-md px-2 py-1.5">

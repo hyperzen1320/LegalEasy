@@ -330,7 +330,7 @@ export default function ActivityClient({
       {/* Activity feed (action filters + grouped feed + load more) */}
       <div style={{ display: view === "activity" ? "block" : "none" }}>
       <div className="mt-7">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
           {ACTION_FAMILIES.map((f) => {
             const active = actionFamily === f.key;
             return (
@@ -345,7 +345,7 @@ export default function ActivityClient({
                     reset: true,
                   });
                 }}
-                className="rounded-md px-3 py-1.5 text-[12px] font-medium transition-all"
+                className="rounded-md px-2.5 py-1 text-[11px] font-medium transition-all sm:px-3 sm:py-1.5 sm:text-[12px]"
                 style={{
                   fontFamily: "var(--font-manrope), sans-serif",
                   backgroundColor: active
@@ -364,7 +364,7 @@ export default function ActivityClient({
             );
           })}
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="mt-2 flex w-full items-center gap-2 sm:ml-auto sm:mt-0 sm:w-auto">
             <select
               value={actorId}
               onChange={(e) => {
@@ -376,7 +376,7 @@ export default function ActivityClient({
                   reset: true,
                 });
               }}
-              className="rounded-md border px-3 py-1.5 text-[12px] outline-none"
+              className="flex-1 rounded-md border px-3 py-1.5 text-[12px] outline-none sm:flex-none"
               style={{
                 fontFamily: "var(--font-manrope), sans-serif",
                 borderColor: "var(--color-app-edge)",
@@ -402,7 +402,7 @@ export default function ActivityClient({
                   reset: true,
                 });
               }}
-              className="rounded-md border px-3 py-1.5 text-[12px] outline-none"
+              className="flex-1 rounded-md border px-3 py-1.5 text-[12px] outline-none sm:flex-none"
               style={{
                 fontFamily: "var(--font-manrope), sans-serif",
                 borderColor: "var(--color-app-edge)",
@@ -435,7 +435,7 @@ export default function ActivityClient({
 
         {/* Date-range row — preset chips + custom range pickers when chosen */}
         <div
-          className="mt-3 flex flex-wrap items-center gap-2 rounded-xl px-3 py-2.5"
+          className="mt-3 flex flex-wrap items-center gap-1.5 rounded-xl px-2.5 py-2 sm:gap-2 sm:px-3 sm:py-2.5"
           style={{
             backgroundColor: "var(--color-app-paper)",
             boxShadow: "0 1px 0 var(--color-app-edge)",
@@ -456,7 +456,7 @@ export default function ActivityClient({
               <button
                 key={p.key}
                 onClick={() => applyDateRange(p.key)}
-                className="rounded-md px-3 py-1.5 text-[12px] font-medium transition-all"
+                className="rounded-md px-2.5 py-1 text-[11px] font-medium transition-all sm:px-3 sm:py-1.5 sm:text-[12px]"
                 style={{
                   fontFamily: "var(--font-manrope), sans-serif",
                   backgroundColor: active
@@ -720,7 +720,7 @@ function RetentionPill({ current }: { current: number | null }) {
             onClick={() => setOpen(false)}
           />
           <div
-            className="absolute right-0 top-12 z-40 min-w-[280px] rounded-xl p-1.5"
+            className="absolute left-0 top-12 z-40 min-w-[280px] max-w-[calc(100vw-2rem)] rounded-xl p-1.5 sm:left-auto sm:right-0"
             style={{
               backgroundColor: "var(--color-app-paper)",
               boxShadow: "0 16px 32px -10px rgba(10,17,36,0.25)",
