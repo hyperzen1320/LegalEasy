@@ -175,18 +175,32 @@ export default function CanvasToolbar({
     const background = pane
       ? getComputedStyle(pane).backgroundColor || "#f1e9d8"
       : "#f1e9d8";
-    return toPng(el, {
-      backgroundColor: background,
-      width: imageWidth,
-      height: imageHeight,
-      pixelRatio: 2,
-      cacheBust: true,
-      style: {
-        width: `${imageWidth}px`,
-        height: `${imageHeight}px`,
-        transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
-      },
-    });
+    // CardPreview plays a `card-pop` entrance animation that begins at
+    // opacity:0. html-to-image re-triggers CSS animations inside its
+    // off-screen clone and rasterises the first frame, so cards come out
+    // invisible (lists have no such animation, which is why they survive).
+    // Freeze the node layer's animations/transitions for the capture so
+    // every card is at its final, fully-opaque state.
+    const freeze = document.createElement("style");
+    freeze.textContent =
+      ".react-flow__viewport, .react-flow__viewport *, .react-flow__viewport *::before, .react-flow__viewport *::after { animation: none !important; transition: none !important; }";
+    document.head.appendChild(freeze);
+    try {
+      return await toPng(el, {
+        backgroundColor: background,
+        width: imageWidth,
+        height: imageHeight,
+        pixelRatio: 2,
+        cacheBust: true,
+        style: {
+          width: `${imageWidth}px`,
+          height: `${imageHeight}px`,
+          transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+        },
+      });
+    } finally {
+      freeze.remove();
+    }
   }
 
   async function doSavePng() {
