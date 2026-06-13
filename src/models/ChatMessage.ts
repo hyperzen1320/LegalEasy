@@ -13,6 +13,16 @@ import mongoose, { Schema, Types, type Model } from "mongoose";
 
 export type ChatMessageType = "text" | "system";
 
+// A shared file/image attached to a message. The binary lives in GridFS
+// (bucket "chat_attachments", see lib/gridfs.ts); this carries what the
+// bubble needs to render + a download link without reading the file back.
+export interface IChatAttachment {
+  gridfsId: Types.ObjectId;
+  filename: string;
+  contentType: string;
+  size: number;
+}
+
 export interface IChatMessage {
   _id: Types.ObjectId;
   partnerId: Types.ObjectId;
@@ -21,12 +31,23 @@ export interface IChatMessage {
   senderName: string;
   senderRole: string;
   body: string;
+  attachments: IChatAttachment[];
   type: ChatMessageType;
   isDeleted: boolean;
   editedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
+
+const ChatAttachmentSchema = new Schema<IChatAttachment>(
+  {
+    gridfsId: { type: Schema.Types.ObjectId, required: true },
+    filename: { type: String, default: "", trim: true },
+    contentType: { type: String, default: "application/octet-stream" },
+    size: { type: Number, default: 0 },
+  },
+  { _id: false }
+);
 
 const ChatMessageSchema = new Schema<IChatMessage>(
   {
@@ -50,6 +71,7 @@ const ChatMessageSchema = new Schema<IChatMessage>(
     // Hard cap at 4000 chars enforced at the API; the schema validator is
     // the last line of defence.
     body: { type: String, default: "", maxlength: 4000 },
+    attachments: { type: [ChatAttachmentSchema], default: [] },
     type: {
       type: String,
       enum: ["text", "system"],

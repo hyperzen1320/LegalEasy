@@ -32,6 +32,13 @@ const MAX_BODY = 4000;
 // "Tejas sent a message" rows during a chatty exchange.
 const ACTIVITY_BATCH_MS = 60_000;
 
+type AttachmentDTO = {
+  id: string;
+  filename: string;
+  contentType: string;
+  size: number;
+};
+
 type MessageDTO = {
   id: string;
   roomId: string;
@@ -39,12 +46,45 @@ type MessageDTO = {
   senderName: string;
   senderRole: string;
   body: string;
+  attachments: AttachmentDTO[];
   type: "text" | "system";
   isDeleted: boolean;
   editedAt: string | null;
   createdAt: string;
   isMine: boolean;
 };
+
+// Normalise the attachment refs the composer sends (it has already uploaded
+// the bytes to /api/app/chat/attachments and holds the returned metadata).
+function normalizeAttachments(raw: unknown): Array<{
+  gridfsId: mongoose.Types.ObjectId;
+  filename: string;
+  contentType: string;
+  size: number;
+}> {
+  if (!Array.isArray(raw)) return [];
+  const out: Array<{
+    gridfsId: mongoose.Types.ObjectId;
+    filename: string;
+    contentType: string;
+    size: number;
+  }> = [];
+  for (const a of raw) {
+    if (!a || typeof a !== "object") continue;
+    const o = a as Record<string, unknown>;
+    const id = typeof o.id === "string" ? o.id : "";
+    if (!mongoose.isValidObjectId(id)) continue;
+    out.push({
+      gridfsId: new mongoose.Types.ObjectId(id),
+      filename: typeof o.filename === "string" ? o.filename : "attachment",
+      contentType:
+        typeof o.contentType === "string" ? o.contentType : "application/octet-stream",
+      size: typeof o.size === "number" ? o.size : 0,
+    });
+    if (out.length >= 6) break;
+  }
+  return out;
+}
 
 async function loadRoom(
   id: string,
@@ -111,6 +151,14 @@ export async function GET(
     senderName: m.senderName,
     senderRole: m.senderRole,
     body: m.isDeleted ? "" : m.body,
+    attachments: m.isDeleted
+      ? []
+      : (m.attachments || []).map((a) => ({
+          id: String(a.gridfsId),
+          filename: a.filename,
+          contentType: a.contentType,
+          size: a.size,
+        })),
     type: m.type,
     isDeleted: m.isDeleted,
     editedAt: m.editedAt ? m.editedAt.toISOString() : null,
@@ -160,9 +208,11 @@ export async function POST(
 
   const text = typeof body.body === "string" ? body.body : "";
   const trimmed = text.trim();
-  if (!trimmed) {
+  const attachments = normalizeAttachments(body.attachments);
+  // A message must carry text OR at least one attachment.
+  if (!trimmed && attachments.length === 0) {
     return NextResponse.json(
-      { error: "Message body is required." },
+      { error: "Type a message or attach a file." },
       {
         status: 400,
         headers: guard.ctx.isMobile ? corsHeaders() : undefined,
@@ -197,7 +247,12 @@ export async function POST(
   const senderName =
     `${guard.ctx.user.firstName} ${guard.ctx.user.lastName}`.trim() ||
     guard.ctx.user.email;
-  const preview = previewFromBody(trimmed);
+  // Attachment-only messages still need a room preview line.
+  const attachmentPreview =
+    attachments.length === 1
+      ? `📎 ${attachments[0].filename}`
+      : `📎 ${attachments.length} files`;
+  const preview = trimmed ? previewFromBody(trimmed) : attachmentPreview;
 
   const msg = await ChatMessage.create({
     partnerId,
@@ -206,6 +261,7 @@ export async function POST(
     senderName,
     senderRole: guard.ctx.user.role,
     body: trimmed,
+    attachments,
     type: "text",
     isDeleted: false,
     editedAt: null,
@@ -271,6 +327,12 @@ export async function POST(
         senderName,
         senderRole: guard.ctx.user.role,
         body: trimmed,
+        attachments: attachments.map((a) => ({
+          id: String(a.gridfsId),
+          filename: a.filename,
+          contentType: a.contentType,
+          size: a.size,
+        })),
         type: "text" as const,
         isDeleted: false,
         editedAt: null,

@@ -355,8 +355,8 @@ function Thread({
         onScrolledToBottom={chat.markRead}
       />
       <Composer
-        onSend={async (body) => {
-          const ok = await chat.send(body);
+        onSend={async (body, attachments) => {
+          const ok = await chat.send(body, attachments);
           if (ok) onSent();
           return ok;
         }}
