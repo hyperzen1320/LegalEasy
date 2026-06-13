@@ -27,6 +27,11 @@ export type CaseRow = {
   updatedAt: string;
 };
 
+// Which Case Vault layout is showing. "cards" is the default friendly
+// view (one card per matter); "table" is the dense, column-toggleable
+// grid for power use. Persisted per-partner in localStorage.
+export type CaseViewMode = "cards" | "table";
+
 export type CourtOption = {
   id: string;
   name: string;

@@ -32,27 +32,34 @@
   --color-admin-warning: #b7791f;
   --color-admin-warning-soft: #fbf3e0;
 
-  /* Partner App — Midnight Counsel */
-  --color-app-canvas: #f4ede0;
-  --color-app-canvas-2: #efe5d0;
-  --color-app-paper: #ffffff;
-  --color-app-paper-2: #faf6ed;
-  --color-app-edge: #e3d9c0;
-  --color-app-edge-soft: #efe5d0;
-  --color-app-ink: #0a1124;
-  --color-app-ink-2: #141d33;
-  --color-app-ink-3: #1f2a45;
-  --color-app-ivory: #f5ebd6;
-  --color-app-ivory-soft: #c4baa3;
-  --color-app-ivory-dim: #7e7763;
-  --color-app-fg: #0a1124;
-  --color-app-fg-soft: #4d4538;
-  --color-app-fg-muted: #7a7060;
-  --color-app-copper: #c5853a;
-  --color-app-copper-warm: #d28a3c;
-  --color-app-copper-bright: #ddb074;
-  --color-app-copper-deep: #8a5821;
-  --color-app-copper-text: #2a1c08;
+  /* Partner App — Midnight Counsel
+     Refreshed palette: cool navy + dual gold + cool cream. The eight
+     anchor values (navy, banner-navy, gold-dark, gold-bright, background,
+     card-white, text-light, text-muted) are mapped onto the existing
+     token families so every app surface stays on one source of truth;
+     the remaining shades are derived to harmonise. The semantic accents
+     (aqua / danger / success) are deliberately left as-is. */
+  --color-app-canvas: #f5f3ee; /* background */
+  --color-app-canvas-2: #ece8df; /* sunken cream — icon wells, table head, hovers */
+  --color-app-paper: #fcfcfd; /* card-white */
+  --color-app-paper-2: #f7f5ef;
+  --color-app-edge: #e4dfd3; /* hairline border */
+  --color-app-edge-soft: #eee9df;
+  --color-app-ink: #121d35; /* primary-navy */
+  --color-app-ink-2: #212b45; /* banner-navy */
+  --color-app-ink-3: #2c3754; /* on-dark border / active wash base */
+  --color-app-ivory: #f2f0ea; /* text-light (on dark) */
+  --color-app-ivory-soft: #e5e7eb; /* text-muted (on dark) */
+  --color-app-ivory-dim: #97a0b2; /* faint cool slate (on dark) */
+  --color-app-fg: #121d35; /* primary text on light */
+  --color-app-fg-soft: #44505f; /* secondary text on light */
+  --color-app-fg-muted: #647082; /* muted text on light (AA-safe on canvas) */
+  --color-app-copper: #ac7b33; /* gold-dark */
+  --color-app-copper-warm: #c2853a;
+  --color-app-copper-bright: #ddb074; /* light gold accent on navy */
+  --color-app-copper-deep: #8a5e1f; /* deep gold — links & labels on light */
+  --color-app-copper-text: #2a1c08; /* dark ink on gold fills */
+  --color-app-gold-bright: #d29300; /* gold-bright — Pending Dates tile */
   --color-app-aqua: #56a0a8;
   --color-app-aqua-soft: #d2e6e7;
   --color-app-danger: #c14a37;
@@ -294,14 +301,58 @@ body {
 
 /* Partner app — Midnight Counsel — applies inside .app-shell */
 .app-shell {
+  /* Whole signed-in product is set in Bookman Old Style. Rather than touch
+     the hundreds of inline `var(--font-*)` references scattered across the
+     app, we re-point the three app font variables here — every heading,
+     body line and label then resolves to Bookman from this one place.
+     Bookman Old Style is a system face (true on Windows); the stack falls
+     back to a close serif (URW Bookman / Bookman / Georgia) elsewhere. */
+  --font-crimson: "Bookman Old Style", "URW Bookman", "Bookman",
+    "Bookman Old Style", Georgia, "Times New Roman", serif;
+  --font-manrope: "Bookman Old Style", "URW Bookman", "Bookman", Georgia,
+    "Times New Roman", serif;
+  --font-dm-mono: "Bookman Old Style", "URW Bookman", "Bookman", Georgia,
+    "Times New Roman", serif;
+
   background: var(--color-app-canvas);
   color: var(--color-app-fg);
-  font-family: var(--font-manrope), system-ui, -apple-system, sans-serif;
-  font-feature-settings: "ss01", "kern", "liga", "calt";
+  font-family: var(--font-manrope);
+  font-feature-settings: "kern", "liga";
 }
 
 .app-shell ::selection {
   background: var(--color-app-copper);
   color: var(--color-app-ink);
+}
+
+/* Sidebar nav scroll region. The default chrome scrollbar (visible on
+   short / zoomed viewports) reads as a heavy grey slab against the navy
+   rail; this slims it to a barely-there gold-tinted thumb that only
+   firms up on hover. Firefox uses the standard properties; WebKit/Blink
+   the pseudo-elements. */
+.app-sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(221, 176, 116, 0.28) transparent;
+}
+.app-sidebar-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.app-sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.app-sidebar-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(221, 176, 116, 0.22);
+  border-radius: 999px;
+}
+.app-sidebar-scroll:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(221, 176, 116, 0.4);
+}
+
+/* Inactive rail rows get a faint wash on hover so the menu feels alive
+   without competing with the active row. The active row sets its own
+   background inline, which (inline > stylesheet) keeps priority over
+   this rule, so hovering the active item doesn't dim it. */
+.app-nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.045);
 }
 

@@ -151,7 +151,7 @@ export default function Sidebar({
           short/zoomed viewports (and the admin's longer list) the menu
           scrolls here rather than spilling the bottom items + user card
           onto the page's cream background below the panel. */}
-      <nav className="min-h-0 flex-1 overflow-y-auto px-3">
+      <nav className="app-sidebar-scroll min-h-0 flex-1 overflow-y-auto px-3">
         {nav.map((item) => {
           const isActive =
             item.href === "/app"
@@ -163,14 +163,22 @@ export default function Sidebar({
             <Link
               key={item.name}
               href={item.href}
-              className="group relative mb-0.5 flex items-center gap-3 rounded-md px-3 py-2.5 text-[13px] font-medium transition-all"
+              aria-current={isActive ? "page" : undefined}
+              className="app-nav-link group relative mb-0.5 flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-colors"
               style={{
+                // Only the active row carries an inline background — inactive
+                // rows are left unset so the `.app-nav-link:hover` wash (a
+                // stylesheet rule) can take effect; an inline `transparent`
+                // here would outrank it and kill the hover feedback.
                 backgroundColor: isActive
                   ? "var(--color-app-ink-2)"
-                  : "transparent",
+                  : undefined,
                 color: isActive
                   ? "var(--color-app-copper-bright)"
                   : "var(--color-app-ivory-soft)",
+                boxShadow: isActive
+                  ? "inset 0 0 0 1px var(--color-app-ink-3)"
+                  : undefined,
                 fontFamily: "var(--font-manrope), sans-serif",
               }}
             >
@@ -333,20 +341,20 @@ function BrandMark() {
       aria-hidden
       className="shrink-0"
     >
-      {/* warm copper background */}
+      {/* gold-dark background */}
       <rect
         x="1"
         y="1"
         width="38"
         height="38"
         rx="6"
-        fill="#c5853a"
-        stroke="#8a5821"
+        fill="#ac7b33"
+        stroke="#8a5e1f"
         strokeWidth="0.5"
       />
       {/* scales of justice glyph */}
       <g
-        stroke="#0a1124"
+        stroke="#121d35"
         strokeWidth="1.6"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -355,8 +363,8 @@ function BrandMark() {
         <line x1="20" y1="9" x2="20" y2="30" />
         <line x1="13" y1="30" x2="27" y2="30" />
         <line x1="11" y1="14" x2="29" y2="14" />
-        <path d="M15 14 L11 22 a2 2 0 0 0 4 0 L11 14" fill="#0a1124" fillOpacity="0.15" />
-        <path d="M25 14 L29 22 a2 2 0 0 1 -4 0 L29 14" fill="#0a1124" fillOpacity="0.15" />
+        <path d="M15 14 L11 22 a2 2 0 0 0 4 0 L11 14" fill="#121d35" fillOpacity="0.15" />
+        <path d="M25 14 L29 22 a2 2 0 0 1 -4 0 L29 14" fill="#121d35" fillOpacity="0.15" />
       </g>
     </svg>
   );

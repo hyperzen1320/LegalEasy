@@ -10,11 +10,14 @@ import {
   type CaseColumnKey,
   type CaseFilters,
   type CaseRow,
+  type CaseViewMode,
   type CourtOption,
   type AdvocateOption,
 } from "./case-vault-types";
 import CaseToolBar from "./CaseToolBar";
 import CaseTable from "./CaseTable";
+import CaseCards from "./CaseCards";
+import { VaultFooter } from "./vault-shared";
 import RequestDeleteDialog, {
   type RequestTarget,
 } from "@/app/app/workflow/[id]/RequestDeleteDialog";
@@ -91,6 +94,34 @@ export default function CaseVaultClient({
       }
     },
     [visibilityKey]
+  );
+
+  // View mode (cards vs table), persisted per-partner just like the
+  // column choices. Cards is the default; the saved preference is read
+  // once on mount so a returning user lands back in their last view.
+  const viewKey = `legaleasy.caseVaultView.${bootstrap.partnerId}`;
+  const [viewMode, setViewMode] = useState<CaseViewMode>("cards");
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(viewKey);
+      if (raw === "cards" || raw === "table") setViewMode(raw);
+    } catch {
+      /* Corrupt entry — default (cards) stands. */
+    }
+  }, [viewKey]);
+
+  const handleViewModeChange = useCallback(
+    (next: CaseViewMode) => {
+      setViewMode(next);
+      if (typeof window === "undefined") return;
+      try {
+        window.localStorage.setItem(viewKey, next);
+      } catch {
+        /* localStorage disabled — accept ephemeral state. */
+      }
+    },
+    [viewKey]
   );
 
   // Fetched rows + meta + loading state.
@@ -241,8 +272,10 @@ export default function CaseVaultClient({
         bootstrap={bootstrap}
         appliedFilters={appliedFilters}
         visibleColumns={visibleColumns}
+        viewMode={viewMode}
         onApply={handleApply}
         onColumnsChange={handleColumnsChange}
+        onViewModeChange={handleViewModeChange}
       />
 
       {error ? (
@@ -275,13 +308,27 @@ export default function CaseVaultClient({
         </div>
       ) : null}
 
-      <CaseTable
-        rows={visibleRows}
+      {viewMode === "cards" ? (
+        <CaseCards
+          rows={visibleRows}
+          loading={loading}
+          appliedFilters={appliedFilters}
+          onDelete={handleDelete}
+        />
+      ) : (
+        <CaseTable
+          rows={visibleRows}
+          loading={loading}
+          visibleColumns={visibleColumns}
+          appliedFilters={appliedFilters}
+          onDelete={handleDelete}
+        />
+      )}
+
+      <VaultFooter
+        showing={visibleRows.length}
         total={total}
         loading={loading}
-        visibleColumns={visibleColumns}
-        appliedFilters={appliedFilters}
-        onDelete={handleDelete}
       />
 
       {requestTarget ? (

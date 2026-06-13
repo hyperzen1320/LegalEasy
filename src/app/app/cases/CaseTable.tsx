@@ -9,6 +9,7 @@ import {
   type CaseRow,
 } from "./case-vault-types";
 import CnrLink from "@/app/app/components/CnrLink";
+import { EmptyVault, hasAnyFilter } from "./vault-shared";
 
 // The main table. Renders one row per case with the visible-columns
 // subset, plus a sticky Actions column on the right. Rows are tabbable
@@ -19,14 +20,12 @@ import CnrLink from "@/app/app/components/CnrLink";
 
 export default function CaseTable({
   rows,
-  total,
   loading,
   visibleColumns,
   appliedFilters,
   onDelete,
 }: {
   rows: CaseRow[];
-  total: number;
   loading: boolean;
   visibleColumns: CaseColumnKey[];
   appliedFilters: CaseFilters;
@@ -40,17 +39,15 @@ export default function CaseTable({
     [visibleColumns]
   );
 
-  const showingCount = rows.length;
-
   return (
-    <div className="space-y-3">
-      <div
-        className="overflow-hidden rounded-xl"
-        style={{
-          backgroundColor: "var(--color-app-paper)",
-          boxShadow: "0 1px 0 var(--color-app-edge)",
-        }}
-      >
+    <div
+      className="overflow-hidden rounded-2xl"
+      style={{
+        backgroundColor: "var(--color-app-paper)",
+        boxShadow:
+          "0 1px 0 var(--color-app-edge), inset 0 0 0 1px var(--color-app-edge)",
+      }}
+    >
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>
@@ -105,59 +102,6 @@ export default function CaseTable({
           </table>
         </div>
       </div>
-
-      {/* Showing X of Y · status line. Sits below the table so the
-          table itself is undisturbed. The "X" reflects what's actually
-          rendered after optimistic hides; "Y" is the server-reported
-          total before any filters cap. */}
-      {!loading || rows.length > 0 ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 px-1">
-          <span
-            className="text-[11px]"
-            style={{
-              fontFamily: "var(--font-dm-mono), monospace",
-              color: "var(--color-app-fg-muted)",
-              letterSpacing: 0.3,
-            }}
-          >
-            Showing{" "}
-            <span
-              style={{ color: "var(--color-app-ink)", fontWeight: 600 }}
-            >
-              {showingCount}
-            </span>{" "}
-            of{" "}
-            <span
-              style={{ color: "var(--color-app-ink)", fontWeight: 600 }}
-            >
-              {total}
-            </span>{" "}
-            {total === 1 ? "matter" : "matters"}
-            {total > showingCount ? (
-              <span style={{ color: "var(--color-app-copper-deep)" }}>
-                {" "}
-                · raise the row limit above to see more
-              </span>
-            ) : null}
-          </span>
-          {loading && rows.length > 0 ? (
-            <span
-              className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.18em]"
-              style={{
-                fontFamily: "var(--font-dm-mono), monospace",
-                color: "var(--color-app-fg-muted)",
-              }}
-            >
-              <span
-                className="inline-block h-2 w-2 animate-pulse rounded-full"
-                style={{ backgroundColor: "var(--color-app-copper)" }}
-              />
-              Refreshing…
-            </span>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
   );
 }
 
@@ -448,57 +392,6 @@ function mono(text: string): React.ReactNode {
     >
       {text}
     </span>
-  );
-}
-
-function hasAnyFilter(f: CaseFilters): boolean {
-  return Boolean(
-    f.courtId || f.courtPlace || f.advocateId || f.fromDate || f.toDate || f.search
-  );
-}
-
-function EmptyVault({ hasFilters }: { hasFilters: boolean }) {
-  if (hasFilters) {
-    return (
-      <div>
-        <p
-          className="text-[14px]"
-          style={{
-            fontFamily: "var(--font-manrope), sans-serif",
-            color: "var(--color-app-fg-muted)",
-          }}
-        >
-          No matters match your current filters. Try widening the date range
-          or clearing a filter from the row above.
-        </p>
-      </div>
-    );
-  }
-  return (
-    <div>
-      <p
-        className="text-[16px] font-semibold"
-        style={{
-          fontFamily: "var(--font-crimson), Georgia, serif",
-          color: "var(--color-app-ink)",
-        }}
-      >
-        The vault is empty.
-      </p>
-      <p
-        className="mt-2 text-[13px]"
-        style={{
-          fontFamily: "var(--font-manrope), sans-serif",
-          color: "var(--color-app-fg-muted)",
-        }}
-      >
-        Tap{" "}
-        <span style={{ color: "var(--color-app-copper-deep)", fontWeight: 600 }}>
-          + New Case
-        </span>{" "}
-        above to file your first matter.
-      </p>
-    </div>
   );
 }
 
