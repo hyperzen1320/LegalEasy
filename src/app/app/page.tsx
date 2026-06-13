@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/db";
 import { Case } from "@/models/Case";
+import Logo from "@/components/Logo";
 
 export default async function PartnerDashboard() {
   const session = await auth();
@@ -149,28 +150,14 @@ function Hero({
         boxShadow: "0 18px 48px -28px rgba(18,29,53,0.55)",
       }}
     >
-      {/* Decorative scales SVG, large, low-opacity, copper */}
-      <svg
+      {/* Brand mark watermark, large + faint, top-right */}
+      <div
         aria-hidden
-        className="pointer-events-none absolute -right-10 -top-10 h-[420px] w-[420px]"
-        viewBox="0 0 200 200"
-        fill="none"
+        className="pointer-events-none absolute -right-4 -top-10"
+        style={{ opacity: 0.12 }}
       >
-        <g
-          stroke="var(--color-app-copper)"
-          strokeWidth="0.6"
-          strokeOpacity="0.18"
-          fill="none"
-        >
-          <line x1="100" y1="30" x2="100" y2="160" />
-          <line x1="60" y1="160" x2="140" y2="160" strokeWidth="1" />
-          <line x1="40" y1="65" x2="160" y2="65" strokeWidth="0.8" />
-          <path d="M55 65 L40 110 a5 5 0 0 0 30 0 L55 65 Z" />
-          <path d="M145 65 L130 110 a5 5 0 0 0 30 0 L145 65 Z" />
-          <circle cx="100" cy="30" r="2.5" fill="var(--color-app-copper)" fillOpacity="0.4" />
-          <circle cx="100" cy="100" r="80" strokeOpacity="0.06" />
-        </g>
-      </svg>
+        <Logo size={380} alt="" />
+      </div>
 
       {/* Eyebrow */}
       <div

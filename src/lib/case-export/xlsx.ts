@@ -2,9 +2,9 @@ import ExcelJS from "exceljs";
 import {
   type CaseExportInput,
   companyName,
-  companyInitials,
   valueFor,
 } from "./types";
+import { LOGO_PNG_BASE64 } from "./logo";
 
 // XLSX export. Two sheets would be overkill for a single report; we use
 // one sheet with a banded header block at the top (logo monogram +
@@ -55,6 +55,13 @@ export async function generateXlsx(input: CaseExportInput): Promise<Buffer> {
     const c = sheet.getColumn(i + 1);
     c.width = input.columns[i].width;
   }
+
+  // Brand mark — floated over the right end of the ink header band.
+  const logoId = wb.addImage({ base64: LOGO_PNG_BASE64, extension: "png" });
+  sheet.addImage(logoId, {
+    tl: { col: Math.max(0, numCols - 0.6), row: 0.12 },
+    ext: { width: 28, height: 58 },
+  });
 
   // Row 1 — company name, large. Merged across the table.
   const titleRow = sheet.addRow([companyName(input.partner)]);
@@ -114,7 +121,7 @@ export async function generateXlsx(input: CaseExportInput): Promise<Buffer> {
       day: "2-digit",
       month: "long",
       year: "numeric",
-    })}  ·  ${companyInitials(input.partner)}`,
+    })}`,
   ]);
   banner.height = 22;
   sheet.mergeCells(banner.number, 1, banner.number, numCols);
