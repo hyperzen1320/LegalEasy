@@ -81,7 +81,7 @@ export default function Header() {
             </span>
           </div>
           <Link
-            href="/login"
+            href="/product"
             className="px-6 py-3 text-[11.5px] uppercase tracking-[0.16em] transition-opacity hover:opacity-90"
             style={{
               fontFamily: inter,
@@ -90,7 +90,7 @@ export default function Header() {
               color: "#ffffff",
             }}
           >
-            Client Login
+            Client Diary
           </Link>
         </div>
 
