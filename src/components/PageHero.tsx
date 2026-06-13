@@ -1,6 +1,10 @@
 // Shared masthead for the company pages (About / Practicing Area / Services
-// / Contact). Keeps the editorial look — mono eyebrow with a brass rule, a
-// large display title, an optional lead — so every page opens the same way.
+// / Contact) — heritage theme: Playfair eyebrow rule + display title, Inter
+// lead, on the navy / gold / paper palette.
+
+const playfair = "var(--font-playfair), Georgia, serif";
+const inter = "var(--font-inter), system-ui, sans-serif";
+
 export default function PageHero({
   eyebrow,
   title,
@@ -13,25 +17,31 @@ export default function PageHero({
   children?: React.ReactNode;
 }) {
   return (
-    <section className="relative overflow-hidden border-b border-rule/40">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -right-40 -top-40 h-[460px] w-[460px] rounded-full opacity-[0.16]"
-        style={{
-          background:
-            "radial-gradient(closest-side, rgba(182,139,60,0.6), transparent 70%)",
-        }}
-      />
+    <section
+      className="relative overflow-hidden border-b"
+      style={{ borderColor: "var(--color-heritage-border)" }}
+    >
       <div className="relative mx-auto max-w-[1320px] px-6 py-20 md:px-10 md:py-28">
-        <div className="font-mono text-[11px] uppercase tracking-[0.22em] text-brass-deep">
-          <span className="mr-3 inline-block h-px w-8 bg-brass align-middle" />
+        <div
+          className="text-[12px] uppercase tracking-[0.24em]"
+          style={{ fontFamily: inter, color: "var(--color-heritage-gold-deep)" }}
+        >
           {eyebrow}
         </div>
-        <h1 className="mt-6 max-w-3xl font-display text-[44px] font-medium leading-[1.05] tracking-[-0.025em] text-ink md:text-[76px]">
+        <h1
+          className="mt-4 max-w-3xl text-[42px] leading-[1.06] tracking-[-0.01em] md:text-[68px]"
+          style={{ fontFamily: playfair, fontWeight: 500, color: "var(--color-heritage-navy)" }}
+        >
           {title}
         </h1>
         {lead ? (
-          <p className="mt-6 max-w-2xl font-body text-[18px] leading-8 text-ink-2">
+          <p
+            className="mt-6 max-w-2xl text-[18px] leading-8"
+            style={{
+              fontFamily: inter,
+              color: "color-mix(in oklch, var(--color-heritage-navy) 78%, white)",
+            }}
+          >
             {lead}
           </p>
         ) : null}
@@ -41,8 +51,8 @@ export default function PageHero({
   );
 }
 
-// A clearly-marked "drop your content here" block — so the scaffolded pages
-// look intentional, not broken, until the real copy lands.
+// A clearly-marked "drop your content here" block so scaffolded pages look
+// intentional until the real copy lands.
 export function PlaceholderBlock({
   label = "Content coming soon",
   lines = 3,
@@ -51,16 +61,25 @@ export function PlaceholderBlock({
   lines?: number;
 }) {
   return (
-    <div className="rounded-sm border border-dashed border-rule/70 bg-paper-2/40 p-6">
-      <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-brass-deep">
+    <div
+      className="bg-white p-6"
+      style={{ border: "1px dashed var(--color-heritage-border)" }}
+    >
+      <div
+        className="text-[10px] uppercase tracking-[0.22em]"
+        style={{ fontFamily: inter, color: "var(--color-heritage-gold-deep)" }}
+      >
         {label}
       </div>
       <div className="mt-4 space-y-2.5">
         {Array.from({ length: lines }).map((_, i) => (
           <div
             key={i}
-            className="h-3 rounded-sm bg-rule/30"
-            style={{ width: `${[92, 84, 70, 88, 60][i % 5]}%` }}
+            className="h-3 rounded-sm"
+            style={{
+              width: `${[92, 84, 70, 88, 60][i % 5]}%`,
+              backgroundColor: "color-mix(in oklch, var(--color-heritage-stone) 70%, white)",
+            }}
           />
         ))}
       </div>

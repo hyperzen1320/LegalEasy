@@ -8,8 +8,27 @@ import {
   Crimson_Pro,
   Manrope,
   DM_Mono,
+  Playfair_Display,
+  Inter,
 } from "next/font/google";
 import "./globals.css";
+
+// Company site (NAMBIRAJ) — heritage pairing: a high-contrast display serif
+// over a clean grotesque, matching the reference exactly.
+const playfair = Playfair_Display({
+  variable: "--font-playfair",
+  subsets: ["latin"],
+  style: ["normal", "italic"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
+
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  display: "swap",
+});
 
 const fraunces = Fraunces({
   variable: "--font-fraunces",
@@ -81,7 +100,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${fraunces.variable} ${newsreader.variable} ${jetbrainsMono.variable} ${plexSans.variable} ${plexMono.variable} ${crimsonPro.variable} ${manrope.variable} ${dmMono.variable} h-full antialiased`}
+      className={`${fraunces.variable} ${newsreader.variable} ${jetbrainsMono.variable} ${plexSans.variable} ${plexMono.variable} ${crimsonPro.variable} ${manrope.variable} ${dmMono.variable} ${playfair.variable} ${inter.variable} h-full antialiased`}
     >
       <body className="min-h-full">{children}</body>
     </html>
