@@ -33,15 +33,17 @@ export default {
       const isAuthed = !!auth?.user;
       const userType = auth?.user?.userType;
 
-      const isPublic =
-        pathname === "/" ||
-        pathname === "/login" ||
-        pathname === "/post-login" ||
-        pathname.startsWith("/forgot-password") ||
-        pathname.startsWith("/reset-password");
+      // Only the partner app and the global-admin console require a session.
+      // Everything else — the public marketing site (home, about, practising
+      // area, services, contact, product) and the auth screens — is open.
+      // This is deliberately the inverse of an allow-list: a newly added
+      // marketing page is public by default and can never be silently gated
+      // behind /login the way an omitted allow-list entry would be.
+      const isProtected =
+        pathname.startsWith("/app") || pathname.startsWith("/admin");
 
-      if (isPublic) {
-        // If already signed in and visiting /login, route to their home.
+      if (!isProtected) {
+        // A signed-in user has no reason to sit on the login screen.
         if (isAuthed && pathname === "/login") {
           const dest = userType === "global_admin" ? "/admin" : "/app";
           return Response.redirect(new URL(dest, request.url));
