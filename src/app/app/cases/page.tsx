@@ -7,6 +7,7 @@ import { User } from "@/models/User";
 import CaseVaultClient, {
   type CaseVaultBootstrap,
 } from "./CaseVaultClient";
+import ImportCasesButton from "./ImportCasesModal";
 
 // Server shell. Loads the static-ish dropdown data (courts + office
 // roster) up-front and hands the partner id to the client. All case
@@ -106,18 +107,21 @@ export default async function CaseVaultPage() {
             </p>
           </div>
 
-          <Link
-            href="/app/cases/new"
-            className="inline-flex items-center gap-2 rounded-md px-5 py-3 text-[13px] font-semibold transition-all hover:-translate-y-0.5"
-            style={{
-              fontFamily: "var(--font-manrope), sans-serif",
-              backgroundColor: "var(--color-app-copper)",
-              color: "var(--color-app-copper-text)",
-              boxShadow: "0 8px 20px -10px rgba(197,133,58,0.6)",
-            }}
-          >
-            <span>+</span> New Case
-          </Link>
+          <div className="flex items-center gap-2.5">
+            <ImportCasesButton />
+            <Link
+              href="/app/cases/new"
+              className="inline-flex items-center gap-2 rounded-md px-5 py-3 text-[13px] font-semibold transition-all hover:-translate-y-0.5"
+              style={{
+                fontFamily: "var(--font-manrope), sans-serif",
+                backgroundColor: "var(--color-app-copper)",
+                color: "var(--color-app-copper-text)",
+                boxShadow: "0 8px 20px -10px rgba(197,133,58,0.6)",
+              }}
+            >
+              <span>+</span> New Case
+            </Link>
+          </div>
         </div>
 
         <CaseVaultClient bootstrap={bootstrap} />
