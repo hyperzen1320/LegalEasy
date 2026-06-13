@@ -1,70 +1,143 @@
-import PageHero from "@/components/PageHero";
+import HeritageHero from "@/components/HeritageHero";
+import Reveal from "@/components/Reveal";
 import ContactForm from "./ContactForm";
 
+// NAMBIRAJ LAW DYNASTY — Contact. Navy masthead, then the office details on
+// the left and the inquiry form on the right, on the heritage palette.
+
 export const metadata = {
-  title: "Contact — LegalEasy",
-  description: "Get in touch with the chambers.",
+  title: "Contact Us — Nambiraj Law Dynasty",
+  description:
+    "Reach Nambiraj Law Dynasty in Krishnagiri — office address, phone, email and WhatsApp, or send an inquiry.",
 };
 
-// Office details — placeholders. Replace with the chambers' real address,
-// phone and hours.
-const DETAILS = [
-  { label: "Email", value: "chambers@legaleasy.in" },
-  { label: "Phone", value: "+91 00000 00000" },
-  { label: "Chambers", value: "Your address, line one" },
-  { label: "", value: "City · State · PIN" },
-  { label: "Hours", value: "Mon – Sat · 10:00 – 18:00" },
-];
+const playfair = "var(--font-playfair), Georgia, serif";
+const inter = "var(--font-inter), system-ui, sans-serif";
+
+const WHATSAPP_HREF =
+  "https://wa.me/919353704141?text=" +
+  encodeURIComponent("Hello, I would like to inquire about your legal services.");
 
 export default function ContactPage() {
   return (
     <>
-      <PageHero
-        eyebrow="Contact"
-        title="Get in touch."
-        lead="Reach the chambers with the details below, or send a note and we'll respond. Replace the contact details with your own."
-      />
+      <HeritageHero eyebrow="Get in Touch" title="Contact Us" />
 
-      <section className="mx-auto max-w-[1320px] px-6 py-20 md:px-10 md:py-24">
-        <div className="grid gap-12 md:grid-cols-12 md:gap-16">
-          {/* Details */}
-          <div className="md:col-span-5">
-            <div className="font-mono text-[11px] uppercase tracking-[0.22em] text-brass-deep">
-              The chambers
+      <section
+        style={{
+          backgroundColor:
+            "color-mix(in oklch, var(--color-heritage-stone) 35%, white)",
+        }}
+      >
+        <div className="mx-auto max-w-[1320px] px-6 py-16 md:px-10 md:py-24">
+          <div className="grid gap-12 md:grid-cols-12 md:gap-16">
+            {/* Office details */}
+            <div className="md:col-span-5">
+              <Reveal>
+                <h2
+                  className="text-[30px] tracking-[-0.01em] md:text-[36px]"
+                  style={{
+                    fontFamily: playfair,
+                    color: "var(--color-heritage-navy)",
+                  }}
+                >
+                  Office
+                </h2>
+
+                <dl className="mt-10 space-y-8">
+                  <Detail label="Address">
+                    Nambiraj Law Dynasty LLP.,
+                    <br />
+                    H-14, T.N.H.B. Colony, 2nd Phase,
+                    <br />
+                    Krishnagiri - 635 002
+                  </Detail>
+
+                  <Detail label="Email">
+                    <a
+                      href="mailto:nambirajlawdynasty@gmail.com"
+                      className="transition-colors hover:text-[var(--color-heritage-gold-deep)]"
+                    >
+                      nambirajlawdynasty@gmail.com
+                    </a>
+                  </Detail>
+
+                  <Detail label="Phone">
+                    <a
+                      href="tel:+919353704141"
+                      className="transition-colors hover:text-[var(--color-heritage-gold-deep)]"
+                    >
+                      +91 93537 04141
+                    </a>
+                    <br />
+                    <a
+                      href="tel:+916369504141"
+                      className="transition-colors hover:text-[var(--color-heritage-gold-deep)]"
+                    >
+                      +91 63695 04141
+                    </a>
+                  </Detail>
+
+                  <Detail label="WhatsApp">
+                    <a
+                      href={WHATSAPP_HREF}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 transition-opacity hover:opacity-80"
+                      style={{ color: "#1f9d55" }}
+                    >
+                      Chat with us on WhatsApp
+                      <span aria-hidden>→</span>
+                    </a>
+                  </Detail>
+
+                  <Detail label="Hours">Mon — Sat · 10:00 to 18:30</Detail>
+                </dl>
+              </Reveal>
             </div>
-            <dl className="mt-8 space-y-6">
-              {DETAILS.map((d, i) => (
-                <div key={i} className="border-b border-rule/40 pb-4">
-                  {d.label ? (
-                    <dt className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-soft">
-                      {d.label}
-                    </dt>
-                  ) : null}
-                  <dd className="mt-1 font-body text-[17px] text-ink">
-                    {d.value}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </div>
 
-          {/* Form */}
-          <div className="md:col-span-7">
-            <div className="border border-rule/60 bg-paper-2/30 p-8 md:p-10">
-              <h2 className="font-display text-[28px] leading-tight tracking-[-0.01em] text-ink">
-                Send a message
-              </h2>
-              <p className="mt-2 font-body text-[14px] leading-7 text-ink-soft">
-                This opens your email app, pre-filled. Wire it to a proper
-                endpoint whenever you&rsquo;re ready.
-              </p>
-              <div className="mt-8">
-                <ContactForm />
-              </div>
+            {/* Inquiry form */}
+            <div className="md:col-span-7">
+              <Reveal delay={0.08}>
+                <div
+                  className="border bg-white p-7 md:p-10"
+                  style={{
+                    borderColor: "var(--color-heritage-border)",
+                    boxShadow: "0 30px 60px -40px rgba(10,16,28,0.4)",
+                  }}
+                >
+                  <ContactForm />
+                </div>
+              </Reveal>
             </div>
           </div>
         </div>
       </section>
     </>
+  );
+}
+
+function Detail({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <dt
+        className="text-[11px] font-semibold uppercase tracking-[0.18em]"
+        style={{ fontFamily: inter, color: "var(--color-heritage-gold-deep)" }}
+      >
+        {label}
+      </dt>
+      <dd
+        className="mt-2 text-[16px] leading-7"
+        style={{ fontFamily: inter, color: "var(--color-heritage-navy)" }}
+      >
+        {children}
+      </dd>
+    </div>
   );
 }

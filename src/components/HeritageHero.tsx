@@ -12,7 +12,7 @@ export default function HeritageHero({
 }: {
   eyebrow: string;
   title: string;
-  lead: string;
+  lead?: string;
 }) {
   return (
     <section style={{ backgroundColor: "var(--color-heritage-navy)" }}>
@@ -29,12 +29,14 @@ export default function HeritageHero({
         >
           {title}
         </h1>
-        <p
-          className="mt-7 max-w-2xl text-[17px] leading-8 text-white/75"
-          style={{ fontFamily: inter }}
-        >
-          {lead}
-        </p>
+        {lead ? (
+          <p
+            className="mt-7 max-w-2xl text-[17px] leading-8 text-white/75"
+            style={{ fontFamily: inter }}
+          >
+            {lead}
+          </p>
+        ) : null}
       </div>
     </section>
   );

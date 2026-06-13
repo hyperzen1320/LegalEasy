@@ -9,6 +9,7 @@ export const NAV = [
   { name: "About Us", href: "/about" },
   { name: "Practicing Area", href: "/practicing-area" },
   { name: "Services", href: "/services" },
+  { name: "Our Team", href: "/our-team" },
   { name: "Contact", href: "/contact" },
 ];
 
@@ -46,7 +47,7 @@ export default function Header() {
         </Link>
 
         {/* Centre nav */}
-        <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-9 md:flex">
+        <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-6 md:flex lg:gap-8">
           {NAV.map((item) => (
             <Link
               key={item.name}
