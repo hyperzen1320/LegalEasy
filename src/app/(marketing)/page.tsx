@@ -233,27 +233,22 @@ function PracticingAreas() {
           {AREAS.map((a) => (
             <div
               key={a.name}
-              className="bg-white p-8"
-              style={{ border: "1px solid var(--color-heritage-border)" }}
+              className="group border border-[var(--color-heritage-border)] bg-white p-8 transition-[background-color,border-color,box-shadow,transform] duration-300 ease-out hover:-translate-y-1 hover:border-[var(--color-heritage-navy)] hover:bg-[var(--color-heritage-navy)] hover:shadow-[0_34px_60px_-32px_rgba(10,16,28,0.55)]"
             >
               <div
-                className="flex h-12 w-12 items-center justify-center"
-                style={{
-                  backgroundColor: "color-mix(in oklch, var(--color-heritage-gold) 20%, white)",
-                  color: GOLD_DEEP,
-                }}
+                className="flex h-12 w-12 items-center justify-center bg-[color-mix(in_oklch,var(--color-heritage-gold)_20%,white)] text-[var(--color-heritage-gold-deep)] transition-colors duration-300 group-hover:bg-[var(--color-heritage-gold)] group-hover:text-[var(--color-heritage-navy)]"
               >
                 {a.icon}
               </div>
               <h3
-                className="mt-6 text-[24px] tracking-[-0.01em]"
-                style={{ fontFamily: playfair, color: NAVY }}
+                className="mt-6 text-[24px] tracking-[-0.01em] text-[var(--color-heritage-navy)] transition-colors duration-300 group-hover:text-white"
+                style={{ fontFamily: playfair }}
               >
                 {a.name}
               </h3>
               <p
-                className="mt-3 text-[15px] leading-7"
-                style={{ fontFamily: inter, color: "color-mix(in oklch, var(--color-heritage-navy) 70%, white)" }}
+                className="mt-3 text-[15px] leading-7 text-[var(--color-heritage-muted)] transition-colors duration-300 group-hover:text-white/75"
+                style={{ fontFamily: inter }}
               >
                 {a.blurb}
               </p>
