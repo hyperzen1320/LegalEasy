@@ -82,6 +82,16 @@ export async function GET(
   const url = new URL(request.url);
   const asAttachment = url.searchParams.get("download") === "1";
 
+  // Downloading the raw file is office-admin only. Everyone else can still
+  // view inline (the in-app viewer renders the bytes with a watermark and
+  // no save button), but a forced "save to disk" is gated.
+  if (asAttachment && guard.ctx.user.role !== "admin") {
+    return NextResponse.json(
+      { error: "Only the office admin can download documents." },
+      { status: 403, headers: guard.ctx.isMobile ? corsHeaders() : undefined }
+    );
+  }
+
   const nodeStream = bucket.openDownloadStream(doc.gridfsId);
   const webStream = Readable.toWeb(
     nodeStream

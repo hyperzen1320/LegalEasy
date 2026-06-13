@@ -454,6 +454,10 @@ export default async function CaseDetailPage({
             caseId={String(c._id)}
             initialDocs={clientDocs}
             isAdmin={isAdmin}
+            viewerLabel={
+              `${session.user.firstName ?? ""} ${session.user.lastName ?? ""}`.trim() +
+              (session.user.email ? ` · ${session.user.email}` : "")
+            }
           />
         </section>
 
