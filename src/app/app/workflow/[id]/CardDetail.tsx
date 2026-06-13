@@ -235,17 +235,19 @@ export default function CardDetail({
 
   return (
     <div
-      className="fixed inset-0 z-40 flex justify-end"
+      className="fixed inset-0 z-40 flex items-center justify-center p-4"
       style={{ backgroundColor: "rgba(10,17,36,0.45)" }}
       onClick={onClose}
     >
       <aside
         onClick={(e) => e.stopPropagation()}
-        className="fade-up-sm h-full w-full max-w-[640px] overflow-y-auto"
+        role="dialog"
+        aria-modal="true"
+        className="fade-up-sm max-h-[90vh] w-full max-w-[680px] overflow-y-auto rounded-2xl"
         style={{
           backgroundColor: "var(--color-app-canvas)",
-          boxShadow: "-12px 0 32px -8px rgba(10,17,36,0.20)",
-          animationDuration: "260ms",
+          boxShadow: "0 32px 64px -24px rgba(10,17,36,0.5)",
+          animationDuration: "220ms",
         }}
       >
         {loading ? (
@@ -572,23 +574,27 @@ function ListPicker({
   return (
     <div>
       <label
-        className="text-[10px] font-semibold uppercase tracking-[0.18em]"
+        className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em]"
         style={{
           fontFamily: "var(--font-dm-mono), monospace",
-          color: "var(--color-app-fg-muted)",
+          color: "var(--color-app-copper-deep)",
         }}
       >
-        List
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        Move to list
       </label>
       <div className="relative mt-2">
         <select
           value={value}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
-          className="block w-full appearance-none rounded-md border px-3 py-2 text-[13px] outline-none transition-colors"
+          aria-label="Move card to list"
+          className="block w-full cursor-pointer appearance-none rounded-md border px-3 py-2 text-[13px] outline-none transition-colors"
           style={{
             fontFamily: "var(--font-manrope), sans-serif",
-            borderColor: "var(--color-app-edge)",
+            borderColor: "var(--color-app-copper)",
             backgroundColor: "var(--color-app-paper)",
             color: "var(--color-app-ink)",
             paddingRight: 32,

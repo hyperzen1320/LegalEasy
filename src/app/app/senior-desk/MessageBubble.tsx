@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ChatAttachment, ChatMessageDTO } from "@/lib/use-chat-room";
 import { formatBytes } from "@/lib/case-docs";
+import ImageLightbox from "./ImageLightbox";
 
 // Single message row. Renders sender info + body, plus a hover-revealed
 // "…" menu on the user's own messages for edit / delete. The bubble
@@ -303,21 +304,30 @@ function AttachmentList({
   isMine: boolean;
   hasBody: boolean;
 }) {
+  const [lightbox, setLightbox] = useState<{ src: string; filename: string } | null>(
+    null
+  );
   return (
     <div className={`flex flex-col gap-2 ${hasBody ? "mt-2" : ""}`}>
       {attachments.map((a) => {
         const url = `/api/app/chat/attachments/${a.id}`;
         if (isImageAtt(a)) {
           return (
-            <a key={a.id} href={url} target="_blank" rel="noreferrer" className="block">
+            <button
+              key={a.id}
+              type="button"
+              onClick={() => setLightbox({ src: url, filename: a.filename })}
+              className="block overflow-hidden rounded-lg"
+              style={{ cursor: "pointer", padding: 0, border: "none", background: "none" }}
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={url}
                 alt={a.filename}
-                className="block max-h-64 max-w-full rounded-lg"
+                className="block max-h-64 max-w-full"
                 style={{ objectFit: "cover" }}
               />
-            </a>
+            </button>
           );
         }
         return (
@@ -347,6 +357,13 @@ function AttachmentList({
           </a>
         );
       })}
+      {lightbox ? (
+        <ImageLightbox
+          src={lightbox.src}
+          filename={lightbox.filename}
+          onClose={() => setLightbox(null)}
+        />
+      ) : null}
     </div>
   );
 }
