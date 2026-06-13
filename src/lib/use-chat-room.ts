@@ -25,6 +25,13 @@ import {
 } from "react";
 import { publishLocal, subscribeLocal } from "@/lib/broadcast-channel";
 
+export type ChatAttachment = {
+  id: string;
+  filename: string;
+  contentType: string;
+  size: number;
+};
+
 export type ChatMessageDTO = {
   id: string;
   roomId: string;
@@ -32,6 +39,7 @@ export type ChatMessageDTO = {
   senderName: string;
   senderRole: string;
   body: string;
+  attachments?: ChatAttachment[];
   type: "text" | "system";
   isDeleted: boolean;
   editedAt: string | null;
@@ -62,7 +70,7 @@ export function useChatRoom(
   roomId: string | null,
   partnerId: string | null
 ): State & {
-  send: (body: string) => Promise<boolean>;
+  send: (body: string, attachments?: ChatAttachment[]) => Promise<boolean>;
   loadOlder: () => Promise<void>;
   markRead: () => Promise<void>;
   editMessage: (id: string, body: string) => Promise<boolean>;
@@ -242,10 +250,10 @@ export function useChatRoom(
   }, [roomId, loadingOlder]);
 
   const send = useCallback(
-    async (body: string): Promise<boolean> => {
+    async (body: string, attachments: ChatAttachment[] = []): Promise<boolean> => {
       if (!roomId) return false;
       const trimmed = body.trim();
-      if (!trimmed) return false;
+      if (!trimmed && attachments.length === 0) return false;
       if (trimmed.length > MAX_BODY) {
         setError(`Messages can be at most ${MAX_BODY} characters.`);
         return false;
@@ -260,6 +268,7 @@ export function useChatRoom(
         senderName: "You",
         senderRole: "",
         body: trimmed,
+        attachments,
         type: "text",
         isDeleted: false,
         editedAt: null,
@@ -274,7 +283,7 @@ export function useChatRoom(
         const res = await fetch(`/api/app/chat/rooms/${roomId}/messages`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ body: trimmed }),
+          body: JSON.stringify({ body: trimmed, attachments }),
         });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));

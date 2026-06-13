@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ChatMessageDTO } from "@/lib/use-chat-room";
+import type { ChatAttachment, ChatMessageDTO } from "@/lib/use-chat-room";
+import { formatBytes } from "@/lib/case-docs";
 
 // Single message row. Renders sender info + body, plus a hover-revealed
 // "…" menu on the user's own messages for edit / delete. The bubble
@@ -165,20 +166,34 @@ export default function MessageBubble({
                 </button>
               </div>
             </div>
-          ) : (
+          ) : message.isDeleted ? (
             <div
               className="whitespace-pre-wrap text-[13.5px] leading-[1.55]"
-              style={{
-                fontFamily: "var(--font-manrope), sans-serif",
-                wordBreak: "break-word",
-              }}
+              style={{ fontFamily: "var(--font-manrope), sans-serif" }}
             >
-              {message.isDeleted ? (
-                <span className="italic">Message removed</span>
-              ) : (
-                message.body
-              )}
+              <span className="italic">Message removed</span>
             </div>
+          ) : (
+            <>
+              {message.body ? (
+                <div
+                  className="whitespace-pre-wrap text-[13.5px] leading-[1.55]"
+                  style={{
+                    fontFamily: "var(--font-manrope), sans-serif",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {message.body}
+                </div>
+              ) : null}
+              {message.attachments && message.attachments.length > 0 ? (
+                <AttachmentList
+                  attachments={message.attachments}
+                  isMine={isMine}
+                  hasBody={Boolean(message.body)}
+                />
+              ) : null}
+            </>
           )}
         </div>
 
@@ -276,6 +291,105 @@ export default function MessageBubble({
         </div>
       ) : null}
     </div>
+  );
+}
+
+function AttachmentList({
+  attachments,
+  isMine,
+  hasBody,
+}: {
+  attachments: ChatAttachment[];
+  isMine: boolean;
+  hasBody: boolean;
+}) {
+  return (
+    <div className={`flex flex-col gap-2 ${hasBody ? "mt-2" : ""}`}>
+      {attachments.map((a) => {
+        const url = `/api/app/chat/attachments/${a.id}`;
+        if (isImageAtt(a)) {
+          return (
+            <a key={a.id} href={url} target="_blank" rel="noreferrer" className="block">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={url}
+                alt={a.filename}
+                className="block max-h-64 max-w-full rounded-lg"
+                style={{ objectFit: "cover" }}
+              />
+            </a>
+          );
+        }
+        return (
+          <a
+            key={a.id}
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2.5 rounded-lg px-3 py-2 text-[12.5px] transition-opacity hover:opacity-90"
+            style={{
+              fontFamily: "var(--font-manrope), sans-serif",
+              backgroundColor: isMine ? "rgba(245,235,214,0.12)" : "var(--color-app-canvas-2)",
+              color: isMine ? "var(--color-app-ivory)" : "var(--color-app-ink)",
+              border: isMine
+                ? "1px solid rgba(245,235,214,0.18)"
+                : "1px solid var(--color-app-edge)",
+            }}
+          >
+            <FileGlyph />
+            <span className="min-w-0">
+              <span className="block max-w-[200px] truncate font-semibold">{a.filename}</span>
+              <span className="block text-[10.5px]" style={{ opacity: 0.7 }}>
+                {formatBytes(a.size)}
+              </span>
+            </span>
+            <DownloadGlyph />
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
+function isImageAtt(a: ChatAttachment): boolean {
+  return (
+    (a.contentType || "").startsWith("image/") ||
+    /\.(jpg|jpeg|png|gif|webp|bmp|heic|heif)$/i.test(a.filename)
+  );
+}
+
+function FileGlyph() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden style={{ flexShrink: 0 }}>
+      <path
+        d="M7 3h7l4 4v14H7z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <path d="M14 3v4h4" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function DownloadGlyph() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+      style={{ flexShrink: 0, marginLeft: "auto", opacity: 0.7 }}
+    >
+      <path
+        d="M12 4v11m0 0l-4-4m4 4l4-4M5 19h14"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
