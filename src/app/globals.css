@@ -96,6 +96,17 @@ body {
   color: var(--color-ink);
 }
 
+/* Keep in-page anchor jumps (e.g. the product nav: Cabinet / A Day / Press /
+   Prospectus) clear of the sticky headers. */
+html {
+  scroll-padding-top: 5.5rem;
+}
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
 body {
   font-family: var(--font-newsreader), Georgia, "Times New Roman", serif;
   font-feature-settings: "kern", "liga", "calt";
