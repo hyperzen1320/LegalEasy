@@ -145,7 +145,8 @@ function Hero({
     <section
       className="fade-up-sm relative overflow-hidden rounded-2xl px-6 py-8 sm:px-10 sm:py-12"
       style={{
-        background: `linear-gradient(135deg, var(--color-app-ink) 0%, var(--color-app-ink-2) 100%)`,
+        background: `linear-gradient(135deg, var(--color-app-ink-2) 0%, var(--color-app-ink) 100%)`,
+        boxShadow: "0 18px 48px -28px rgba(18,29,53,0.55)",
       }}
     >
       {/* Decorative scales SVG, large, low-opacity, copper */}
@@ -274,7 +275,7 @@ function StatsRow({
       <StatCard
         label="Pending Dates"
         value={stats.pendingDates}
-        variant="copper"
+        variant="gold-bright"
         href="/app/cases"
         icon={<IconAlert />}
         delay={0.15}
@@ -301,43 +302,60 @@ function StatCard({
 }: {
   label: string;
   value: number;
-  variant: "copper" | "ink" | "paper";
+  variant: "copper" | "gold-bright" | "ink" | "paper";
   href: string;
   icon: React.ReactNode;
   delay: number;
 }) {
   const styles = {
+    // Today Hearings — gold-dark.
     copper: {
       bg: "var(--color-app-copper)",
       text: "var(--color-app-copper-text)",
       label: "var(--color-app-copper-text)",
       iconBg: "rgba(0,0,0,0.12)",
+      ring: "transparent",
+      shadow: "0 10px 28px -14px rgba(172,123,51,0.6)",
     },
+    // Pending Dates — gold-bright, the brighter amber that sets it apart
+    // from Today at a glance.
+    "gold-bright": {
+      bg: "var(--color-app-gold-bright)",
+      text: "var(--color-app-copper-text)",
+      label: "var(--color-app-copper-text)",
+      iconBg: "rgba(0,0,0,0.13)",
+      ring: "transparent",
+      shadow: "0 10px 28px -14px rgba(210,147,0,0.6)",
+    },
+    // Tomorrow Hearings — primary-navy.
     ink: {
       bg: "var(--color-app-ink)",
       text: "var(--color-app-ivory)",
       label: "var(--color-app-copper-bright)",
-      iconBg: "rgba(255,255,255,0.07)",
+      iconBg: "rgba(255,255,255,0.08)",
+      ring: "transparent",
+      shadow: "0 12px 30px -14px rgba(18,29,53,0.55)",
     },
+    // Case Vault — card-white, the one light tile; a hairline ring keeps
+    // it defined against the cream canvas.
     paper: {
       bg: "var(--color-app-paper)",
       text: "var(--color-app-ink)",
       label: "var(--color-app-fg-muted)",
       iconBg: "var(--color-app-canvas-2)",
+      ring: "var(--color-app-edge)",
+      shadow: "0 10px 26px -18px rgba(18,29,53,0.28)",
     },
   }[variant];
 
   return (
     <Link
       href={href}
-      className="fade-up-sm group relative flex flex-col rounded-xl p-6 transition-transform hover:-translate-y-0.5"
+      className="fade-up-sm group relative flex flex-col rounded-2xl p-6 transition-transform hover:-translate-y-0.5"
       style={{
         backgroundColor: styles.bg,
         animationDelay: `${delay}s`,
-        boxShadow:
-          variant === "paper"
-            ? "0 1px 0 var(--color-app-edge)"
-            : "0 8px 24px -12px rgba(10,17,36,0.35)",
+        boxShadow: `${styles.shadow}, inset 0 0 0 1px ${styles.ring}`,
       }}
     >
       {/* Icon */}
@@ -455,12 +473,13 @@ function PhaseCard({
   );
 
   const className =
-    "fade-up-sm flex items-center gap-4 rounded-xl p-5 transition-[transform,box-shadow] duration-200 ease-out" +
+    "fade-up-sm flex items-center gap-4 rounded-2xl p-5 transition-[transform,box-shadow] duration-200 ease-out" +
     (href ? " hover:-translate-y-0.5" : "");
 
   const style: React.CSSProperties = {
     backgroundColor: "var(--color-app-paper)",
-    boxShadow: "0 1px 0 var(--color-app-edge)",
+    boxShadow:
+      "0 10px 26px -18px rgba(18,29,53,0.28), inset 0 0 0 1px var(--color-app-edge)",
   };
 
   if (href) {

@@ -7,6 +7,7 @@ import {
   LIMIT_OPTIONS,
   type CaseColumnKey,
   type CaseFilters,
+  type CaseViewMode,
 } from "./case-vault-types";
 import ColumnVisibilityMenu from "./ColumnVisibilityMenu";
 import ExportMenu from "./ExportMenu";
@@ -32,14 +33,18 @@ export default function CaseToolBar({
   bootstrap,
   appliedFilters,
   visibleColumns,
+  viewMode,
   onApply,
   onColumnsChange,
+  onViewModeChange,
 }: {
   bootstrap: CaseVaultBootstrap;
   appliedFilters: CaseFilters;
   visibleColumns: CaseColumnKey[];
+  viewMode: CaseViewMode;
   onApply: (next: CaseFilters) => void;
   onColumnsChange: (next: CaseColumnKey[]) => void;
+  onViewModeChange: (next: CaseViewMode) => void;
 }) {
   // Draft holds the structural filters (top row) while the user is
   // composing — flushes on Apply. Search / limit are committed
@@ -300,10 +305,18 @@ export default function CaseToolBar({
             </span>
           </div>
 
-          <ColumnVisibilityMenu
-            visible={visibleColumns}
-            onChange={onColumnsChange}
-          />
+          <ViewToggle value={viewMode} onChange={onViewModeChange} />
+
+          {/* The column picker drives the table layout AND the export
+              field set. In Cards view it only affects export, so we keep
+              it for admins (who can export) but drop it for everyone else
+              to avoid a control that would do nothing. */}
+          {viewMode === "table" || bootstrap.isAdmin ? (
+            <ColumnVisibilityMenu
+              visible={visibleColumns}
+              onChange={onColumnsChange}
+            />
+          ) : null}
           {/* Export is office-admin only — the endpoint 403s anyone else,
               so there's no point showing the menu to them. */}
           {bootstrap.isAdmin ? (
@@ -435,6 +448,120 @@ function stripStructural(draft: CaseFilters) {
     fromDate: draft.fromDate,
     toDate: draft.toDate,
   };
+}
+
+// Cards | Table segmented control. The active segment fills gold; the
+// idle one stays quiet so the pair reads as one control, not two buttons.
+function ViewToggle({
+  value,
+  onChange,
+}: {
+  value: CaseViewMode;
+  onChange: (next: CaseViewMode) => void;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label="Case Vault layout"
+      className="inline-flex items-center gap-0.5 rounded-md border p-0.5"
+      style={{
+        borderColor: "var(--color-app-edge)",
+        backgroundColor: "var(--color-app-paper)",
+      }}
+    >
+      <ViewToggleButton
+        active={value === "cards"}
+        onClick={() => onChange("cards")}
+        label="Cards"
+      >
+        <CardsIcon />
+      </ViewToggleButton>
+      <ViewToggleButton
+        active={value === "table"}
+        onClick={() => onChange("table")}
+        label="Table"
+      >
+        <TableIcon />
+      </ViewToggleButton>
+    </div>
+  );
+}
+
+function ViewToggleButton({
+  active,
+  onClick,
+  label,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className="inline-flex h-8 items-center gap-1.5 rounded px-2.5 text-[12px] font-semibold transition-colors"
+      style={{
+        fontFamily: "var(--font-manrope), sans-serif",
+        backgroundColor: active ? "var(--color-app-copper)" : "transparent",
+        color: active
+          ? "var(--color-app-copper-text)"
+          : "var(--color-app-fg-muted)",
+      }}
+    >
+      {children}
+      {label}
+    </button>
+  );
+}
+
+function CardsIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect
+        x="3"
+        y="4"
+        width="18"
+        height="7"
+        rx="1.5"
+        stroke="currentColor"
+        strokeWidth="1.7"
+      />
+      <rect
+        x="3"
+        y="13"
+        width="18"
+        height="7"
+        rx="1.5"
+        stroke="currentColor"
+        strokeWidth="1.7"
+      />
+    </svg>
+  );
+}
+
+function TableIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect
+        x="3"
+        y="4"
+        width="18"
+        height="16"
+        rx="1.5"
+        stroke="currentColor"
+        strokeWidth="1.7"
+      />
+      <path
+        d="M3 9.5h18M9 9.5V20"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+    </svg>
+  );
 }
 
 function ChevronDown() {

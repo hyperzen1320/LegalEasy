@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import RequestDeleteDialog from "@/app/app/workflow/[id]/RequestDeleteDialog";
+import WhatsAppIcon from "@/app/app/components/WhatsAppIcon";
 
 export type ClientRow = {
   id: string;
@@ -669,10 +670,10 @@ function ContactButton({
         }
       : variant === "whatsapp"
         ? {
-            backgroundColor: "#25d366",
-            color: "#0b3d22",
+            backgroundColor: "#1faa4f",
+            color: "#ffffff",
             border: "1px solid transparent",
-            boxShadow: "0 6px 16px -10px rgba(37,211,102,0.55)",
+            boxShadow: "0 6px 16px -10px rgba(31,170,79,0.55)",
           }
         : {
             backgroundColor: "var(--color-app-paper)",
@@ -1017,14 +1018,6 @@ function PhoneIcon() {
         strokeWidth="1.6"
         strokeLinejoin="round"
       />
-    </svg>
-  );
-}
-
-function WhatsAppIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M20.5 3.5A11 11 0 0 0 3 16.7L1.5 22l5.4-1.4A11 11 0 1 0 20.5 3.5zM12 20a8 8 0 0 1-4-1.1l-.3-.2-3.2.8.9-3.1-.2-.3A8 8 0 1 1 12 20zm4.5-6c-.2-.1-1.4-.7-1.6-.8s-.4-.1-.5.1-.6.8-.7.9-.3.1-.5 0a6.6 6.6 0 0 1-3.3-2.9c-.2-.4.2-.4.6-1.2 0-.2 0-.3 0-.4l-.7-1.7c-.2-.4-.4-.4-.5-.4h-.5c-.2 0-.4.1-.6.3a2.7 2.7 0 0 0-.9 2c0 1.2.9 2.4 1 2.5s1.7 2.6 4.1 3.6a14 14 0 0 0 1.4.5 3.4 3.4 0 0 0 1.5.1c.5-.1 1.4-.6 1.6-1.1s.2-1 .1-1.1z" />
     </svg>
   );
 }
