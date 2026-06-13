@@ -1,138 +1,338 @@
 import Link from "next/link";
-import Logo from "@/components/Logo";
+import Image from "next/image";
 
-// Company Home. A scaffold in the house editorial style — hero, a short
-// intro, teaser cards into the company pages, a nod to the product, and a
-// closing call to action. Copy is placeholder; drop the real words in.
+// NAMBIRAJ LAW DYNASTY — company home, a close replica of the reference:
+// hero over the library photo, the "Phenomenon" split, the practising-areas
+// trio, and the modern-environment split. Playfair Display + Inter on the
+// heritage navy / gold / paper palette.
 
 export const metadata = {
-  title: "LegalEasy — Counsel, in order.",
+  title: "Nambiraj Law Dynasty — Justice is our lineage",
   description:
-    "An advocate's chambers, set in order — and the software that keeps it that way.",
+    "Continuing the legacy of Mr. C. Nambiraj — timeless ethical values with modern legal infrastructure.",
 };
 
-const PAGES = [
-  {
-    name: "About Us",
-    href: "/about",
-    blurb: "Who we are, the bench we keep, and the standard we hold.",
-  },
-  {
-    name: "Practicing Area",
-    href: "/practicing-area",
-    blurb: "The matters we take up and the courts we appear before.",
-  },
-  {
-    name: "Services",
-    href: "/services",
-    blurb: "How we work a brief — from first consultation to final order.",
-  },
-];
+const playfair = "var(--font-playfair), Georgia, serif";
+const inter = "var(--font-inter), system-ui, sans-serif";
+const NAVY = "var(--color-heritage-navy)";
+const GOLD = "var(--color-heritage-gold)";
+const GOLD_DEEP = "var(--color-heritage-gold-deep)";
+const PAPER = "var(--color-heritage-paper)";
 
 export default function Home() {
   return (
     <>
-      {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-40 -top-40 h-[560px] w-[560px] rounded-full opacity-[0.18]"
-          style={{
-            background:
-              "radial-gradient(closest-side, rgba(182,139,60,0.6), transparent 70%)",
-          }}
-        />
-        <div className="relative mx-auto max-w-[1320px] px-6 py-24 md:px-10 md:py-32">
-          <div className="grid items-center gap-12 md:grid-cols-12 md:gap-16">
-            <div className="md:col-span-7">
-              <div className="font-mono text-[11px] uppercase tracking-[0.22em] text-brass-deep">
-                <span className="mr-3 inline-block h-px w-8 bg-brass align-middle" />
-                Advocate Chambers · Est. MMXXVI
-              </div>
-              <h1 className="mt-6 font-display text-[52px] font-medium leading-[1.02] tracking-[-0.03em] text-ink md:text-[92px]">
-                Counsel,{" "}
-                <span className="italic text-ink-2">in order.</span>
-              </h1>
-              <p className="mt-7 max-w-xl font-body text-[18px] leading-8 text-ink-2">
-                {/* PLACEHOLDER — your firm's one-line positioning goes here. */}
-                A short, confident introduction to the chambers — the work you
-                take on, the courts you appear before, and the standard you
-                hold every brief to.
-              </p>
-              <div className="mt-10 flex flex-wrap items-center gap-4">
-                <Link
-                  href="/contact"
-                  className="group inline-flex items-center gap-2 border border-ink bg-ink px-6 py-3.5 font-mono text-[11px] uppercase tracking-[0.18em] text-paper transition-colors hover:bg-ink-2"
-                >
-                  Get in touch
-                  <span className="text-brass transition-transform duration-200 group-hover:translate-x-1">
-                    →
-                  </span>
-                </Link>
-                <Link
-                  href="/product"
-                  className="font-body text-[15px] text-ink-2 underline-offset-4 transition-colors hover:text-ink hover:underline"
-                >
-                  Explore the LegalEasy product →
-                </Link>
-              </div>
-            </div>
+      <Hero />
+      <Phenomenon />
+      <PracticingAreas />
+      <ModernEnvironment />
+    </>
+  );
+}
 
-            <div className="hidden justify-center md:col-span-5 md:flex">
-              <div className="flex h-64 w-64 items-center justify-center rounded-full border border-rule/50 bg-paper-2/40">
-                <Logo size={150} priority />
-              </div>
+/* ───────────────────────── Hero ───────────────────────── */
+
+function Hero() {
+  return (
+    <section className="relative flex min-h-[640px] items-center overflow-hidden md:min-h-[88vh]">
+      <Image
+        src="/hero-library.jpg"
+        alt=""
+        fill
+        priority
+        sizes="100vw"
+        className="object-cover"
+      />
+      {/* darkening so the type sits cleanly */}
+      <div
+        aria-hidden
+        className="absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(100deg, rgba(10,16,28,0.86) 0%, rgba(10,16,28,0.62) 45%, rgba(10,16,28,0.30) 100%)",
+        }}
+      />
+      <div className="relative mx-auto w-full max-w-[1320px] px-6 py-24 md:px-10">
+        <div className="max-w-2xl">
+          <div
+            className="text-[14px] italic tracking-[0.28em]"
+            style={{ fontFamily: inter, color: GOLD }}
+          >
+            ESTABLISHED 1969
+          </div>
+          <h1
+            className="mt-6 text-[46px] leading-[1.04] tracking-[-0.01em] text-white sm:text-[64px] md:text-[78px]"
+            style={{ fontFamily: playfair, fontWeight: 500 }}
+          >
+            Justice is not just a profession, it is our{" "}
+            <span className="italic">lineage.</span>
+          </h1>
+          <p
+            className="mt-7 max-w-xl text-[17px] leading-8"
+            style={{ fontFamily: inter, color: "rgba(255,255,255,0.78)" }}
+          >
+            Continuing the legacy of Mr. C. Nambiraj, we blend timeless ethical
+            values with modern legal infrastructure to serve the under-privileged
+            and the visionary alike.
+          </p>
+          <div className="mt-10 flex flex-wrap items-center gap-4">
+            <Link
+              href="/contact"
+              className="px-7 py-4 text-[12px] uppercase tracking-[0.18em] transition-opacity hover:opacity-90"
+              style={{
+                fontFamily: inter,
+                fontWeight: 600,
+                backgroundColor: GOLD,
+                color: "#ffffff",
+              }}
+            >
+              Consult Our Dynasty
+            </Link>
+            <Link
+              href="/about"
+              className="border px-7 py-4 text-[12px] uppercase tracking-[0.18em] text-white transition-colors hover:bg-white/10"
+              style={{ fontFamily: inter, fontWeight: 600, borderColor: "rgba(255,255,255,0.5)" }}
+            >
+              Firm History
+            </Link>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ──────────────────── The Phenomenon ──────────────────── */
+
+function Phenomenon() {
+  return (
+    <section style={{ backgroundColor: PAPER }}>
+      <div className="mx-auto grid max-w-[1320px] gap-12 px-6 py-20 md:grid-cols-12 md:gap-16 md:px-10 md:py-28">
+        {/* Image + stat block */}
+        <div className="relative md:col-span-6">
+          <div className="relative aspect-[4/5] w-full overflow-hidden">
+            <Image
+              src="/lady-justice.jpg"
+              alt="Lady Justice"
+              fill
+              sizes="(min-width: 768px) 45vw, 100vw"
+              className="object-cover"
+            />
+          </div>
+          <div
+            className="absolute -bottom-8 right-6 flex h-44 w-44 flex-col items-start justify-end p-6 md:right-[-2rem]"
+            style={{ backgroundColor: GOLD }}
+          >
+            <div className="text-[40px] leading-none text-white" style={{ fontFamily: playfair }}>
+              55+
+            </div>
+            <div
+              className="mt-2 text-[11px] uppercase tracking-[0.18em] text-white/90"
+              style={{ fontFamily: inter }}
+            >
+              Years of Practice
             </div>
           </div>
         </div>
-        <div className="h-px bg-gradient-to-r from-transparent via-brass/40 to-transparent" />
-      </section>
 
-      {/* Page teasers */}
-      <section className="mx-auto max-w-[1320px] px-6 py-20 md:px-10 md:py-24">
-        <div className="grid gap-6 md:grid-cols-3">
-          {PAGES.map((p, i) => (
-            <Link
-              key={p.href}
-              href={p.href}
-              className="group flex flex-col justify-between border border-rule/60 bg-paper-2/30 p-8 transition-colors hover:border-ink/40 hover:bg-paper-2/60"
-            >
-              <div>
-                <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-brass">
-                  {String(i + 1).padStart(2, "0")}
-                </div>
-                <div className="mt-4 font-display text-[28px] leading-tight tracking-[-0.01em] text-ink">
-                  {p.name}
-                </div>
-                <p className="mt-3 font-body text-[15px] leading-7 text-ink-soft">
-                  {p.blurb}
-                </p>
-              </div>
-              <div className="mt-8 font-mono text-[10px] uppercase tracking-[0.2em] text-brass-deep transition-transform duration-200 group-hover:translate-x-1">
-                Read more →
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      {/* Closing band */}
-      <section className="border-t border-rule/40 bg-paper-2/40">
-        <div className="mx-auto flex max-w-[1320px] flex-col items-start gap-6 px-6 py-16 md:flex-row md:items-center md:justify-between md:px-10 md:py-20">
-          <h2 className="font-display text-[32px] leading-tight tracking-[-0.01em] text-ink md:text-[44px]">
-            Have a matter to discuss?
-          </h2>
-          <Link
-            href="/contact"
-            className="group inline-flex items-center gap-2 border border-ink bg-ink px-6 py-3.5 font-mono text-[11px] uppercase tracking-[0.18em] text-paper transition-colors hover:bg-ink-2"
+        {/* Text */}
+        <div className="md:col-span-6 md:pl-4">
+          <h2
+            className="text-[34px] leading-[1.12] tracking-[-0.01em] md:text-[44px]"
+            style={{ fontFamily: playfair, color: NAVY }}
           >
-            Contact the chambers
-            <span className="text-brass transition-transform duration-200 group-hover:translate-x-1">
-              →
-            </span>
+            The Phenomenon of
+            <br />
+            Mr. C. Nambiraj
+          </h2>
+          <p
+            className="mt-6 text-[16px] leading-7"
+            style={{ fontFamily: inter, color: "color-mix(in oklch, var(--color-heritage-navy) 80%, white)" }}
+          >
+            He was more than a lawyer; he was an intellectual legend who entered
+            practice in 1969 and focused on the welfare of the under-privileged
+            with absolute grace and humility.
+          </p>
+          <blockquote
+            className="mt-6 border-l-2 pl-5 text-[16px] italic leading-7"
+            style={{
+              fontFamily: inter,
+              borderColor: GOLD,
+              color: "color-mix(in oklch, var(--color-heritage-navy) 78%, white)",
+            }}
+          >
+            &ldquo;A good lawyer throws himself on your part so heartily, that
+            makes him win in all situations.&rdquo;
+          </blockquote>
+          <p
+            className="mt-6 text-[16px] leading-7"
+            style={{ fontFamily: inter, color: "color-mix(in oklch, var(--color-heritage-navy) 80%, white)" }}
+          >
+            Today, N. Sureka leads a team of talented legal professionals, guiding
+            the dynasty with the same principles of ethical practice and
+            resourcefulness.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ─────────────────── Practicing Areas ─────────────────── */
+
+const AREAS = [
+  {
+    name: "Civil Litigation",
+    blurb:
+      "Defending rights and resolving disputes with the same tenacity that built our dynasty.",
+    icon: <span style={{ fontFamily: playfair, fontSize: 22 }}>§</span>,
+  },
+  {
+    name: "Governmental Affairs",
+    blurb:
+      "Navigating complex regulatory landscapes with decades of institutional knowledge.",
+    icon: <CourthouseIcon />,
+  },
+  {
+    name: "Business Law",
+    blurb:
+      "Practical knowledge and legal foresight for modern enterprises and startups alike.",
+    icon: <ScalesIcon />,
+  },
+];
+
+function PracticingAreas() {
+  return (
+    <section style={{ backgroundColor: "color-mix(in oklch, var(--color-heritage-stone) 45%, white)" }}>
+      <div className="mx-auto max-w-[1320px] px-6 py-20 md:px-10 md:py-28">
+        <div className="flex flex-wrap items-end justify-between gap-6">
+          <div>
+            <div
+              className="text-[12px] uppercase tracking-[0.24em]"
+              style={{ fontFamily: inter, color: GOLD_DEEP }}
+            >
+              Expertise
+            </div>
+            <h2
+              className="mt-3 text-[34px] tracking-[-0.01em] md:text-[44px]"
+              style={{ fontFamily: playfair, color: NAVY }}
+            >
+              Practicing Areas
+            </h2>
+          </div>
+          <Link
+            href="/practicing-area"
+            className="text-[12px] uppercase tracking-[0.18em] underline-offset-4 hover:underline"
+            style={{ fontFamily: inter, fontWeight: 600, color: NAVY }}
+          >
+            View All Domains
           </Link>
         </div>
-      </section>
-    </>
+
+        <div className="mt-12 grid gap-6 md:grid-cols-3">
+          {AREAS.map((a) => (
+            <div
+              key={a.name}
+              className="bg-white p-8"
+              style={{ border: "1px solid var(--color-heritage-border)" }}
+            >
+              <div
+                className="flex h-12 w-12 items-center justify-center"
+                style={{
+                  backgroundColor: "color-mix(in oklch, var(--color-heritage-gold) 20%, white)",
+                  color: GOLD_DEEP,
+                }}
+              >
+                {a.icon}
+              </div>
+              <h3
+                className="mt-6 text-[24px] tracking-[-0.01em]"
+                style={{ fontFamily: playfair, color: NAVY }}
+              >
+                {a.name}
+              </h3>
+              <p
+                className="mt-3 text-[15px] leading-7"
+                style={{ fontFamily: inter, color: "color-mix(in oklch, var(--color-heritage-navy) 70%, white)" }}
+              >
+                {a.blurb}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ─────────────── A Modern Learning Environment ─────────────── */
+
+const BULLETS = [
+  "Holistic Frameworks",
+  "Mentoring Relationships",
+  "Exclusive Legal Resources",
+];
+
+function ModernEnvironment() {
+  return (
+    <section style={{ backgroundColor: PAPER }}>
+      <div className="mx-auto grid max-w-[1320px] items-center gap-12 px-6 py-20 md:grid-cols-12 md:gap-16 md:px-10 md:py-28">
+        <div className="md:col-span-5">
+          <h2
+            className="text-[34px] leading-[1.12] tracking-[-0.01em] md:text-[44px]"
+            style={{ fontFamily: playfair, color: NAVY }}
+          >
+            A Modern Learning Environment
+          </h2>
+          <p
+            className="mt-6 text-[16px] leading-7"
+            style={{ fontFamily: inter, color: "color-mix(in oklch, var(--color-heritage-navy) 78%, white)" }}
+          >
+            We invest in technology and infrastructure to collaborate effectively
+            while maintaining the highest standards of publication and research.
+          </p>
+          <ul className="mt-8 space-y-4">
+            {BULLETS.map((b) => (
+              <li key={b} className="flex items-center gap-3">
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: GOLD }} />
+                <span
+                  className="text-[13px] uppercase tracking-[0.16em]"
+                  style={{ fontFamily: inter, fontWeight: 600, color: NAVY }}
+                >
+                  {b}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="md:col-span-7">
+          <div className="relative aspect-[2/1] w-full overflow-hidden">
+            <Image
+              src="/modern-office.jpg"
+              alt="Modern office"
+              fill
+              sizes="(min-width: 768px) 55vw, 100vw"
+              className="object-cover"
+            />
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CourthouseIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M3 9l9-5 9 5M5 9v9M19 9v9M3 21h18M9 12v5M12 12v5M15 12v5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ScalesIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M12 4v16M7 20h10M5 7h14M5 7l-2.5 6a3 3 0 0 0 5 0L5 7zM19 7l-2.5 6a3 3 0 0 0 5 0L19 7z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
   );
 }

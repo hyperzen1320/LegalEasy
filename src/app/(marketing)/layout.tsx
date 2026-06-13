@@ -8,9 +8,11 @@ export default function MarketingLayout({
 }) {
   return (
     <div
-      className="flex min-h-full flex-col bg-paper text-ink"
+      className="flex min-h-full flex-col"
       style={{
-        fontFamily: "var(--font-newsreader), Georgia, serif",
+        backgroundColor: "var(--color-heritage-paper)",
+        color: "var(--color-heritage-navy)",
+        fontFamily: "var(--font-inter), system-ui, sans-serif",
       }}
     >
       <Header />

@@ -13,6 +13,16 @@
   --color-brass-deep: #8e6a24;
   --color-vermillion: #b43a2c;
 
+  /* Company site — NAMBIRAJ heritage. Exact oklch values lifted from the
+     reference so the colours match dead-on. */
+  --color-heritage-navy: oklch(21% 0.04 265);
+  --color-heritage-gold: oklch(74% 0.11 80);
+  --color-heritage-gold-deep: oklch(64% 0.11 78);
+  --color-heritage-paper: oklch(99% 0.005 80);
+  --color-heritage-stone: oklch(92% 0.01 250);
+  --color-heritage-muted: oklch(50% 0.02 250);
+  --color-heritage-border: oklch(90% 0.01 250);
+
   /* Admin — Plex Modern */
   --color-admin-bg: #fafaf7;
   --color-admin-bg-sidebar: #f5f2eb;
