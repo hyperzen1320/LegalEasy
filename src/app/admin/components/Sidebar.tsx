@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
+import Logo from "@/components/Logo";
 
 type NavItem = {
   name: string;
@@ -42,7 +43,9 @@ export default function Sidebar({
       {/* Brand */}
       <div className="px-6 pb-6 pt-7">
         <Link href="/admin" className="group flex items-center gap-3">
-          <Mark />
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-white shadow-sm">
+            <Logo size={26} />
+          </span>
           <div className="leading-none">
             <div className="text-[18px] font-semibold tracking-tight text-admin-fg">
               LegalEasy
@@ -141,37 +144,6 @@ export default function Sidebar({
         </div>
       </div>
     </aside>
-  );
-}
-
-function Mark() {
-  return (
-    <svg
-      width="32"
-      height="32"
-      viewBox="0 0 32 32"
-      aria-hidden
-      className="shrink-0"
-    >
-      <rect
-        x="1"
-        y="1"
-        width="30"
-        height="30"
-        rx="3"
-        fill="#0E7C4A"
-        stroke="#0a6238"
-        strokeWidth="0.5"
-      />
-      <path
-        d="M9 9 L9 23 L23 23"
-        fill="none"
-        stroke="#fff"
-        strokeWidth="2.2"
-        strokeLinecap="square"
-      />
-      <circle cx="22.5" cy="9" r="1.8" fill="#E5803A" />
-    </svg>
   );
 }
 

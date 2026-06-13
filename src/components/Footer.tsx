@@ -1,31 +1,31 @@
 import Link from "next/link";
+import Logo from "./Logo";
 
 const COLS: { title: string; links: { name: string; href: string }[] }[] = [
   {
-    title: "Product",
+    title: "Company",
     links: [
-      { name: "Cabinet", href: "#cabinet" },
-      { name: "Pricing", href: "#pricing" },
-      { name: "Document Export", href: "#export" },
-      { name: "Mobile App", href: "#" },
+      { name: "Home", href: "/" },
+      { name: "About Us", href: "/about" },
+      { name: "Practicing Area", href: "/practicing-area" },
+      { name: "Services", href: "/services" },
     ],
   },
   {
-    title: "Office",
+    title: "Product",
     links: [
-      { name: "Case Vault", href: "#" },
-      { name: "Hearing Track", href: "#" },
-      { name: "Court Hub", href: "#" },
-      { name: "Senior Desk", href: "#" },
+      { name: "Overview", href: "/product" },
+      { name: "Pricing", href: "/product" },
+      { name: "Document Export", href: "/product" },
+      { name: "Sign in", href: "/login" },
     ],
   },
   {
     title: "Chambers",
     links: [
-      { name: "About", href: "#" },
+      { name: "Contact", href: "/contact" },
       { name: "Press", href: "#" },
       { name: "Careers", href: "#" },
-      { name: "Contact", href: "#" },
     ],
   },
   {
@@ -45,8 +45,11 @@ export default function Footer() {
       <div className="mx-auto max-w-[1320px] px-6 py-16 md:px-10 md:py-20">
         <div className="grid gap-12 md:grid-cols-12">
           <div className="md:col-span-5">
-            <div className="font-display text-[44px] leading-none tracking-[-0.02em] text-ink">
-              LegalEasy
+            <div className="flex items-center gap-3">
+              <Logo size={46} />
+              <div className="font-display text-[44px] leading-none tracking-[-0.02em] text-ink">
+                LegalEasy
+              </div>
             </div>
             <p className="mt-5 max-w-md font-body text-[15px] leading-7 text-ink-soft">
               An advocate office, set in order. Built in India for the way

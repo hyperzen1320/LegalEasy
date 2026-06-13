@@ -4,6 +4,7 @@ import {
   Document,
   Footer,
   HeightRule,
+  ImageRun,
   Packer,
   PageOrientation,
   Paragraph,
@@ -20,6 +21,7 @@ import {
   companyInitials,
   valueFor,
 } from "./types";
+import { LOGO_PNG_BUFFER } from "./logo";
 
 // DOCX export. Word's table styling is more restrictive than Excel's
 // but we can still produce a clean letter-style report:
@@ -173,15 +175,13 @@ export async function generateDocx(input: CaseExportInput): Promise<Buffer> {
             shading: { type: ShadingType.CLEAR, fill: INK_HEX, color: "auto" },
             spacing: { before: 0, after: 0 },
             children: [
-              new TextRun({
-                text: `  ${companyInitials(input.partner)}   `,
-                bold: true,
-                size: 28,
-                color: COPPER_HEX,
-                font: "Calibri",
+              new ImageRun({
+                type: "png",
+                data: LOGO_PNG_BUFFER,
+                transformation: { width: 20, height: 42 },
               }),
               new TextRun({
-                text: companyName(input.partner),
+                text: `   ${companyName(input.partner)}`,
                 bold: true,
                 size: 36,
                 color: IVORY_HEX,

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import Logo from "./Logo";
 
 type NavItem = { name: string; href: string };
 
@@ -84,6 +85,7 @@ export default function MobileMenu({ nav }: { nav: NavItem[] }) {
           {/* top bar — aligns with the real header's logo / trigger slots */}
           <div className="relative mx-auto flex w-full max-w-[1320px] items-center justify-between px-6 py-4">
             <Link href="/" onClick={close} className="flex items-center gap-3">
+              <Logo size={38} />
               <div className="leading-none">
                 <div className="font-display text-[24px] font-medium tracking-[-0.01em] text-ink">
                   LegalEasy
@@ -136,11 +138,11 @@ export default function MobileMenu({ nav }: { nav: NavItem[] }) {
                 </span>
               </Link>
               <Link
-                href="#access"
+                href="/product"
                 onClick={close}
                 className="group flex items-center justify-between border border-ink bg-ink px-6 py-4 font-mono text-[12px] uppercase tracking-[0.18em] text-paper transition-colors hover:bg-ink-2"
               >
-                Request Access
+                Explore Product
                 <span className="text-brass transition-transform duration-200 group-hover:translate-x-1">
                   →
                 </span>

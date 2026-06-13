@@ -4,9 +4,9 @@ import {
   type CaseExportColumn,
   type CaseExportRow,
   companyName,
-  companyInitials,
   valueFor,
 } from "./types";
+import { LOGO_PNG_BUFFER } from "./logo";
 
 // PDF export via pdfkit. Landscape A4 with a Midnight Counsel styled
 // header band on top of a fully-bordered table:
@@ -253,18 +253,12 @@ function drawHeader(
     .rect(MARGIN, MARGIN, contentWidth, HEADER_BAND_HEIGHT)
     .fill(INK);
 
-  const discRadius = 18;
-  const discCx = MARGIN + 22;
-  const discCy = MARGIN + HEADER_BAND_HEIGHT / 2;
-  doc.circle(discCx, discCy, discRadius).fill(COPPER);
-  doc
-    .fillColor(INK)
-    .font("Helvetica-Bold")
-    .fontSize(13)
-    .text(companyInitials(input.partner), discCx - 13, discCy - 6, {
-      width: 26,
-      align: "center",
-    });
+  // Brand mark, sat directly on the ink band (the coral logo reads well on
+  // the dark band, so no backing disc is needed).
+  const logoH = 36;
+  doc.image(LOGO_PNG_BUFFER, MARGIN + 16, MARGIN + (HEADER_BAND_HEIGHT - logoH) / 2, {
+    height: logoH,
+  });
 
   const titleX = MARGIN + 52;
   doc

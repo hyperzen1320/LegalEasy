@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
+import Logo from "@/components/Logo";
 
 type NavItem = {
   name: string;
@@ -107,7 +108,15 @@ export default function Sidebar({
         href="/app"
         className="flex shrink-0 items-center gap-3 px-5 pb-5 pt-7 transition-opacity hover:opacity-90"
       >
-        <BrandMark />
+        <span
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+          style={{
+            backgroundColor: "var(--color-app-paper)",
+            boxShadow: "0 2px 6px -2px rgba(0,0,0,0.3)",
+          }}
+        >
+          <Logo size={28} />
+        </span>
         <div className="leading-none min-w-0">
           <div
             className="truncate text-[16px] font-semibold tracking-tight"
@@ -330,44 +339,6 @@ function useLiveSidebarCounts(): { chatUnread: number } {
   }, []);
 
   return { chatUnread };
-}
-
-function BrandMark() {
-  return (
-    <svg
-      width="40"
-      height="40"
-      viewBox="0 0 40 40"
-      aria-hidden
-      className="shrink-0"
-    >
-      {/* gold-dark background */}
-      <rect
-        x="1"
-        y="1"
-        width="38"
-        height="38"
-        rx="6"
-        fill="#ac7b33"
-        stroke="#8a5e1f"
-        strokeWidth="0.5"
-      />
-      {/* scales of justice glyph */}
-      <g
-        stroke="#121d35"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      >
-        <line x1="20" y1="9" x2="20" y2="30" />
-        <line x1="13" y1="30" x2="27" y2="30" />
-        <line x1="11" y1="14" x2="29" y2="14" />
-        <path d="M15 14 L11 22 a2 2 0 0 0 4 0 L11 14" fill="#121d35" fillOpacity="0.15" />
-        <path d="M25 14 L29 22 a2 2 0 0 1 -4 0 L29 14" fill="#121d35" fillOpacity="0.15" />
-      </g>
-    </svg>
-  );
 }
 
 function IconDashboard() {
