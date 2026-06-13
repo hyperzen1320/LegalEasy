@@ -3,7 +3,10 @@ import mongoose from "mongoose";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/db";
 import { Case } from "@/models/Case";
+import { Board } from "@/models/Board";
+import { Task } from "@/models/Task";
 import Logo from "@/components/Logo";
+import SeniorDeskTile from "./SeniorDeskTile";
 
 export default async function PartnerDashboard() {
   const session = await auth();
@@ -35,6 +38,8 @@ export default async function PartnerDashboard() {
     courtPlace: string;
     nextHearingDate: string | null;
   }> = [];
+  let boardCount = 0;
+  let cardCount = 0;
 
   if (partnerId) {
     await connectDB();
@@ -45,34 +50,37 @@ export default async function PartnerDashboard() {
       isDeleted: false,
       disposedAt: null,
     } as const;
-    const [today, tomorrow, pending, vault, boardDocs] = await Promise.all([
-      Case.countDocuments({
-        ...activeFilter,
-        nextHearingDate: { $gte: startOfToday, $lt: startOfTomorrow },
-      }),
-      Case.countDocuments({
-        ...activeFilter,
-        nextHearingDate: { $gte: startOfTomorrow, $lt: startOfDayAfter },
-      }),
-      Case.countDocuments({
-        ...activeFilter,
-        $or: [
-          { nextHearingDate: null },
-          { nextHearingDate: { $lt: startOfToday } },
-        ],
-      }),
-      Case.countDocuments(activeFilter),
-      Case.find({
-        ...activeFilter,
-        nextHearingDate: {
-          $gte: startOfToday,
-          $lt: new Date(startOfToday.getTime() + 14 * 24 * 60 * 60 * 1000),
-        },
-      })
-        .sort({ nextHearingDate: 1 })
-        .limit(5)
-        .lean(),
-    ]);
+    const [today, tomorrow, pending, vault, boardDocs, boards, cards] =
+      await Promise.all([
+        Case.countDocuments({
+          ...activeFilter,
+          nextHearingDate: { $gte: startOfToday, $lt: startOfTomorrow },
+        }),
+        Case.countDocuments({
+          ...activeFilter,
+          nextHearingDate: { $gte: startOfTomorrow, $lt: startOfDayAfter },
+        }),
+        Case.countDocuments({
+          ...activeFilter,
+          $or: [
+            { nextHearingDate: null },
+            { nextHearingDate: { $lt: startOfToday } },
+          ],
+        }),
+        Case.countDocuments(activeFilter),
+        Case.find({
+          ...activeFilter,
+          nextHearingDate: {
+            $gte: startOfToday,
+            $lt: new Date(startOfToday.getTime() + 14 * 24 * 60 * 60 * 1000),
+          },
+        })
+          .sort({ nextHearingDate: 1 })
+          .limit(5)
+          .lean(),
+        Board.countDocuments({ partnerId, isDeleted: false }),
+        Task.countDocuments({ partnerId, isDeleted: false }),
+      ]);
 
     stats = {
       todayHearings: today,
@@ -80,6 +88,8 @@ export default async function PartnerDashboard() {
       pendingDates: pending,
       caseVault: vault,
     };
+    boardCount = boards;
+    cardCount = cards;
     todaysBoard = boardDocs.map((c) => ({
       id: String(c._id),
       caseNo: c.caseNo,
@@ -114,7 +124,7 @@ export default async function PartnerDashboard() {
 
         <StatsRow stats={stats} />
 
-        <PhaseTwoCallouts />
+        <DeskTiles boardCount={boardCount} cardCount={cardCount} />
 
         <TodaysBoard cases={todaysBoard} />
       </div>
@@ -378,22 +388,31 @@ function StatCard({
   );
 }
 
-/* ──────────────── Phase 2 callouts ──────────────── */
+/* ──────────────── Desk tiles ──────────────── */
 
-function PhaseTwoCallouts() {
+function DeskTiles({
+  boardCount,
+  cardCount,
+}: {
+  boardCount: number;
+  cardCount: number;
+}) {
+  const workflowSubtitle =
+    boardCount === 0
+      ? "Set up your first board to organise office work."
+      : `${boardCount} board${boardCount === 1 ? "" : "s"} · ${cardCount} card${
+          cardCount === 1 ? "" : "s"
+        } in motion`;
+
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <PhaseCard
         title="Work Flow"
-        subtitle="Trello-style boards for office processes."
+        subtitle={workflowSubtitle}
         icon={<IconBoards />}
         href="/app/workflow"
       />
-      <PhaseCard
-        title="Senior Desk"
-        subtitle="Reminders & advocate coordination — Phase 2"
-        icon={<IconDesk />}
-      />
+      <SeniorDeskTile />
     </div>
   );
 }
@@ -709,17 +728,6 @@ function IconBoards() {
       <rect x="11" y="3" width="6" height="11" rx="1" stroke="currentColor" strokeWidth="1.6" />
       <rect x="11" y="16" width="6" height="5" rx="1" stroke="currentColor" strokeWidth="1.6" />
       <rect x="19" y="3" width="2" height="18" rx="1" stroke="currentColor" strokeWidth="1.6" />
-    </svg>
-  );
-}
-function IconDesk() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="9" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M3 20c0-3 2.7-5 6-5s6 2 6 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-      <circle cx="17.5" cy="9" r="2.5" stroke="currentColor" strokeWidth="1.4" />
-      <path d="M14 19c0-2 2-3.5 4-3.5s3.5 1.5 3.5 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-      <circle cx="20" cy="5" r="2" fill="currentColor" fillOpacity="0.18" />
     </svg>
   );
 }

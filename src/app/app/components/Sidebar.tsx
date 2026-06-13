@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import Logo from "@/components/Logo";
+import { useChatUnread } from "@/lib/use-chat-unread";
 
 type NavItem = {
   name: string;
@@ -69,7 +69,7 @@ export default function Sidebar({
   onClose?: () => void;
 }) {
   const pathname = usePathname();
-  const liveCounts = useLiveSidebarCounts();
+  const chatUnread = useChatUnread();
 
   // Drop admin-only entries (Activity, Attendance) for everyone who
   // isn't the office admin. The page redirect + API 403 back this up.
@@ -167,6 +167,8 @@ export default function Sidebar({
               ? pathname === "/app"
               : pathname.startsWith(item.href);
           const Icon = item.icon;
+          const unread =
+            item.liveCountKey === "chatUnread" ? chatUnread : 0;
 
           return (
             <Link
@@ -199,20 +201,25 @@ export default function Sidebar({
               )}
               <Icon />
               <span className="flex-1">{item.name}</span>
-              {item.liveCountKey && liveCounts[item.liveCountKey] > 0 ? (
-                <span
-                  className="rounded-full px-1.5 text-[10px] font-semibold tabular-nums"
-                  style={{
-                    fontFamily: "var(--font-dm-mono), monospace",
-                    backgroundColor: "var(--color-app-copper)",
-                    color: "var(--color-app-copper-text)",
-                    minWidth: 20,
-                    textAlign: "center",
-                  }}
-                >
-                  {liveCounts[item.liveCountKey] > 99
-                    ? "99+"
-                    : liveCounts[item.liveCountKey]}
+              {unread > 0 ? (
+                <span className="relative inline-flex items-center">
+                  <span
+                    aria-hidden
+                    className="absolute inset-0 animate-ping rounded-full opacity-60"
+                    style={{ backgroundColor: "var(--color-app-copper)" }}
+                  />
+                  <span
+                    className="relative rounded-full px-1.5 text-[10px] font-semibold tabular-nums"
+                    style={{
+                      fontFamily: "var(--font-dm-mono), monospace",
+                      backgroundColor: "var(--color-app-copper)",
+                      color: "var(--color-app-copper-text)",
+                      minWidth: 20,
+                      textAlign: "center",
+                    }}
+                  >
+                    {unread > 99 ? "99+" : unread}
+                  </span>
                 </span>
               ) : item.comingSoon ? (
                 <span
@@ -291,54 +298,6 @@ export default function Sidebar({
       </div>
     </aside>
   );
-}
-
-// Polls /api/app/chat/unread every 12s to drive the Senior Desk badge.
-// Cheap endpoint (~1 indexed query per room), so we can keep the cadence
-// snappy without burning resources. We intentionally stop polling when
-// the tab is hidden; the next focus event re-fires immediately.
-function useLiveSidebarCounts(): { chatUnread: number } {
-  const [chatUnread, setChatUnread] = useState(0);
-
-  useEffect(() => {
-    let alive = true;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-
-    async function tick() {
-      if (!alive) return;
-      if (typeof document !== "undefined" && document.hidden) {
-        timer = setTimeout(tick, 30_000);
-        return;
-      }
-      try {
-        const res = await fetch("/api/app/chat/unread", {
-          cache: "no-store",
-        });
-        if (alive && res.ok) {
-          const data = await res.json();
-          setChatUnread(Number(data?.totalUnread || 0));
-        }
-      } catch {
-        /* ignore */
-      }
-      if (alive) timer = setTimeout(tick, 12_000);
-    }
-
-    tick();
-    const onFocus = () => {
-      if (timer) clearTimeout(timer);
-      tick();
-    };
-    window.addEventListener("focus", onFocus);
-
-    return () => {
-      alive = false;
-      if (timer) clearTimeout(timer);
-      window.removeEventListener("focus", onFocus);
-    };
-  }, []);
-
-  return { chatUnread };
 }
 
 function IconDashboard() {
