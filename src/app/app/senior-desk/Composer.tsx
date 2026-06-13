@@ -173,7 +173,7 @@ export default function Composer({
           disabled={disabled || uploading || attachments.length >= MAX_ATTACHMENTS}
           aria-label="Attach a file"
           title="Attach a file"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors disabled:opacity-40"
+          className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-[var(--color-app-edge-soft)] hover:text-[var(--color-app-ink)] disabled:cursor-not-allowed disabled:opacity-40"
           style={{ color: "var(--color-app-fg-soft)" }}
         >
           {uploading ? (

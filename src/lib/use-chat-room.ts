@@ -294,10 +294,22 @@ export function useChatRoom(
         }
         const data = await res.json();
         const real = data.message as ChatMessageDTO;
-        // Replace the optimistic entry with the server's authoritative row.
-        setMessages((prev) =>
-          prev.map((m) => (m.id === tempId ? { ...real, isMine: true } : m))
-        );
+        // Replace the optimistic entry with the server's authoritative row,
+        // then dedupe by id: the 2 s poll can fetch the real message before
+        // this swap runs, leaving both the optimistic temp AND the polled
+        // real in the list — which then collapses to two copies of the same
+        // id. Filtering by id here keeps exactly one. (The "sent twice until
+        // refresh" bug.)
+        setMessages((prev) => {
+          const seen = new Set<string>();
+          return prev
+            .map((m) => (m.id === tempId ? { ...real, isMine: true } : m))
+            .filter((m) => {
+              if (seen.has(m.id)) return false;
+              seen.add(m.id);
+              return true;
+            });
+        });
         newestIdRef.current = real.id;
 
         // Same-tab fan-out so a second tab of this user updates immediately.

@@ -118,6 +118,33 @@ export default function CardPreview({
           to { opacity: 1; transform: translateY(0) scale(1); }
         }
       `}</style>
+
+      {/* Hamburger — opens the card popup. Stops propagation so it works
+          even if the card body's own click is suppressed. */}
+      {!isPending ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClick();
+          }}
+          aria-label="Open card"
+          title="Open card"
+          className="absolute right-1.5 top-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-md"
+          style={{
+            opacity: hover ? 1 : 0,
+            transition: "opacity 150ms",
+            backgroundColor: "rgba(10,17,36,0.06)",
+            color: "var(--color-app-fg-muted)",
+            cursor: "pointer",
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          </svg>
+        </button>
+      ) : null}
+
       <div className="px-3.5 py-3">
         {/* Title row with priority dot */}
         <div className="flex items-start gap-2">

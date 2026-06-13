@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Logo from "@/components/Logo";
 
 export type ProfileData = {
   id: string;
@@ -102,12 +103,17 @@ export default function MyProfileClient({
 
   return (
     <div
-      className="mt-7 fade-up-sm rounded-2xl p-7"
+      className="relative mt-7 fade-up-sm overflow-hidden rounded-2xl p-7"
       style={{
         backgroundColor: "var(--color-app-paper)",
         boxShadow: "0 1px 0 var(--color-app-edge)",
       }}
     >
+      {/* Brand mark */}
+      <div aria-hidden className="pointer-events-none absolute -right-3 -top-3 opacity-90">
+        <Logo size={46} />
+      </div>
+
       {/* Avatar + name */}
       <div className="flex items-center gap-5">
         <div
