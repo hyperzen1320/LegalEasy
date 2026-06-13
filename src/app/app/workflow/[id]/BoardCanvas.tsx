@@ -1,20 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  ReactFlow,
-  ReactFlowProvider,
-  Background,
-  BackgroundVariant,
-  MiniMap,
-  useNodesState,
-  type Node,
-  type NodeChange,
-  type Viewport,
-} from "@xyflow/react";
-import "@xyflow/react/dist/style.css";
 import {
   DndContext,
   type DragEndEvent,
@@ -27,21 +14,22 @@ import {
   DragOverlay,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import ListNode, { type ListNodeData } from "./ListNode";
+import ListColumn from "./ListNode";
 import CardPreview, { type PreviewTask } from "./CardPreview";
 import CardDetail from "./CardDetail";
 import BellDrawer from "./BellDrawer";
 import RequestDeleteDialog, { type RequestTarget } from "./RequestDeleteDialog";
-import CanvasToolbar from "./CanvasToolbar";
-import KeyboardShortcutsModal from "./KeyboardShortcutsModal";
+import SaveToolbar from "./CanvasToolbar";
 import RecentChangeOverlay from "./RecentChangeOverlay";
 import PresenceDock from "./PresenceDock";
 import { useBoardLiveFeed } from "@/lib/use-board-live-feed";
 import { useBoardPresence } from "@/lib/use-board-presence";
-import {
-  TEMP_ID_PREFIX,
-  isTempId,
-} from "@/lib/use-optimistic-action";
+import { TEMP_ID_PREFIX, isTempId } from "@/lib/use-optimistic-action";
+
+// The id of the element the Save tool rasterises for Picture / Full-page
+// exports — the column row, captured at its full scroll width so off-screen
+// lists are included.
+const BOARD_CAPTURE_ID = "board-capture-root";
 
 export type CanvasList = {
   id: string;
@@ -51,15 +39,14 @@ export type CanvasList = {
   // ⋮ menu.
   listDate: string;
   sortOrder: number;
+  // Retained for wire compatibility with the page loader; the fixed column
+  // board orders by sortOrder and no longer reads x/y or width.
   position: { x: number; y: number };
   width: number;
   color: string | null;
 };
 
 export type BoardMember = { id: string; name: string; role: string };
-
-const nodeTypes = { list: ListNode };
-const proOptions = { hideAttribution: true };
 
 type BoardCanvasProps = {
   currentUserId: string | null;
@@ -76,11 +63,7 @@ type BoardCanvasProps = {
 };
 
 export default function BoardCanvas(props: BoardCanvasProps) {
-  return (
-    <ReactFlowProvider>
-      <Inner {...props} />
-    </ReactFlowProvider>
-  );
+  return <Inner {...props} />;
 }
 
 function Inner({
@@ -89,14 +72,20 @@ function Inner({
   board,
   accent,
   gradient,
-  initialViewport,
   initialLists,
   initialTasks,
   members,
   role,
 }: BoardCanvasProps) {
-  const router = useRouter();
   const canEdit = role !== "viewer";
+
+  /* ─── State ─── */
+  // Declared up-front so the live-feed resync below can reference the
+  // setters without a forward reference.
+  const [lists, setLists] = useState<CanvasList[]>(initialLists);
+  const [tasks, setTasks] = useState<PreviewTask[]>(initialTasks);
+  const [openTaskId, setOpenTaskId] = useState<string | null>(null);
+  const [bellOpen, setBellOpen] = useState(false);
 
   /* ─── Live feed + presence ─── */
   const liveFeed = useBoardLiveFeed({
@@ -105,23 +94,10 @@ function Inner({
     lastSeenStorageKey: `legaleasy:lastseen:board:${boardId}`,
   });
   const presence = useBoardPresence(boardId);
-  const [showMinimap, setShowMinimap] = useState(false);
-  const [locked, setLocked] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
-  // Increments whenever the user attempts an editing action while the
-  // canvas is locked — drives a brief flash + shake on the Lock pill in
-  // the toolbar so the source of the block is unambiguous.
-  const [lockPulseSig, setLockPulseSig] = useState(0);
-  const pulseLock = useCallback(() => {
-    setLockPulseSig((s) => s + 1);
-  }, []);
 
   // Debounced resync of authoritative board state when the live feed
   // reports changes that affect lists / tasks and the actor was someone
-  // other than us. We don't trust activity metadata to carry every field
-  // needed to render — instead we re-pull the board from the /full
-  // endpoint, capped to once every 800ms regardless of how many events
-  // arrive in a burst.
+  // other than us. Capped to once every 800ms regardless of burst size.
   const resyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastResyncAtRef = useRef<number>(0);
   const scheduleResync = useCallback(() => {
@@ -142,26 +118,12 @@ function Inner({
           tasks: PreviewTask[];
         };
         // Preserve any in-flight optimistic entities (temp:* ids) so we
-        // don't yank a card the user just added but the server hasn't
-        // returned for yet. ALSO preserve the local list position +
-        // width — those mutate via drag, save asynchronously, and a
-        // resync that overwrites them while a drag-save is in flight
-        // makes lists snap back. Server is canonical for content
-        // (title, color, sortOrder); client is canonical for layout
-        // until the next mount.
+        // don't yank a list/card the user just added but the server hasn't
+        // returned for yet. Server is canonical for everything else.
         setLists((prev) => {
           const fromServer = data.lists ?? [];
           const optimistic = prev.filter((l) => isTempId(l.id));
-          const merged = fromServer.map((server) => {
-            const local = prev.find((l) => l.id === server.id);
-            if (!local || isTempId(local.id)) return server;
-            return {
-              ...server,
-              position: local.position,
-              width: local.width,
-            };
-          });
-          return [...merged, ...optimistic];
+          return [...fromServer, ...optimistic];
         });
         setTasks((prev) => {
           const fromServer = data.tasks ?? [];
@@ -205,11 +167,12 @@ function Inner({
     if (needsResync) scheduleResync();
   }, [liveFeed.newRows, scheduleResync, currentUserId]);
 
-  /* ─── State ─── */
-  const [lists, setLists] = useState<CanvasList[]>(initialLists);
-  const [tasks, setTasks] = useState<PreviewTask[]>(initialTasks);
-  const [openTaskId, setOpenTaskId] = useState<string | null>(null);
-  const [bellOpen, setBellOpen] = useState(false);
+  // Fixed left-to-right order: the first list created sits leftmost, each
+  // new one appends to its right. sortOrder is the single source of truth.
+  const orderedLists = useMemo(
+    () => [...lists].sort((a, b) => a.sortOrder - b.sortOrder),
+    [lists]
+  );
 
   // Group tasks by list
   const tasksByList = useMemo(() => {
@@ -225,44 +188,40 @@ function Inner({
     return map;
   }, [lists, tasks]);
 
-  /* ─── Mutation handlers (bound to the node data) ─── */
+  /* ─── Mutation handlers ─── */
 
   const onTaskClick = useCallback((id: string) => setOpenTaskId(id), []);
 
-  // Rename and recolour are simple swap-then-confirm patterns: the local
-  // state changes immediately, and if the server rejects we revert. We
-  // capture the previous value in a closure so the rollback is precise.
-  const onListRename = useCallback(
-    async (listId: string, title: string) => {
-      let previous: string | null = null;
-      setLists((prev) =>
-        prev.map((l) => {
-          if (l.id !== listId) return l;
-          previous = l.title;
-          return { ...l, title };
-        })
-      );
-      try {
-        const res = await fetch(`/api/app/lists/${listId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title }),
-        });
-        if (!res.ok) throw new Error("rename_failed");
-      } catch {
-        if (previous !== null) {
-          const restored = previous;
-          setLists((prev) =>
-            prev.map((l) => (l.id === listId ? { ...l, title: restored } : l))
-          );
-        }
+  // Rename / describe / date are optimistic swap-then-confirm: local state
+  // changes immediately; if the server rejects we revert to the captured
+  // previous value. The server emits list.updated on success so other open
+  // boards resync.
+  const onListRename = useCallback(async (listId: string, title: string) => {
+    let previous: string | null = null;
+    setLists((prev) =>
+      prev.map((l) => {
+        if (l.id !== listId) return l;
+        previous = l.title;
+        return { ...l, title };
+      })
+    );
+    try {
+      const res = await fetch(`/api/app/lists/${listId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+      if (!res.ok) throw new Error("rename_failed");
+    } catch {
+      if (previous !== null) {
+        const restored = previous;
+        setLists((prev) =>
+          prev.map((l) => (l.id === listId ? { ...l, title: restored } : l))
+        );
       }
-    },
-    []
-  );
-  // Description + date edits follow the same optimistic-then-confirm
-  // shape as rename. The server emits list.updated on success, so other
-  // open canvases resync and the edit lands "for everyone".
+    }
+  }, []);
+
   const onListDescriptionChange = useCallback(
     async (listId: string, description: string) => {
       let previous: string | null = null;
@@ -293,6 +252,7 @@ function Inner({
     },
     []
   );
+
   const onListDateChange = useCallback(
     async (listId: string, listDate: string) => {
       let previous: string | null = null;
@@ -323,15 +283,12 @@ function Inner({
     },
     []
   );
+
   const [requestTarget, setRequestTarget] = useState<RequestTarget | null>(
     null
   );
 
   const onListDelete = useCallback(async (listId: string) => {
-    // Snapshot so we can roll back if the server rejects (or returns
-    // 403 with the request-flow code). We use object refs through the
-    // setState callbacks so we read the latest pre-removal arrays even
-    // if other state changes happen mid-flight.
     const snapshot: {
       lists: CanvasList[] | null;
       tasks: PreviewTask[] | null;
@@ -351,9 +308,7 @@ function Inner({
     };
 
     try {
-      const res = await fetch(`/api/app/lists/${listId}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(`/api/app/lists/${listId}`, { method: "DELETE" });
       if (res.ok) return;
       restore();
       if (res.status === 403) {
@@ -374,10 +329,6 @@ function Inner({
 
   const onTaskAdd = useCallback(
     async (listId: string, title: string) => {
-      // Place an optimistic card at the bottom of the list immediately so
-      // there is no perceived lag. Sort order = max(existing) + 1 for the
-      // target list. We put a temp:* id on it so the renderer can show a
-      // pending state and so we can swap it for the real one on success.
       const tempId = `${TEMP_ID_PREFIX}${Date.now().toString(36)}`;
       const trimmedTitle = title.trim();
       const tempTask: PreviewTask = {
@@ -414,175 +365,6 @@ function Inner({
       }
     },
     [boardId]
-  );
-
-  const buildNodes = useCallback(
-    (currentLists: CanvasList[]): Node[] =>
-      currentLists.map<Node>((list) => {
-        const data: ListNodeData = {
-          list,
-          tasks: tasksByList.get(list.id) || [],
-          accent,
-          canEdit,
-          onTaskClick,
-          onListRename,
-          onListDelete,
-          onListDescriptionChange,
-          onListDateChange,
-          onTaskAdd,
-        };
-        return {
-          id: list.id,
-          type: "list",
-          position: list.position,
-          data: data as unknown as Record<string, unknown>,
-          draggable: canEdit,
-          selectable: true,
-          deletable: false,
-        };
-      }),
-    [
-      tasksByList,
-      accent,
-      canEdit,
-      onTaskClick,
-      onListRename,
-      onListDelete,
-      onListDescriptionChange,
-      onListDateChange,
-      onTaskAdd,
-    ]
-  );
-
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node>(
-    buildNodes(lists)
-  );
-
-  // Re-sync nodes when our local state changes (lists/tasks)
-  useEffect(() => {
-    setNodes(buildNodes(lists));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lists, tasks]);
-
-  /* ─── Position auto-save ─── */
-  //
-  // Earlier this used an 800ms debounce regardless of context, which meant
-  // refreshing the page within 800ms of releasing a drag silently dropped
-  // the save and the list snapped back to its previous position on reload.
-  // Now we flush in three places: (a) immediately on drag-end, (b) on the
-  // sendBeacon path during `beforeunload` so refresh/close still saves,
-  // and (c) the legacy debounce as a safety net for any non-drag callers.
-
-  const positionSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingPositions = useRef<
-    Map<string, { x: number; y: number; width?: number }>
-  >(new Map());
-
-  const flushPositions = useCallback(async () => {
-    if (pendingPositions.current.size === 0) return;
-    const positions = Array.from(pendingPositions.current.entries()).map(
-      ([listId, p]) => ({ listId, ...p })
-    );
-    pendingPositions.current.clear();
-    await fetch(`/api/app/boards/${boardId}/lists/positions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ positions }),
-    });
-  }, [boardId]);
-
-  // Final-chance flush on tab close / refresh: fetch may not finish, but
-  // sendBeacon is designed for exactly this — fire-and-forget on unload.
-  useEffect(() => {
-    const handler = () => {
-      if (pendingPositions.current.size === 0) return;
-      const positions = Array.from(pendingPositions.current.entries()).map(
-        ([listId, p]) => ({ listId, ...p })
-      );
-      pendingPositions.current.clear();
-      try {
-        const blob = new Blob([JSON.stringify({ positions })], {
-          type: "application/json",
-        });
-        navigator.sendBeacon(
-          `/api/app/boards/${boardId}/lists/positions`,
-          blob
-        );
-      } catch {
-        /* unloading — nothing else we can do */
-      }
-    };
-    window.addEventListener("beforeunload", handler);
-    window.addEventListener("pagehide", handler);
-    return () => {
-      window.removeEventListener("beforeunload", handler);
-      window.removeEventListener("pagehide", handler);
-    };
-  }, [boardId]);
-
-  const queuePositionSave = useCallback(
-    (listId: string, x: number, y: number, opts?: { immediate?: boolean }) => {
-      pendingPositions.current.set(listId, { x, y });
-      if (positionSaveTimer.current) {
-        clearTimeout(positionSaveTimer.current);
-        positionSaveTimer.current = null;
-      }
-      if (opts?.immediate) {
-        // Drag-end fires this — save right away rather than debouncing,
-        // so a quick refresh after release still persists.
-        flushPositions();
-        return;
-      }
-      positionSaveTimer.current = setTimeout(flushPositions, 600);
-    },
-    [flushPositions]
-  );
-
-  /* ─── Viewport auto-save ─── */
-
-  const viewportSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const onMoveEnd = useCallback(
-    (_e: unknown, viewport: Viewport) => {
-      if (viewportSaveTimer.current) clearTimeout(viewportSaveTimer.current);
-      viewportSaveTimer.current = setTimeout(async () => {
-        await fetch(`/api/app/boards/${boardId}/viewport`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            x: viewport.x,
-            y: viewport.y,
-            zoom: viewport.zoom,
-          }),
-        });
-      }, 1500);
-    },
-    [boardId]
-  );
-
-  /* ─── Node drag stop → save position ─── */
-
-  const handleNodesChange = useCallback(
-    (changes: NodeChange[]) => {
-      onNodesChange(changes);
-      for (const ch of changes) {
-        if (
-          ch.type === "position" &&
-          (ch as { dragging?: boolean }).dragging === false &&
-          (ch as { position?: { x: number; y: number } }).position
-        ) {
-          const pos = (ch as { position: { x: number; y: number } }).position;
-          // Drag just ended — flush immediately, no debounce. If the user
-          // refreshes a beat later the position is already on the server.
-          queuePositionSave(ch.id, pos.x, pos.y, { immediate: true });
-          setLists((prev) =>
-            prev.map((l) =>
-              l.id === ch.id ? { ...l, position: { x: pos.x, y: pos.y } } : l
-            )
-          );
-        }
-      }
-    },
-    [onNodesChange, queuePositionSave]
   );
 
   /* ─── @dnd-kit for cards across lists ─── */
@@ -664,9 +446,7 @@ function Inner({
     [tasksByList]
   );
 
-  // Move a card to another list from the card-detail panel (the "select
-  // a card → pick a list" path; drag-and-drop between lists is handled
-  // by onCardDragEnd above). Lands the card at the bottom of the target.
+  // Move a card to another list from the card-detail panel.
   const moveCardToList = useCallback(
     async (taskId: string, toListId: string) => {
       const current = tasks.find((t) => t.id === taskId);
@@ -674,9 +454,7 @@ function Inner({
       const toIndex = (tasksByList.get(toListId) || []).length;
       setTasks((prev) =>
         prev.map((t) =>
-          t.id === taskId
-            ? { ...t, listId: toListId, sortOrder: toIndex }
-            : t
+          t.id === taskId ? { ...t, listId: toListId, sortOrder: toIndex } : t
         )
       );
       try {
@@ -694,65 +472,62 @@ function Inner({
 
   /* ─── Add list ─── */
 
-  const onAddList = useCallback(async (titleInput: string) => {
-    const trimmed = titleInput.trim();
-    if (!trimmed) return;
+  const onAddList = useCallback(
+    async (titleInput: string) => {
+      const trimmed = titleInput.trim();
+      if (!trimmed) return;
 
-    const tempId = `${TEMP_ID_PREFIX}${Date.now().toString(36)}`;
-    const maxX = lists.reduce((m, l) => Math.max(m, l.position.x), 0);
-    const newPos = { x: maxX + 360, y: 80 };
-    const tempList: CanvasList = {
-      id: tempId,
-      title: trimmed,
-      description: "",
-      listDate: new Date().toISOString(),
-      sortOrder: lists.length,
-      position: newPos,
-      width: 320,
-      color: null,
-    };
-    setLists((prev) => [...prev, tempList]);
+      const tempId = `${TEMP_ID_PREFIX}${Date.now().toString(36)}`;
+      // Append to the right: next sortOrder after the current max.
+      const nextSort =
+        lists.reduce((m, l) => Math.max(m, l.sortOrder), -1) + 1;
+      const tempList: CanvasList = {
+        id: tempId,
+        title: trimmed,
+        description: "",
+        listDate: new Date().toISOString(),
+        sortOrder: nextSort,
+        position: { x: 0, y: 0 },
+        width: 320,
+        color: null,
+      };
+      setLists((prev) => [...prev, tempList]);
 
-    try {
-      const res = await fetch(`/api/app/boards/${boardId}/lists`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: trimmed }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.list) {
+      try {
+        const res = await fetch(`/api/app/boards/${boardId}/lists`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: trimmed }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.list) {
+          setLists((prev) => prev.filter((l) => l.id !== tempId));
+          return;
+        }
+        // Swap temp for the real list, keeping the server's sortOrder so the
+        // column lands in the right place.
+        setLists((prev) =>
+          prev.map((l) =>
+            l.id === tempId
+              ? {
+                  id: data.list.id,
+                  title: data.list.title,
+                  description: "",
+                  listDate: new Date().toISOString(),
+                  sortOrder: data.list.sortOrder ?? nextSort,
+                  position: { x: 0, y: 0 },
+                  width: 320,
+                  color: null,
+                }
+              : l
+          )
+        );
+      } catch {
         setLists((prev) => prev.filter((l) => l.id !== tempId));
-        return;
       }
-      // Swap temp for real, preserving the optimistic position.
-      setLists((prev) =>
-        prev.map((l) =>
-          l.id === tempId
-            ? {
-                id: data.list.id,
-                title: data.list.title,
-                description: "",
-                listDate: new Date().toISOString(),
-                sortOrder: data.list.sortOrder,
-                position: newPos,
-                width: 320,
-                color: null,
-              }
-            : l
-        )
-      );
-      // Persist the position the user just assumed.
-      await fetch(`/api/app/boards/${boardId}/lists/positions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          positions: [{ listId: data.list.id, x: newPos.x, y: newPos.y }],
-        }),
-      });
-    } catch {
-      setLists((prev) => prev.filter((l) => l.id !== tempId));
-    }
-  }, [boardId, lists]);
+    },
+    [boardId, lists]
+  );
 
   /* ─── Render ─── */
 
@@ -762,6 +537,8 @@ function Inner({
         position: "fixed",
         inset: 0,
         zIndex: 60,
+        display: "flex",
+        flexDirection: "column",
         backgroundColor: "var(--color-app-canvas)",
       }}
     >
@@ -772,105 +549,12 @@ function Inner({
         onDragEnd={onCardDragEnd}
         onDragCancel={() => setActiveCardId(null)}
       >
-        <ReactFlow
-          nodes={nodes}
-          onNodesChange={handleNodesChange}
-          onMoveEnd={onMoveEnd}
-          nodeTypes={nodeTypes}
-          defaultViewport={initialViewport}
-          minZoom={0.3}
-          maxZoom={2}
-          proOptions={proOptions}
-          panOnScroll
-          selectionOnDrag={false}
-          deleteKeyCode={null}
-          fitView={false}
-          nodesDraggable={canEdit && !locked}
-          panOnDrag={!locked}
-          zoomOnScroll={!locked}
-          zoomOnPinch={!locked}
-          zoomOnDoubleClick={!locked}
-          elementsSelectable
-          colorMode="light"
-        >
-          <Background
-            variant={BackgroundVariant.Dots}
-            gap={24}
-            size={1.4}
-            color="rgba(10,17,36,0.10)"
-          />
-          {showMinimap ? (
-            <MiniMap
-              position="bottom-right"
-              pannable
-              zoomable
-              nodeColor={(n) => {
-                const data = n.data as unknown as ListNodeData;
-                return data?.list?.color || accent;
-              }}
-              nodeStrokeColor="rgba(10,17,36,0.25)"
-              nodeBorderRadius={6}
-              maskColor="rgba(10,17,36,0.08)"
-              style={{
-                background: "var(--color-app-paper)",
-                border: "1px solid var(--color-app-edge)",
-                borderRadius: 8,
-                overflow: "hidden",
-              }}
-            />
-          ) : null}
-          {/* Locked shield. Sits ABOVE all canvas content (nodes,
-              MiniMap) but BELOW the toolbar — covers every click
-              target that would otherwise mutate the board (Add card,
-              ⋮ menus, card opens, etc.).
-              Each click increments `lockPulseSig` which flashes the
-              Lock pill so the user knows where the block came from.
-              The toolbar's higher z-index keeps Lock / Zoom / Fit /
-              Help all reachable. */}
-          {locked ? (
-            <div
-              role="presentation"
-              aria-hidden
-              onMouseDownCapture={(e) => {
-                e.stopPropagation();
-                pulseLock();
-              }}
-              onClickCapture={(e) => {
-                e.stopPropagation();
-                pulseLock();
-              }}
-              onWheelCapture={(e) => e.stopPropagation()}
-              style={{
-                position: "absolute",
-                inset: 0,
-                zIndex: 25,
-                cursor: "not-allowed",
-                background: "transparent",
-              }}
-              title="Canvas is locked — click the Lock pill to unlock"
-            />
-          ) : null}
-          <CanvasToolbar
-            showMinimap={showMinimap}
-            onToggleMinimap={() => setShowMinimap((v) => !v)}
-            locked={locked}
-            onToggleLock={() => setLocked((v) => !v)}
-            onOpenHelp={() => setHelpOpen(true)}
-            boardId={boardId}
-            boardTitle={board.title}
-            lockPulseSig={lockPulseSig}
-          />
-        </ReactFlow>
-
         <CanvasTopBar
           board={board}
           accent={accent}
           gradient={gradient}
-          members={members}
           canEdit={canEdit}
           onAddList={onAddList}
-          locked={locked}
-          onLockedAttempt={pulseLock}
           totalLists={lists.length}
           totalCards={tasks.length}
           boardId={boardId}
@@ -879,13 +563,70 @@ function Inner({
           unreadCount={liveFeed.unreadCount}
         />
 
-        {/* dropAnimation={null} — kills the snap-back glitch where the
-            card flies back to its origin before reappearing in the new
-            list. We want it to vanish at drop point and re-render in the
-            destination list (optimistic update has already placed it). */}
+        {/* Horizontal scroll region — columns flow left→right and the board
+            scrolls sideways once they run past the screen. No panning, no
+            zoom: the only movement is this honest scrollbar. */}
+        <div
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowX: "auto",
+            overflowY: "hidden",
+          }}
+        >
+          <div
+            id={BOARD_CAPTURE_ID}
+            style={{
+              display: "flex",
+              gap: 16,
+              alignItems: "flex-start",
+              height: "100%",
+              width: "max-content",
+              padding: "4px 20px 24px",
+            }}
+          >
+            {orderedLists.map((list) => (
+              <ListColumn
+                key={list.id}
+                list={list}
+                tasks={tasksByList.get(list.id) || []}
+                accent={accent}
+                canEdit={canEdit}
+                onTaskClick={onTaskClick}
+                onListRename={onListRename}
+                onListDelete={onListDelete}
+                onListDescriptionChange={onListDescriptionChange}
+                onListDateChange={onListDateChange}
+                onTaskAdd={onTaskAdd}
+              />
+            ))}
+            {orderedLists.length === 0 ? (
+              <div
+                className="flex h-full items-center"
+                style={{
+                  fontFamily: "var(--font-manrope), sans-serif",
+                  color: "var(--color-app-fg-muted)",
+                  fontSize: 14,
+                }}
+              >
+                No lists yet — use{" "}
+                <span
+                  style={{ color: "var(--color-app-ink)", fontWeight: 600 }}
+                >
+                  &nbsp;Add list&nbsp;
+                </span>{" "}
+                above to create the first one.
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        {/* dropAnimation={null} kills the snap-back glitch — the card vanishes
+            at the drop point and re-renders in its new list (the optimistic
+            update has already placed it). */}
         <DragOverlay dropAnimation={null}>
           {activeCardTask ? (
-            <div style={{ width: 304 }}>
+            <div style={{ width: 288 }}>
               <CardPreview
                 task={activeCardTask}
                 onClick={() => {}}
@@ -896,6 +637,12 @@ function Inner({
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      <SaveToolbar
+        boardId={boardId}
+        boardTitle={board.title}
+        captureTargetId={BOARD_CAPTURE_ID}
+      />
 
       {openTaskId ? (
         <CardDetail
@@ -924,14 +671,11 @@ function Inner({
           isAdmin={role === "admin"}
           totalLists={lists.length}
           totalCards={tasks.length}
-          perListBreakdown={lists
-            .slice()
-            .sort((a, b) => a.position.x - b.position.x)
-            .map((l) => ({
-              id: l.id,
-              title: l.title,
-              count: tasksByList.get(l.id)?.length ?? 0,
-            }))}
+          perListBreakdown={orderedLists.map((l) => ({
+            id: l.id,
+            title: l.title,
+            count: tasksByList.get(l.id)?.length ?? 0,
+          }))}
           onClose={() => setBellOpen(false)}
           liveRows={liveFeed.newRows}
           onMarkSeen={liveFeed.markSeen}
@@ -944,9 +688,6 @@ function Inner({
           onClose={() => setRequestTarget(null)}
           onSubmitted={() => {
             setRequestTarget(null);
-            // Auto-open the bell drawer on the requests tab so the user
-            // can see their pending request immediately. The live feed
-            // will refresh the requests count automatically.
             setBellOpen(true);
           }}
         />
@@ -956,25 +697,18 @@ function Inner({
         newRows={liveFeed.newRows}
         selfUserId={currentUserId}
       />
-
-      {helpOpen ? (
-        <KeyboardShortcutsModal onClose={() => setHelpOpen(false)} />
-      ) : null}
     </div>
   );
 }
 
-/* ─── Floating top bar ─── */
+/* ─── Top bar ─── */
 
 function CanvasTopBar({
   board,
   accent,
   gradient,
-  members,
   canEdit,
   onAddList,
-  locked,
-  onLockedAttempt,
   totalLists,
   totalCards,
   boardId,
@@ -985,16 +719,8 @@ function CanvasTopBar({
   board: { id: string; title: string; description: string; color: string };
   accent: string;
   gradient: [string, string];
-  members: BoardMember[];
   canEdit: boolean;
   onAddList: (title: string) => void;
-  // When the canvas is locked we still render the Add list composer
-  // (so the user can SEE where it lives) but every click on it routes
-  // to onLockedAttempt so the Lock pill flashes instead of opening the
-  // composer. Bell + back link stay fully interactive since they don't
-  // mutate the board.
-  locked: boolean;
-  onLockedAttempt: () => void;
   totalLists: number;
   totalCards: number;
   boardId: string;
@@ -1002,9 +728,8 @@ function CanvasTopBar({
   presence: import("@/lib/use-board-presence").ActiveUser[];
   unreadCount: number;
 }) {
-  // Pending delete-request count is still its own short poll because it
-  // counts a state (pending vs resolved) rather than an event stream.
-  // Cheaper to ask once per 10s than to derive from the live feed.
+  // Pending delete-request count — its own short poll (counts a state, not
+  // an event stream), cheaper than deriving from the live feed.
   const [pendingDeleteCount, setPendingDeleteCount] = useState(0);
   useEffect(() => {
     let alive = true;
@@ -1029,21 +754,15 @@ function CanvasTopBar({
     };
   }, [boardId]);
 
-  // Total bell badge = unread activity since last opened + any pending
-  // delete requests. Capped at 99+ so it never overflows the dot.
   const bellCount = unreadCount + pendingDeleteCount;
   return (
     <div
       style={{
-        position: "absolute",
-        top: 16,
-        left: 16,
-        right: 16,
+        flexShrink: 0,
         display: "flex",
         alignItems: "center",
         gap: 12,
-        pointerEvents: "none",
-        zIndex: 5,
+        padding: 16,
       }}
     >
       {/* Board chip — left */}
@@ -1056,7 +775,6 @@ function CanvasTopBar({
           border: "1px solid rgba(10,17,36,0.06)",
           boxShadow:
             "0 16px 40px -12px rgba(10,17,36,0.18), 0 4px 8px -4px rgba(10,17,36,0.06)",
-          pointerEvents: "auto",
         }}
       >
         <Link
@@ -1118,17 +836,10 @@ function CanvasTopBar({
           border: "1px solid rgba(10,17,36,0.06)",
           boxShadow:
             "0 16px 40px -12px rgba(10,17,36,0.18), 0 4px 8px -4px rgba(10,17,36,0.06)",
-          pointerEvents: "auto",
         }}
       >
-        {/* Live presence: who is on this board right now (replaces the
-            static member avatar stack — the live signal is far more
-            useful for canvas collaboration). */}
-        {/* Presence is supplementary on a phone — hide it (and its divider)
-            so the bell + Add list never get pushed off the right edge. */}
         <div className="hidden sm:contents">
           <PresenceDock active={presence} />
-
           <div
             style={{
               width: 1,
@@ -1142,9 +853,7 @@ function CanvasTopBar({
         <div
           className="hidden md:flex items-center gap-2 px-2 py-1 rounded-md"
           title="Lists · Cards"
-          style={{
-            backgroundColor: "var(--color-app-canvas-2)",
-          }}
+          style={{ backgroundColor: "var(--color-app-canvas-2)" }}
         >
           <span
             className="text-[11px] font-semibold tabular-nums"
@@ -1154,8 +863,10 @@ function CanvasTopBar({
               letterSpacing: 0.4,
             }}
           >
-            <span style={{ color: "var(--color-app-ink)" }}>{totalLists}</span> lists ·{" "}
-            <span style={{ color: "var(--color-app-ink)" }}>{totalCards}</span> cards
+            <span style={{ color: "var(--color-app-ink)" }}>{totalLists}</span>{" "}
+            lists ·{" "}
+            <span style={{ color: "var(--color-app-ink)" }}>{totalCards}</span>{" "}
+            cards
           </span>
         </div>
 
@@ -1191,8 +902,6 @@ function CanvasTopBar({
             accent={accent}
             gradient={gradient}
             onSubmit={onAddList}
-            locked={locked}
-            onLockedAttempt={onLockedAttempt}
           />
         ) : null}
       </div>
@@ -1201,36 +910,21 @@ function CanvasTopBar({
 }
 
 /**
- * Inline composer for "+ Add list". Earlier this was a window.prompt
- * call which is jarring on a canvas — now it inflates into a small
- * input + Add/Cancel pill right inside the top bar. Enter submits, Esc
- * cancels. Matches the visual weight of the original button.
+ * Inline composer for "+ Add list" — inflates into a small input + Add/Cancel
+ * pill right in the top bar. Enter submits, Esc cancels.
  */
 function AddListComposer({
   accent,
   gradient,
   onSubmit,
-  locked,
-  onLockedAttempt,
 }: {
   accent: string;
   gradient: [string, string];
   onSubmit: (title: string) => void;
-  locked: boolean;
-  onLockedAttempt: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // If the canvas locks while the composer is open, close it. Keeps the
-  // surface honest — no half-typed edits on a locked board.
-  useEffect(() => {
-    if (locked && open) {
-      setOpen(false);
-      setTitle("");
-    }
-  }, [locked, open]);
 
   useEffect(() => {
     if (open && inputRef.current) inputRef.current.focus();
@@ -1251,23 +945,15 @@ function AddListComposer({
   if (!open) {
     return (
       <button
-        onClick={() => {
-          if (locked) {
-            onLockedAttempt();
-            return;
-          }
-          setOpen(true);
-        }}
+        onClick={() => setOpen(true)}
         className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-semibold transition-transform hover:-translate-y-0.5"
         style={{
           fontFamily: "var(--font-manrope), sans-serif",
           background: `linear-gradient(135deg, ${gradient[0]}, ${gradient[1]})`,
           color: "#fff",
           boxShadow: `0 8px 20px -8px ${accent}80`,
-          opacity: locked ? 0.5 : 1,
-          cursor: locked ? "not-allowed" : "pointer",
         }}
-        title={locked ? "Canvas is locked" : "Add a new list"}
+        title="Add a new list"
       >
         <span style={{ fontSize: 14, lineHeight: 1 }}>+</span> Add list
       </button>

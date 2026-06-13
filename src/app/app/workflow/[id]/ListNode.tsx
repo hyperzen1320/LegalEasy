@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { type NodeProps } from "@xyflow/react";
 import { useDroppable } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -11,7 +10,16 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import CardPreview, { type PreviewTask } from "./CardPreview";
 
-export type ListNodeData = {
+// A single board list, rendered as a FIXED Trello-style column. Lists no
+// longer live on a free canvas — the board lays them out left-to-right in
+// sortOrder and scrolls horizontally — so this component is a plain column
+// (no React Flow node wrapper, no drag handle). Cards inside it are still
+// drag-sortable via @dnd-kit, exactly as before. The column caps its height
+// to the board and scrolls its card area internally when a list is long.
+
+export const COLUMN_WIDTH = 300;
+
+export type ListColumnProps = {
   list: {
     id: string;
     title: string;
@@ -24,7 +32,6 @@ export type ListNodeData = {
   tasks: PreviewTask[];
   accent: string;
   canEdit: boolean;
-  selected?: boolean;
   onTaskClick: (id: string) => void;
   onListRename: (listId: string, title: string) => void;
   onListDelete: (listId: string) => void;
@@ -33,10 +40,18 @@ export type ListNodeData = {
   onTaskAdd: (listId: string, title: string) => void;
 };
 
-export default function ListNode(props: NodeProps & { data: ListNodeData }) {
-  const { data, selected } = props;
-  const { list, tasks, accent, canEdit, onTaskClick } = data;
-
+export default function ListColumn({
+  list,
+  tasks,
+  accent,
+  canEdit,
+  onTaskClick,
+  onListRename,
+  onListDelete,
+  onListDescriptionChange,
+  onListDateChange,
+  onTaskAdd,
+}: ListColumnProps) {
   const droppable = useDroppable({
     id: `list-drop:${list.id}`,
     data: { type: "list", listId: list.id },
@@ -52,7 +67,7 @@ export default function ListNode(props: NodeProps & { data: ListNodeData }) {
   function commitTitle() {
     setEditing(false);
     if (title.trim() && title.trim() !== list.title) {
-      data.onListRename(list.id, title.trim());
+      onListRename(list.id, title.trim());
     } else {
       setTitle(list.title);
     }
@@ -60,7 +75,7 @@ export default function ListNode(props: NodeProps & { data: ListNodeData }) {
 
   function commitAddCard() {
     if (newTitle.trim()) {
-      data.onTaskAdd(list.id, newTitle.trim());
+      onTaskAdd(list.id, newTitle.trim());
       setNewTitle("");
     } else {
       setAdding(false);
@@ -68,52 +83,43 @@ export default function ListNode(props: NodeProps & { data: ListNodeData }) {
   }
 
   const stripeColor = list.color || accent;
-  // Lists with a temp:* id are still being saved server-side. We mark
-  // them so the global pending styles (dim + blinking dot) apply.
+  // Lists with a tmp:* id are still being saved server-side. We mark them
+  // so the global pending styles (dim + blinking dot) apply.
   const isPending = list.id.startsWith("tmp:");
 
   return (
     <div
-      className="relative"
+      className="relative flex shrink-0 flex-col"
       data-le-id={list.id}
       data-le-pending={isPending ? "true" : undefined}
       style={{
-        width: list.width,
-        backgroundColor: "rgba(255, 255, 255, 0.85)",
+        width: COLUMN_WIDTH,
+        maxHeight: "100%",
+        backgroundColor: "rgba(255, 255, 255, 0.9)",
         backdropFilter: "blur(12px)",
         WebkitBackdropFilter: "blur(12px)",
         borderRadius: 14,
-        boxShadow: selected
-          ? `0 0 0 2px ${stripeColor}80, 0 24px 48px -16px rgba(10,17,36,0.25), 0 4px 12px -4px rgba(10,17,36,0.10)`
-          : "0 16px 32px -12px rgba(10,17,36,0.18), 0 2px 6px -2px rgba(10,17,36,0.08)",
+        boxShadow:
+          "0 16px 32px -12px rgba(10,17,36,0.18), 0 2px 6px -2px rgba(10,17,36,0.08)",
         border: "1px solid rgba(10,17,36,0.06)",
-        // overflow stays VISIBLE so the list-menu dropdown (color swatches,
-        // delete) can escape the wrapper. Earlier this was hidden, which
-        // clipped the bottom row of swatches. The top accent stripe now
-        // self-clips via its own border-top radii.
+        // overflow stays VISIBLE so the list-menu dropdown can escape the
+        // wrapper; the top accent stripe self-clips via its own radii.
         overflow: "visible",
-        transition: "box-shadow 200ms, transform 200ms",
       }}
     >
-      {/* Top stripe — self-clipped with the same top-corner radii as the
-          wrapper, so removing the wrapper's overflow:hidden doesn't leave
-          a visible square edge. */}
+      {/* Top stripe */}
       <div
         style={{
           height: 4,
+          flexShrink: 0,
           background: `linear-gradient(90deg, ${stripeColor}, ${stripeColor}cc)`,
           borderTopLeftRadius: 14,
           borderTopRightRadius: 14,
         }}
       />
 
-      {/* Header — this is the drag handle for the node */}
-      <div
-        className="flex items-center gap-2 px-4 pt-3 pb-2"
-        style={{
-          cursor: canEdit ? "grab" : "default",
-        }}
-      >
+      {/* Header */}
+      <div className="flex shrink-0 items-center gap-2 px-4 pt-3 pb-2">
         {editing ? (
           <input
             autoFocus
@@ -130,9 +136,7 @@ export default function ListNode(props: NodeProps & { data: ListNodeData }) {
                 setEditing(false);
               }
             }}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
-            className="nodrag flex-1 rounded bg-transparent px-1 text-[14px] font-semibold outline-none"
+            className="flex-1 rounded bg-transparent px-1 text-[14px] font-semibold outline-none"
             style={{
               fontFamily: "var(--font-manrope), sans-serif",
               color: "var(--color-app-ink)",
@@ -141,12 +145,10 @@ export default function ListNode(props: NodeProps & { data: ListNodeData }) {
           />
         ) : (
           <button
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation();
+            onClick={() => {
               if (canEdit) setEditing(true);
             }}
-            className="nodrag flex-1 text-left text-[14px] font-semibold tracking-tight"
+            className="flex-1 text-left text-[14px] font-semibold tracking-tight"
             style={{
               fontFamily: "var(--font-manrope), sans-serif",
               color: "var(--color-app-ink)",
@@ -179,8 +181,8 @@ export default function ListNode(props: NodeProps & { data: ListNodeData }) {
               setMenu(false);
               setEditing(true);
             }}
-            onDescriptionChange={(d) => data.onListDescriptionChange(list.id, d)}
-            onDateChange={(d) => data.onListDateChange(list.id, d)}
+            onDescriptionChange={(d) => onListDescriptionChange(list.id, d)}
+            onDateChange={(d) => onListDateChange(list.id, d)}
             onDelete={() => {
               setMenu(false);
               if (
@@ -188,20 +190,20 @@ export default function ListNode(props: NodeProps & { data: ListNodeData }) {
                   `Delete list "${list.title}"? All ${tasks.length} card${tasks.length === 1 ? "" : "s"} in this list will be removed too.`
                 )
               ) {
-                data.onListDelete(list.id);
+                onListDelete(list.id);
               }
             }}
           />
         ) : null}
       </div>
 
-      {/* Card area */}
+      {/* Card area — flexes to fill the column and scrolls internally when a
+          list grows tall, so the board itself stays one tidy row. */}
       <div
         ref={droppable.setNodeRef}
-        className="nodrag nowheel"
+        className="min-h-0 flex-1 overflow-y-auto"
         style={{
           padding: "4px 8px 8px",
-          minHeight: 60,
           backgroundColor: droppable.isOver
             ? `${stripeColor}10`
             : "transparent",
@@ -224,16 +226,13 @@ export default function ListNode(props: NodeProps & { data: ListNodeData }) {
             {tasks.length === 0 && !adding ? (
               <div
                 className="flex flex-col items-center justify-center rounded-md py-6 text-center"
-                style={{
-                  border: "1px dashed var(--color-app-edge)",
-                }}
+                style={{ border: "1px dashed var(--color-app-edge)" }}
               >
                 <span
                   className="text-[10px] uppercase tracking-[0.22em]"
                   style={{
                     fontFamily: "var(--font-dm-mono), monospace",
                     color: "var(--color-app-fg-muted)",
-                    fontStyle: "normal",
                   }}
                 >
                   {droppable.isOver ? "Drop here" : "Empty"}
@@ -246,7 +245,7 @@ export default function ListNode(props: NodeProps & { data: ListNodeData }) {
 
       {/* Add card composer */}
       {canEdit ? (
-        <div className="nodrag px-2 pb-3" onPointerDown={(e) => e.stopPropagation()}>
+        <div className="shrink-0 px-2 pb-3">
           {adding ? (
             <div
               className="rounded-md p-2"
@@ -284,7 +283,7 @@ export default function ListNode(props: NodeProps & { data: ListNodeData }) {
                   style={{
                     fontFamily: "var(--font-manrope), sans-serif",
                     backgroundColor: stripeColor,
-                    color: stripeColor === "#c5853a" ? "#2a1c08" : "#ffffff",
+                    color: stripeColor === "#ac7b33" ? "#2a1c08" : "#ffffff",
                   }}
                 >
                   Add card
@@ -332,7 +331,6 @@ export default function ListNode(props: NodeProps & { data: ListNodeData }) {
           )}
         </div>
       ) : null}
-
     </div>
   );
 }
@@ -369,7 +367,7 @@ function SortableCard({
   );
 }
 
-/* ─── List menu ─── */
+/* ─── List menu (the ⋮ popup) ─── */
 
 function ListMenu({
   description,
@@ -392,33 +390,54 @@ function ListMenu({
   onDateChange: (listDate: string) => void;
   onDelete: () => void;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  // Local draft for the description — commit on blur rather than PATCHing
-  // every keystroke. Re-sync if the prop changes underneath us (a
-  // collaborator edited it and the live feed resynced the board).
+  // Local drafts for date + description. Nothing is persisted until the
+  // user hits Save — clicking outside (or the overlay) just closes and
+  // discards the draft. Re-sync from props whenever the popup (re)opens or
+  // a collaborator's edit arrives via the live feed.
   const [descDraft, setDescDraft] = useState(description);
-  useEffect(() => setDescDraft(description), [description]);
-
-  // <input type="date"> wants a yyyy-mm-dd value; listDate is a full ISO.
   const dateValue = listDate ? listDate.slice(0, 10) : "";
+  const [dateDraft, setDateDraft] = useState(dateValue);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  // The panel is rendered fixed-position, anchored to the ⋮ button, so the
+  // board's horizontal-scroll container can never clip it (it flips above
+  // the button when there isn't room below).
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  useEffect(() => {
+    if (!open) {
+      setPos(null);
+      return;
+    }
+    setDescDraft(description);
+    setDateDraft(listDate ? listDate.slice(0, 10) : "");
+    const r = btnRef.current?.getBoundingClientRect();
+    if (r) {
+      const W = 252;
+      const H = 360;
+      let top = r.bottom + 6;
+      if (top + H > window.innerHeight - 8) {
+        top = Math.max(8, r.top - H - 6); // no room below — flip up
+      }
+      const left = Math.max(
+        8,
+        Math.min(r.right - W, window.innerWidth - W - 8)
+      );
+      setPos({ top, left });
+    }
+  }, [open, description, listDate]);
 
-  function commitDescription() {
+  function save() {
+    if (dateDraft && dateDraft !== dateValue) onDateChange(dateDraft);
     if (descDraft.trim() !== (description || "").trim()) {
       onDescriptionChange(descDraft.trim());
     }
+    onClose();
   }
 
   return (
-    <div
-      ref={ref}
-      className="relative nodrag"
-      onPointerDown={(e) => e.stopPropagation()}
-    >
+    <div className="relative">
       <button
-        onClick={(e) => {
-          e.stopPropagation();
-          open ? onClose() : onOpen();
-        }}
+        ref={btnRef}
+        onClick={() => (open ? onClose() : onOpen())}
         className="flex h-7 w-7 items-center justify-center rounded transition-colors"
         style={{ color: "var(--color-app-fg-muted)" }}
         aria-label="List menu"
@@ -429,19 +448,23 @@ function ListMenu({
           <circle cx="18" cy="12" r="1.6" />
         </svg>
       </button>
-      {open ? (
+      {open && pos ? (
         <>
-          <div className="fixed inset-0 z-30" onClick={onClose} />
+          {/* Click-out scrim — any click outside the panel closes it. */}
+          <div className="fixed inset-0 z-40" onClick={onClose} />
           <div
-            className="absolute right-0 top-9 z-40 w-[252px] rounded-lg p-2"
+            className="fixed z-50 w-[252px] rounded-lg p-2"
             style={{
+              top: pos.top,
+              left: pos.left,
+              maxHeight: "calc(100vh - 16px)",
+              overflowY: "auto",
               backgroundColor: "var(--color-app-paper)",
               boxShadow:
                 "0 16px 32px -10px rgba(10,17,36,0.25), 0 0 0 1px var(--color-app-edge)",
             }}
-            onPointerDown={(e) => e.stopPropagation()}
           >
-            {/* Name */}
+            {/* Edit name */}
             <button
               onClick={onRename}
               className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[13px] rounded transition-colors"
@@ -461,7 +484,7 @@ function ListMenu({
               <PencilGlyph />
             </button>
 
-            {/* Date — defaults to the list's creation date, editable here. */}
+            {/* Date */}
             <div className="px-3 pt-2">
               <label
                 className="text-[10px] font-semibold uppercase tracking-[0.18em]"
@@ -474,8 +497,8 @@ function ListMenu({
               </label>
               <input
                 type="date"
-                value={dateValue}
-                onChange={(e) => onDateChange(e.target.value)}
+                value={dateDraft}
+                onChange={(e) => setDateDraft(e.target.value)}
                 className="mt-1.5 block w-full rounded-md border px-2.5 py-1.5 text-[12.5px] outline-none"
                 style={{
                   fontFamily: "var(--font-manrope), sans-serif",
@@ -486,7 +509,7 @@ function ListMenu({
               />
             </div>
 
-            {/* Description — collaboratively editable; commits on blur. */}
+            {/* Description */}
             <div className="px-3 pt-2.5">
               <label
                 className="text-[10px] font-semibold uppercase tracking-[0.18em]"
@@ -500,7 +523,6 @@ function ListMenu({
               <textarea
                 value={descDraft}
                 onChange={(e) => setDescDraft(e.target.value)}
-                onBlur={commitDescription}
                 placeholder="What goes in this list?"
                 rows={3}
                 className="mt-1.5 block w-full resize-none rounded-md border px-2.5 py-1.5 text-[12.5px] leading-[1.5] outline-none"
@@ -511,6 +533,21 @@ function ListMenu({
                   color: "var(--color-app-ink)",
                 }}
               />
+            </div>
+
+            {/* Save — persists the date + description and closes. */}
+            <div className="px-3 pt-2.5">
+              <button
+                onClick={save}
+                className="w-full rounded-md px-3 py-2 text-[12px] font-semibold transition-transform hover:-translate-y-0.5"
+                style={{
+                  fontFamily: "var(--font-manrope), sans-serif",
+                  backgroundColor: "var(--color-app-copper)",
+                  color: "var(--color-app-copper-text)",
+                }}
+              >
+                Save
+              </button>
             </div>
 
             <div
