@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -70,6 +71,7 @@ export default function Sidebar({
 }) {
   const pathname = usePathname();
   const chatUnread = useChatUnread();
+  const [loggingOut, setLoggingOut] = useState(false);
 
   // Drop admin-only entries (Activity, Attendance) for everyone who
   // isn't the office admin. The page redirect + API 403 back this up.
@@ -276,12 +278,42 @@ export default function Sidebar({
             </div>
           </div>
           <button
-            onClick={() => signOut({ callbackUrl: "/login" })}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors"
-            style={{ color: "var(--color-app-ivory-soft)" }}
+            onClick={() => {
+              if (loggingOut) return;
+              setLoggingOut(true);
+              // Let the flicker play before the redirect fires.
+              setTimeout(() => signOut({ callbackUrl: "/login" }), 340);
+            }}
+            className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors"
+            style={{
+              color: loggingOut ? "#ffffff" : "var(--color-app-ivory-soft)",
+              backgroundColor: loggingOut
+                ? "var(--color-app-danger)"
+                : "transparent",
+              animation: loggingOut ? "logout-flicker 0.34s linear" : undefined,
+            }}
+            onMouseEnter={(e) => {
+              if (loggingOut) return;
+              e.currentTarget.style.backgroundColor = "var(--color-app-danger)";
+              e.currentTarget.style.color = "#ffffff";
+            }}
+            onMouseLeave={(e) => {
+              if (loggingOut) return;
+              e.currentTarget.style.backgroundColor = "transparent";
+              e.currentTarget.style.color = "var(--color-app-ivory-soft)";
+            }}
             title="Sign out"
             aria-label="Sign out"
           >
+            <style>{`
+              @keyframes logout-flicker {
+                0%, 100% { opacity: 1; }
+                20% { opacity: 0.25; }
+                40% { opacity: 1; }
+                60% { opacity: 0.3; }
+                80% { opacity: 1; }
+              }
+            `}</style>
             <IconSignOut />
           </button>
         </div>

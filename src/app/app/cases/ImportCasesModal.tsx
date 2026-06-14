@@ -28,7 +28,11 @@ const ACCEPT = ".docx,.xlsx,.xls,.csv,.pdf";
 
 type Stage = "idle" | "parsing" | "preview" | "importing" | "done";
 
-export default function ImportCasesButton() {
+export default function ImportCasesButton({
+  advocates,
+}: {
+  advocates: { id: string; name: string }[];
+}) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -47,12 +51,20 @@ export default function ImportCasesButton() {
         <ImportIcon />
         Import Cases
       </button>
-      {open ? <ImportModal onClose={() => setOpen(false)} /> : null}
+      {open ? (
+        <ImportModal advocates={advocates} onClose={() => setOpen(false)} />
+      ) : null}
     </>
   );
 }
 
-function ImportModal({ onClose }: { onClose: () => void }) {
+function ImportModal({
+  advocates,
+  onClose,
+}: {
+  advocates: { id: string; name: string }[];
+  onClose: () => void;
+}) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [stage, setStage] = useState<Stage>("idle");
@@ -72,6 +84,7 @@ function ImportModal({ onClose }: { onClose: () => void }) {
     created: number;
     skipped: number;
   } | null>(null);
+  const [assigneeId, setAssigneeId] = useState("");
   const [dragOver, setDragOver] = useState(false);
 
   async function handleFile(file: File) {
@@ -130,7 +143,7 @@ function ImportModal({ onClose }: { onClose: () => void }) {
         const res = await fetch("/api/app/cases/import", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ rows: chunk }),
+          body: JSON.stringify({ rows: chunk, advocateId: assigneeId || null }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
@@ -286,18 +299,25 @@ function ImportModal({ onClose }: { onClose: () => void }) {
           ) : null}
 
           {stage === "preview" ? (
-            <PreviewTable
-              rows={rows}
-              issues={issues}
-              warnings={warnings}
-              selected={selected}
-              onToggle={(i) =>
-                setSelected((prev) => prev.map((v, j) => (j === i ? !v : v)))
-              }
-              onToggleAll={(v) =>
-                setSelected(rows.map((_, i) => v && !issues[i]?.missingCaseNo))
-              }
-            />
+            <>
+              <AssignToRow
+                advocates={advocates}
+                value={assigneeId}
+                onChange={setAssigneeId}
+              />
+              <PreviewTable
+                rows={rows}
+                issues={issues}
+                warnings={warnings}
+                selected={selected}
+                onToggle={(i) =>
+                  setSelected((prev) => prev.map((v, j) => (j === i ? !v : v)))
+                }
+                onToggleAll={(v) =>
+                  setSelected(rows.map((_, i) => v && !issues[i]?.missingCaseNo))
+                }
+              />
+            </>
           ) : null}
 
           {stage === "importing" && progress ? (
@@ -506,6 +526,79 @@ function DoneSummary({
           </ul>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+// Advocate assignment for the whole import. Defaults to "Leave unassigned"
+// so a roll is never blindly stamped with the uploader as the advocate —
+// the reviewer picks who these matters belong to (or no one).
+function AssignToRow({
+  advocates,
+  value,
+  onChange,
+}: {
+  advocates: { id: string; name: string }[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div
+      className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md px-3.5 py-3"
+      style={{
+        backgroundColor: "var(--color-app-canvas-2)",
+        border: "1px solid var(--color-app-edge)",
+      }}
+    >
+      <label
+        htmlFor="import-assignee"
+        className="text-[10px] font-semibold uppercase tracking-[0.16em]"
+        style={{
+          fontFamily: "var(--font-dm-mono), monospace",
+          color: "var(--color-app-copper-deep)",
+        }}
+      >
+        Assign to
+      </label>
+      <div className="relative">
+        <select
+          id="import-assignee"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="appearance-none rounded-md border py-2 pl-3 pr-9 text-[13px] outline-none"
+          style={{
+            fontFamily: "var(--font-manrope), sans-serif",
+            borderColor: "var(--color-app-edge)",
+            backgroundColor: "var(--color-app-paper)",
+            color: "var(--color-app-ink)",
+            minWidth: 180,
+          }}
+        >
+          <option value="">Leave unassigned</option>
+          {advocates.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.name}
+            </option>
+          ))}
+        </select>
+        <span
+          aria-hidden
+          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px]"
+          style={{ color: "var(--color-app-fg-muted)" }}
+        >
+          ▼
+        </span>
+      </div>
+      <span
+        className="flex-1 text-[11.5px]"
+        style={{
+          fontFamily: "var(--font-manrope), sans-serif",
+          color: "var(--color-app-fg-muted)",
+        }}
+      >
+        These matters won&rsquo;t be auto-assigned to you — pick the advocate
+        they belong to, or leave them unassigned.
+      </span>
     </div>
   );
 }

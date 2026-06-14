@@ -37,6 +37,7 @@ export async function POST(request: Request) {
 
   const payload = (await request.json().catch(() => null)) as {
     rows?: ParsedCaseRow[];
+    advocateId?: string | null;
   } | null;
   if (!payload || !Array.isArray(payload.rows)) {
     return NextResponse.json({ error: "Expected { rows: [...] }." }, {
@@ -56,9 +57,14 @@ export async function POST(request: Request) {
 
   await connectDB();
   const partnerId = new mongoose.Types.ObjectId(guard.ctx.user.partnerId);
-  const createdBy = guard.ctx.user.id
-    ? new mongoose.Types.ObjectId(guard.ctx.user.id)
-    : null;
+  // Who the imported matters belong to. The reviewer chooses this on the
+  // import screen (default: unassigned). Previously every imported row was
+  // blindly stamped with the uploader as its advocate.
+  const createdBy =
+    typeof payload.advocateId === "string" &&
+    mongoose.isValidObjectId(payload.advocateId)
+      ? new mongoose.Types.ObjectId(payload.advocateId)
+      : null;
 
   const created: string[] = [];
   const skipped: Array<{ caseNo: string; reason: string }> = [];

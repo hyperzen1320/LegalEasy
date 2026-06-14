@@ -108,7 +108,7 @@ export default async function CaseVaultPage() {
           </div>
 
           <div className="flex items-center gap-2.5">
-            <ImportCasesButton />
+            <ImportCasesButton advocates={bootstrap.advocates} />
             <Link
               href="/app/cases/new"
               className="inline-flex items-center gap-2 rounded-md px-5 py-3 text-[13px] font-semibold transition-all hover:-translate-y-0.5"
