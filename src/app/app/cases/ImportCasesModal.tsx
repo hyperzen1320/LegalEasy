@@ -16,13 +16,51 @@ type ParsedRow = {
   clientName: string;
   appearingFor: string;
   courtName: string;
+  courtPlace: string;
+  courtHall: string;
   clientPhone: string;
   clientWhatsapp: string;
+  oppositeParty: string;
+  oppositeAdvocate: string;
+  clientAddress: string;
   status: string;
   lastHearingDate: string | null;
   nextHearingDate: string | null;
 };
 type RowIssue = { missingCaseNo: boolean; duplicateCnr: boolean; note: string };
+
+// Every Case field the preview lets the reviewer see + edit, in a sensible
+// left-to-right order. Anything the parser couldn't fill is shown empty so
+// the user can type it in before importing — scroll the grid horizontally
+// for the full set. Mirrors the New Case form's field list.
+type PreviewField = {
+  key: keyof ParsedRow;
+  label: string;
+  type: "text" | "date";
+  width: number;
+  mono?: boolean;
+  placeholder?: string;
+};
+
+const PREVIEW_FIELDS: PreviewField[] = [
+  { key: "fileNo", label: "File No", type: "text", width: 120, mono: true, placeholder: "F-2025/001" },
+  { key: "caseNo", label: "Case No", type: "text", width: 150, placeholder: "O.S. 100/2025" },
+  { key: "iaNumbers", label: "I.A. No(s)", type: "text", width: 120, placeholder: "I.A. 5/2025" },
+  { key: "cnr", label: "CNR", type: "text", width: 175, mono: true, placeholder: "TNCH01…2024" },
+  { key: "clientName", label: "Client", type: "text", width: 160, placeholder: "R. Murugan" },
+  { key: "appearingFor", label: "Appearing For", type: "text", width: 130, placeholder: "Petitioner" },
+  { key: "clientWhatsapp", label: "WhatsApp", type: "text", width: 130, mono: true, placeholder: "+91…" },
+  { key: "clientPhone", label: "Contact No", type: "text", width: 130, mono: true, placeholder: "+91…" },
+  { key: "courtName", label: "Court", type: "text", width: 160, placeholder: "Madras High Court" },
+  { key: "courtPlace", label: "Court Place", type: "text", width: 130, placeholder: "Chennai" },
+  { key: "courtHall", label: "Court Hall", type: "text", width: 110, placeholder: "Hall 4" },
+  { key: "status", label: "Status", type: "text", width: 120, placeholder: "Filed" },
+  { key: "lastHearingDate", label: "Previous Date", type: "date", width: 155 },
+  { key: "nextHearingDate", label: "Next Date", type: "date", width: 155 },
+  { key: "oppositeParty", label: "Opposite Party", type: "text", width: 160, placeholder: "State of Tamil Nadu" },
+  { key: "oppositeAdvocate", label: "Opposite Advocate", type: "text", width: 160, placeholder: "Adv. S. Ramesh" },
+  { key: "clientAddress", label: "Client Address", type: "text", width: 200, placeholder: "12, North Mada St, Chennai" },
+];
 
 const ACCEPT = ".docx,.xlsx,.xls,.csv,.pdf";
 
@@ -176,6 +214,15 @@ function ImportModal({
     }
   }
 
+  // Inline edit of a single previewed cell. Every field is editable so the
+  // reviewer can correct a misread value or fill a blank the parser left —
+  // including the fields no spreadsheet column mapped to.
+  function updateCell(i: number, key: keyof ParsedRow, value: string) {
+    setRows((prev) =>
+      prev.map((r, j) => (j === i ? ({ ...r, [key]: value } as ParsedRow) : r))
+    );
+  }
+
   const selectedCount = selected.filter(Boolean).length;
 
   return (
@@ -188,7 +235,7 @@ function ImportModal({
       }}
     >
       <div
-        className="flex max-h-[88vh] w-full max-w-[920px] flex-col overflow-hidden rounded-2xl"
+        className="flex max-h-[88vh] w-full max-w-[1080px] flex-col overflow-hidden rounded-2xl"
         style={{
           backgroundColor: "var(--color-app-paper)",
           boxShadow: "0 32px 64px -24px rgba(10,17,36,0.5)",
@@ -321,8 +368,9 @@ function ImportModal({
                   setSelected((prev) => prev.map((v, j) => (j === i ? !v : v)))
                 }
                 onToggleAll={(v) =>
-                  setSelected(rows.map((_, i) => v && !issues[i]?.missingCaseNo))
+                  setSelected(rows.map((r) => v && Boolean(r.caseNo.trim())))
                 }
+                onUpdateCell={updateCell}
               />
             </>
           ) : null}
@@ -395,6 +443,7 @@ function PreviewTable({
   selected,
   onToggle,
   onToggleAll,
+  onUpdateCell,
 }: {
   rows: ParsedRow[];
   issues: RowIssue[];
@@ -402,8 +451,15 @@ function PreviewTable({
   selected: boolean[];
   onToggle: (i: number) => void;
   onToggleAll: (v: boolean) => void;
+  onUpdateCell: (i: number, key: keyof ParsedRow, value: string) => void;
 }) {
-  const allChecked = selected.length > 0 && selected.every(Boolean);
+  // Importability is recomputed live off the edited rows, so the moment a
+  // reviewer types a Case No into a flagged row it becomes selectable.
+  const importable = rows.map((r) => Boolean(r.caseNo.trim()));
+  const importableCount = importable.filter(Boolean).length;
+  const allChecked =
+    importableCount > 0 && importable.every((imp, i) => !imp || selected[i]);
+
   return (
     <div>
       {warnings.length > 0 ? (
@@ -419,11 +475,30 @@ function PreviewTable({
           {warnings.join(" ")}
         </div>
       ) : null}
-      <div className="overflow-x-auto rounded-lg" style={{ border: "1px solid var(--color-app-edge)" }}>
-        <table className="w-full border-collapse text-[12.5px]">
+
+      <p
+        className="mb-2 text-[11.5px] leading-snug"
+        style={{
+          fontFamily: "var(--font-manrope), sans-serif",
+          color: "var(--color-app-fg-muted)",
+        }}
+      >
+        Every field is editable —{" "}
+        <span style={{ color: "var(--color-app-ink)", fontWeight: 600 }}>
+          scroll right
+        </span>{" "}
+        to see and fill the rest (opposite party &amp; advocate, court hall,
+        client address…). A row needs only a Case No to import.
+      </p>
+
+      <div
+        className="overflow-x-auto rounded-lg"
+        style={{ border: "1px solid var(--color-app-edge)" }}
+      >
+        <table className="border-collapse text-[12.5px]">
           <thead>
             <tr style={{ backgroundColor: "var(--color-app-canvas-2)" }}>
-              <Th>
+              <Th style={{ width: 40 }}>
                 <input
                   type="checkbox"
                   checked={allChecked}
@@ -431,19 +506,18 @@ function PreviewTable({
                   aria-label="Select all"
                 />
               </Th>
-              <Th>Case No</Th>
-              <Th>Client</Th>
-              <Th>Court</Th>
-              <Th>File No</Th>
-              <Th>CNR</Th>
-              <Th>Next Date</Th>
-              <Th>Status</Th>
+              <Th style={{ width: 48 }}>#</Th>
+              {PREVIEW_FIELDS.map((f) => (
+                <Th key={f.key} style={{ minWidth: f.width }}>
+                  {f.label}
+                </Th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {rows.map((r, i) => {
+              const bad = !importable[i];
               const issue = issues[i];
-              const bad = issue?.missingCaseNo;
               return (
                 <tr
                   key={i}
@@ -452,10 +526,8 @@ function PreviewTable({
                     backgroundColor: bad
                       ? "var(--color-app-danger-soft)"
                       : issue?.duplicateCnr
-                        ? "rgba(172,123,51,0.08)"
+                        ? "rgba(172,123,51,0.07)"
                         : "transparent",
-                    fontFamily: "var(--font-manrope), sans-serif",
-                    color: "var(--color-app-ink)",
                   }}
                 >
                   <Td>
@@ -468,22 +540,53 @@ function PreviewTable({
                     />
                   </Td>
                   <Td>
-                    <span style={{ fontWeight: 600 }}>{r.caseNo || "—"}</span>
-                    {issue?.note ? (
-                      <div
-                        className="text-[10.5px]"
-                        style={{ color: bad ? "var(--color-app-danger)" : "var(--color-app-copper-deep)" }}
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className="tabular-nums"
+                        style={{
+                          fontFamily: "var(--font-dm-mono), monospace",
+                          color: "var(--color-app-fg-muted)",
+                        }}
                       >
-                        {issue.note}
-                      </div>
-                    ) : null}
+                        {i + 1}
+                      </span>
+                      {bad ? (
+                        <span
+                          title="No case number — this row won't import"
+                          style={{
+                            display: "inline-block",
+                            height: 7,
+                            width: 7,
+                            borderRadius: 999,
+                            backgroundColor: "var(--color-app-danger)",
+                          }}
+                        />
+                      ) : issue?.duplicateCnr ? (
+                        <span
+                          title={issue.note || "CNR may already be on record"}
+                          style={{
+                            display: "inline-block",
+                            height: 7,
+                            width: 7,
+                            borderRadius: 999,
+                            backgroundColor: "var(--color-app-copper)",
+                          }}
+                        />
+                      ) : null}
+                    </div>
                   </Td>
-                  <Td>{r.clientName || "—"}</Td>
-                  <Td>{r.courtName || "—"}</Td>
-                  <Td mono>{r.fileNo || "—"}</Td>
-                  <Td mono>{r.cnr || "—"}</Td>
-                  <Td mono>{r.nextHearingDate || "—"}</Td>
-                  <Td>{r.status || "—"}</Td>
+                  {PREVIEW_FIELDS.map((f) => (
+                    <Td key={f.key} style={{ minWidth: f.width }}>
+                      <CellInput
+                        value={String(r[f.key] ?? "")}
+                        type={f.type}
+                        mono={f.mono}
+                        placeholder={f.placeholder}
+                        invalid={f.key === "caseNo" && bad}
+                        onChange={(v) => onUpdateCell(i, f.key, v)}
+                      />
+                    </Td>
+                  ))}
                 </tr>
               );
             })}
@@ -491,6 +594,55 @@ function PreviewTable({
         </table>
       </div>
     </div>
+  );
+}
+
+// A single editable preview cell. Text for most fields, a native date
+// picker for the two hearing dates. The Case No cell turns its border red
+// while empty, since that's the one field a row can't import without.
+function CellInput({
+  value,
+  type,
+  mono,
+  placeholder,
+  invalid,
+  onChange,
+}: {
+  value: string;
+  type: "text" | "date";
+  mono?: boolean;
+  placeholder?: string;
+  invalid?: boolean;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <input
+      type={type === "date" ? "date" : "text"}
+      value={value}
+      placeholder={placeholder}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full rounded border bg-transparent px-2 py-1.5 text-[12.5px] outline-none"
+      style={{
+        fontFamily: mono
+          ? "var(--font-dm-mono), monospace"
+          : "var(--font-manrope), sans-serif",
+        borderColor: invalid
+          ? "var(--color-app-danger)"
+          : "var(--color-app-edge)",
+        backgroundColor: "var(--color-app-paper)",
+        color: "var(--color-app-ink)",
+      }}
+      onFocus={(e) => {
+        e.currentTarget.style.borderColor = "var(--color-app-copper)";
+        e.currentTarget.style.boxShadow = "0 0 0 2px rgba(197,133,58,0.15)";
+      }}
+      onBlur={(e) => {
+        e.currentTarget.style.borderColor = invalid
+          ? "var(--color-app-danger)"
+          : "var(--color-app-edge)";
+        e.currentTarget.style.boxShadow = "none";
+      }}
+    />
   );
 }
 
@@ -759,14 +911,21 @@ function ScalesIcon() {
   );
 }
 
-function Th({ children }: { children: React.ReactNode }) {
+function Th({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: React.CSSProperties;
+}) {
   return (
     <th
-      className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.16em]"
+      className="px-2.5 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.16em]"
       style={{
         fontFamily: "var(--font-dm-mono), monospace",
         color: "var(--color-app-copper-deep)",
         whiteSpace: "nowrap",
+        ...style,
       }}
     >
       {children}
@@ -774,14 +933,17 @@ function Th({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Td({ children, mono }: { children: React.ReactNode; mono?: boolean }) {
+function Td({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: React.CSSProperties;
+}) {
   return (
     <td
-      className="px-3 py-2 align-top"
-      style={{
-        fontFamily: mono ? "var(--font-dm-mono), monospace" : undefined,
-        verticalAlign: "top",
-      }}
+      className="px-2 py-1.5"
+      style={{ verticalAlign: "middle", ...style }}
     >
       {children}
     </td>

@@ -15,8 +15,13 @@ export type ParsedCaseRow = {
   clientName: string;
   appearingFor: string;
   courtName: string;
+  courtPlace: string;
+  courtHall: string;
   clientPhone: string;
   clientWhatsapp: string;
+  oppositeParty: string;
+  oppositeAdvocate: string;
+  clientAddress: string;
   status: string;
   lastHearingDate: string | null; // ISO (yyyy-mm-dd) or null
   nextHearingDate: string | null;
@@ -56,6 +61,13 @@ const HEADER_ALIASES: Record<string, Field> = {
   appearing: "appearingFor",
   court: "courtName",
   courtname: "courtName",
+  courtplace: "courtPlace",
+  place: "courtPlace",
+  district: "courtPlace",
+  city: "courtPlace",
+  courthall: "courtHall",
+  hall: "courtHall",
+  courtroom: "courtHall",
   mobile: "clientPhone",
   mobileno: "clientPhone",
   mobile1: "clientPhone",
@@ -63,6 +75,21 @@ const HEADER_ALIASES: Record<string, Field> = {
   contact: "clientPhone",
   contactno: "clientPhone",
   contactnumber: "clientPhone",
+  whatsapp: "clientWhatsapp",
+  whatsappno: "clientWhatsapp",
+  whatsappnumber: "clientWhatsapp",
+  mobile2: "clientWhatsapp",
+  altmobile: "clientWhatsapp",
+  oppositeparty: "oppositeParty",
+  opposite: "oppositeParty",
+  opponent: "oppositeParty",
+  respondent: "oppositeParty",
+  oppositeadvocate: "oppositeAdvocate",
+  oppadvocate: "oppositeAdvocate",
+  opponentadvocate: "oppositeAdvocate",
+  oppositecounsel: "oppositeAdvocate",
+  clientaddress: "clientAddress",
+  address: "clientAddress",
   prevdate: "lastHearingDate",
   previousdate: "lastHearingDate",
   lastdate: "lastHearingDate",
@@ -89,8 +116,13 @@ function emptyRow(): ParsedCaseRow {
     clientName: "",
     appearingFor: "",
     courtName: "",
+    courtPlace: "",
+    courtHall: "",
     clientPhone: "",
     clientWhatsapp: "",
+    oppositeParty: "",
+    oppositeAdvocate: "",
+    clientAddress: "",
     status: "",
     lastHearingDate: null,
     nextHearingDate: null,
