@@ -1,4 +1,6 @@
 import Link from "next/link";
+import Image from "next/image";
+import { LOGO_MARK_JPG, LOGO_W, LOGO_H } from "@/lib/brand";
 
 // Editorial footer for the LegalEasy product surface. Mirrors the reference
 // columns; links resolve to the product's own sections, the company pages
@@ -49,8 +51,20 @@ export default function ProductFooter() {
       <div className="mx-auto max-w-[1320px] px-6 py-16 md:px-10 md:py-20">
         <div className="grid gap-12 md:grid-cols-12">
           <div className="md:col-span-5">
-            <div className="font-display text-[36px] font-medium tracking-tight text-ink">
-              LegalEasy
+            <div className="flex items-center gap-3.5">
+              <span className="flex h-14 w-14 items-center justify-center rounded-[10px] bg-white ring-1 ring-rule/50 shadow-[0_2px_8px_rgba(14,26,43,0.10)]">
+                <Image
+                  src={LOGO_MARK_JPG}
+                  alt="LegalEasy"
+                  width={LOGO_W}
+                  height={LOGO_H}
+                  className="object-contain"
+                  style={{ height: 38, width: "auto" }}
+                />
+              </span>
+              <div className="font-display text-[36px] font-medium leading-none tracking-tight text-ink">
+                LegalEasy
+              </div>
             </div>
             <p className="mt-5 max-w-sm font-body text-[15px] leading-7 text-ink-2">
               An advocate office, set in order. Built in India for the way

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import MobileMenu from "./MobileMenu";
+import ClientDiaryCue from "./ClientDiaryCue";
 
 export const NAV = [
   { name: "Home", href: "/" },
@@ -80,18 +81,21 @@ export default function Header() {
               Alerts
             </span>
           </div>
-          <Link
-            href="/product"
-            className="px-6 py-3 text-[11.5px] uppercase tracking-[0.16em] transition-opacity hover:opacity-90"
-            style={{
-              fontFamily: inter,
-              fontWeight: 600,
-              backgroundColor: "var(--color-heritage-navy)",
-              color: "#ffffff",
-            }}
-          >
-            Client Diary
-          </Link>
+          <span className="relative inline-flex">
+            <Link
+              href="/product"
+              className="px-6 py-3 text-[11.5px] uppercase tracking-[0.16em] transition-opacity hover:opacity-90"
+              style={{
+                fontFamily: inter,
+                fontWeight: 600,
+                backgroundColor: "var(--color-heritage-navy)",
+                color: "#ffffff",
+              }}
+            >
+              Client Diary
+            </Link>
+            <ClientDiaryCue />
+          </span>
         </div>
 
         <MobileMenu nav={NAV} />
