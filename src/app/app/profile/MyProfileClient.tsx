@@ -103,19 +103,32 @@ export default function MyProfileClient({
 
   return (
     <div
-      className="relative mt-7 fade-up-sm overflow-hidden rounded-2xl p-7"
+      className="relative mt-7 fade-up-sm rounded-2xl p-7"
       style={{
         backgroundColor: "var(--color-app-paper)",
         boxShadow: "0 1px 0 var(--color-app-edge)",
       }}
     >
-      {/* Brand mark */}
-      <div aria-hidden className="pointer-events-none absolute -right-3 -top-3 opacity-90">
+      {/* Office letterhead — the brand mark at the head of the card, made
+          properly visible (it used to be clipped by overflow-hidden). */}
+      <div
+        className="flex items-center justify-between gap-4 border-b pb-5"
+        style={{ borderColor: "var(--color-app-edge)" }}
+      >
         <Logo size={46} />
+        <span
+          className="text-[9px] uppercase tracking-[0.24em]"
+          style={{
+            fontFamily: "var(--font-dm-mono), monospace",
+            color: "var(--color-app-fg-muted)",
+          }}
+        >
+          Office Identity
+        </span>
       </div>
 
       {/* Avatar + name */}
-      <div className="flex items-center gap-5">
+      <div className="mt-6 flex items-center gap-5">
         <div
           className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full"
           style={{
