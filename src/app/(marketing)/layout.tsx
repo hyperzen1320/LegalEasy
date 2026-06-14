@@ -1,6 +1,7 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import WhatsAppFab from "@/components/WhatsAppFab";
+import ProductNudge from "@/components/ProductNudge";
 
 export default function MarketingLayout({
   children,
@@ -20,6 +21,7 @@ export default function MarketingLayout({
       <main className="flex-1">{children}</main>
       <Footer />
       <WhatsAppFab />
+      <ProductNudge />
     </div>
   );
 }

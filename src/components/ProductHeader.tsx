@@ -1,4 +1,6 @@
 import Link from "next/link";
+import Image from "next/image";
+import { LOGO_MARK_JPG, LOGO_W, LOGO_H } from "@/lib/brand";
 
 // Editorial masthead for the LegalEasy product surface (/product, /login).
 // Distinct from the NAMBIRAJ company Header — this is the product's own
@@ -18,10 +20,16 @@ export default function ProductHeader() {
       <div className="mx-auto flex max-w-[1320px] items-center justify-between gap-6 px-6 py-4 md:px-10">
         {/* Wordmark */}
         <Link href="/product" className="flex items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center border-2 border-ink">
-            <span className="font-display text-[17px] font-medium leading-none text-ink">
-              L
-            </span>
+          <span className="flex h-10 w-10 items-center justify-center rounded-[7px] bg-white ring-1 ring-rule/60 shadow-[0_1px_3px_rgba(14,26,43,0.10)]">
+            <Image
+              src={LOGO_MARK_JPG}
+              alt="LegalEasy"
+              width={LOGO_W}
+              height={LOGO_H}
+              priority
+              className="object-contain"
+              style={{ height: 28, width: "auto" }}
+            />
           </span>
           <span className="leading-none">
             <span className="block font-display text-[20px] font-medium tracking-tight text-ink">
