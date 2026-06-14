@@ -19,10 +19,21 @@ type Format = "xlsx" | "docx" | "pdf";
 export default function ExportMenu({
   filters,
   visibleColumns,
+  selectedIds = [],
+  selectAllMatching = false,
 }: {
   filters: CaseFilters;
   visibleColumns: CaseColumnKey[];
+  // Individually-ticked rows. When present (and not "select all matching"),
+  // the export carries exactly these ids instead of the filter query.
+  selectedIds?: string[];
+  // True when the user chose "Select all N matters" — export then falls
+  // back to the filter query (which already returns the whole set).
+  selectAllMatching?: boolean;
 }) {
+  // A concrete selection narrows the export; "all matching" does not.
+  const exportIds = selectAllMatching ? [] : selectedIds;
+  const hasSelection = exportIds.length > 0;
   const [open, setOpen] = useState(false);
   const [working, setWorking] = useState<Format | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +78,7 @@ export default function ExportMenu({
           format,
           filters: filtersObj,
           columns: visibleColumns,
+          ...(hasSelection ? { selectedIds: exportIds } : {}),
         }),
       });
       if (!res.ok) {
@@ -125,7 +137,11 @@ export default function ExportMenu({
         ) : (
           <>
             <DownloadIcon />
-            Export
+            {hasSelection
+              ? `Export (${exportIds.length})`
+              : selectAllMatching
+                ? "Export all"
+                : "Export"}
             <span
               aria-hidden
               className="ml-0.5 text-[10px]"
@@ -161,7 +177,11 @@ export default function ExportMenu({
                 color: "var(--color-app-fg-muted)",
               }}
             >
-              Download as
+              {hasSelection
+                ? `Download ${exportIds.length} selected as`
+                : selectAllMatching
+                  ? "Download all matching as"
+                  : "Download as"}
             </span>
           </div>
           <ul className="py-1">

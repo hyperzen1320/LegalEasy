@@ -34,6 +34,8 @@ export default function CaseToolBar({
   appliedFilters,
   visibleColumns,
   viewMode,
+  selectedIds,
+  selectAllMatching,
   onApply,
   onColumnsChange,
   onViewModeChange,
@@ -42,6 +44,8 @@ export default function CaseToolBar({
   appliedFilters: CaseFilters;
   visibleColumns: CaseColumnKey[];
   viewMode: CaseViewMode;
+  selectedIds: string[];
+  selectAllMatching: boolean;
   onApply: (next: CaseFilters) => void;
   onColumnsChange: (next: CaseColumnKey[]) => void;
   onViewModeChange: (next: CaseViewMode) => void;
@@ -323,6 +327,8 @@ export default function CaseToolBar({
             <ExportMenu
               filters={appliedFilters}
               visibleColumns={visibleColumns}
+              selectedIds={selectedIds}
+              selectAllMatching={selectAllMatching}
             />
           ) : null}
         </div>

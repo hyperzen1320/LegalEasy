@@ -163,6 +163,13 @@ function ImportModal({
       setSummary({ created, skipped });
       setStage("done");
       router.refresh();
+      // The Case Vault list is client-fetched, so router.refresh() (which
+      // only revalidates server components) won't repaint it. Signal the
+      // open vault to re-pull its rows so the freshly imported matters show
+      // immediately, with no manual browser refresh.
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("legalezi:cases-changed"));
+      }
     } catch {
       setError("Network error during import.");
       setStage("preview");
