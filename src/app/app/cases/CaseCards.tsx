@@ -23,11 +23,17 @@ export default function CaseCards({
   loading,
   appliedFilters,
   onDelete,
+  selectable = false,
+  isSelected,
+  onToggleSelect,
 }: {
   rows: CaseRow[];
   loading: boolean;
   appliedFilters: CaseFilters;
   onDelete: (row: CaseRow) => void;
+  selectable?: boolean;
+  isSelected?: (id: string) => boolean;
+  onToggleSelect?: (id: string) => void;
 }) {
   if (loading && rows.length === 0) {
     return <SkeletonCards />;
@@ -51,7 +57,14 @@ export default function CaseCards({
   return (
     <div className="space-y-3">
       {rows.map((row) => (
-        <CaseCard key={row.id} row={row} onDelete={onDelete} />
+        <CaseCard
+          key={row.id}
+          row={row}
+          onDelete={onDelete}
+          selectable={selectable}
+          selected={Boolean(isSelected?.(row.id))}
+          onToggleSelect={onToggleSelect}
+        />
       ))}
     </div>
   );
@@ -60,20 +73,47 @@ export default function CaseCards({
 function CaseCard({
   row,
   onDelete,
+  selectable,
+  selected,
+  onToggleSelect,
 }: {
   row: CaseRow;
   onDelete: (row: CaseRow) => void;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }) {
   return (
     <div
       className="group rounded-2xl p-5 transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5"
       style={{
-        backgroundColor: "var(--color-app-paper)",
-        boxShadow:
-          "0 10px 26px -18px rgba(18,29,53,0.28), inset 0 0 0 1px var(--color-app-edge)",
+        backgroundColor: selected
+          ? "var(--color-app-canvas-2)"
+          : "var(--color-app-paper)",
+        boxShadow: selected
+          ? "0 10px 26px -18px rgba(18,29,53,0.28), inset 0 0 0 2px var(--color-app-copper)"
+          : "0 10px 26px -18px rgba(18,29,53,0.28), inset 0 0 0 1px var(--color-app-edge)",
       }}
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-5">
+      <div className="flex items-start gap-3.5">
+        {selectable ? (
+          <label
+            className="flex shrink-0 cursor-pointer items-center pt-1"
+            title={selected ? "Deselect matter" : "Select matter"}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <input
+              type="checkbox"
+              checked={Boolean(selected)}
+              onChange={() => onToggleSelect?.(row.id)}
+              className="h-[18px] w-[18px] cursor-pointer rounded"
+              style={{ accentColor: "var(--color-app-copper)" }}
+              aria-label={`Select ${row.caseNo || "matter"}`}
+            />
+          </label>
+        ) : null}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-5">
         {/* Left — identity, parties, court */}
         <div className="min-w-0 flex-1">
           {/* Heading row: case no · file no · status · advocate */}
@@ -199,8 +239,8 @@ function CaseCard({
             <button
               type="button"
               onClick={() => onDelete(row)}
-              aria-label="Move to Disposed"
-              title="Move to Disposed Cases"
+              aria-label="Delete matter"
+              title="Delete permanently"
               className="inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors"
               style={{ color: "var(--color-app-danger)" }}
               onMouseEnter={(e) => {
@@ -214,6 +254,8 @@ function CaseCard({
               <TrashIcon />
             </button>
           </div>
+        </div>
+      </div>
         </div>
       </div>
     </div>

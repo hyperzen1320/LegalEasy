@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import CnrLink from "@/app/app/components/CnrLink";
+import ConfirmDeleteDialog from "@/app/app/components/ConfirmDeleteDialog";
 
 export type DisposedCaseRow = {
   id: string;
@@ -52,10 +54,42 @@ export default function DisposedCasesClient({
   cases: DisposedCaseRow[];
   isAdmin: boolean;
 }) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [courtFilter, setCourtFilter] = useState(""); // courtId or ""
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+
+  // Permanent delete (admin) — a disposed matter keeps its CNR locked
+  // while it sits in the archive; deleting it here removes it from the
+  // database for good and frees the CNR for reuse.
+  const [deleteTarget, setDeleteTarget] = useState<DisposedCaseRow | null>(
+    null
+  );
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  async function runDelete() {
+    if (!deleteTarget) return;
+    setDeleteBusy(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/app/cases/${deleteTarget.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setDeleteError(data?.error || "Couldn't delete that matter.");
+        return;
+      }
+      setDeleteTarget(null);
+      router.refresh();
+    } catch {
+      setDeleteError("Network error. Try again.");
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
 
   // Court dropdown is built from the courts actually present in the
   // archive (only those carrying a Court Hub id, so the filter maps to an
@@ -299,10 +333,43 @@ export default function DisposedCasesClient({
       ) : (
         <div className="mt-5 space-y-3">
           {filtered.map((c, i) => (
-            <DisposedCard key={c.id} c={c} index={i} />
+            <DisposedCard
+              key={c.id}
+              c={c}
+              index={i}
+              isAdmin={isAdmin}
+              onDelete={() => {
+                setDeleteError(null);
+                setDeleteTarget(c);
+              }}
+            />
           ))}
         </div>
       )}
+
+      {deleteTarget ? (
+        <ConfirmDeleteDialog
+          title="Delete this matter?"
+          message={
+            <>
+              <span style={{ color: "var(--color-app-ink)", fontWeight: 600 }}>
+                {deleteTarget.caseNo || deleteTarget.fileNo || "This matter"}
+              </span>{" "}
+              will be permanently removed from the archive and the database.
+              This frees its CNR for reuse and{" "}
+              <strong>can&apos;t be undone</strong>.
+            </>
+          }
+          busy={deleteBusy}
+          error={deleteError}
+          onConfirm={runDelete}
+          onClose={() => {
+            if (deleteBusy) return;
+            setDeleteTarget(null);
+            setDeleteError(null);
+          }}
+        />
+      ) : null}
     </>
   );
 }
@@ -543,7 +610,17 @@ function FormatBadge({ format }: { format: Format }) {
 
 /* ─── Card ─── */
 
-function DisposedCard({ c, index }: { c: DisposedCaseRow; index: number }) {
+function DisposedCard({
+  c,
+  index,
+  isAdmin,
+  onDelete,
+}: {
+  c: DisposedCaseRow;
+  index: number;
+  isAdmin: boolean;
+  onDelete: () => void;
+}) {
   return (
     <Link
       href={`/app/cases/${c.id}`}
@@ -664,26 +741,66 @@ function DisposedCard({ c, index }: { c: DisposedCaseRow; index: number }) {
         ) : null}
       </div>
 
-      {/* Right column: disposal date */}
-      <div className="text-right">
-        <div
-          className="text-[10px] uppercase tracking-[0.18em]"
-          style={{
-            fontFamily: "var(--font-dm-mono), monospace",
-            color: "var(--color-app-fg-muted)",
-          }}
-        >
-          Disposed on
+      {/* Right column: disposal date + (admin) permanent delete */}
+      <div className="flex flex-col items-end justify-between text-right">
+        <div>
+          <div
+            className="text-[10px] uppercase tracking-[0.18em]"
+            style={{
+              fontFamily: "var(--font-dm-mono), monospace",
+              color: "var(--color-app-fg-muted)",
+            }}
+          >
+            Disposed on
+          </div>
+          <div
+            className="mt-1 text-[18px] font-semibold tabular-nums"
+            style={{
+              fontFamily: "var(--font-crimson), Georgia, serif",
+              color: "var(--color-app-ink)",
+            }}
+          >
+            {fmtDate(c.disposedAt)}
+          </div>
         </div>
-        <div
-          className="mt-1 text-[18px] font-semibold tabular-nums"
-          style={{
-            fontFamily: "var(--font-crimson), Georgia, serif",
-            color: "var(--color-app-ink)",
-          }}
-        >
-          {fmtDate(c.disposedAt)}
-        </div>
+        {isAdmin ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onDelete();
+            }}
+            aria-label="Delete matter permanently"
+            title="Delete permanently — frees the CNR"
+            className="mt-3 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[11px] font-semibold transition-colors"
+            style={{
+              fontFamily: "var(--font-manrope), sans-serif",
+              borderColor: "var(--color-app-edge)",
+              color: "var(--color-app-danger)",
+              backgroundColor: "var(--color-app-paper)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor =
+                "var(--color-app-danger-soft)";
+              e.currentTarget.style.borderColor = "var(--color-app-danger)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "var(--color-app-paper)";
+              e.currentTarget.style.borderColor = "var(--color-app-edge)";
+            }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path
+                d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+              />
+            </svg>
+            Delete
+          </button>
+        ) : null}
       </div>
     </Link>
   );

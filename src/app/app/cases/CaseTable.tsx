@@ -24,12 +24,22 @@ export default function CaseTable({
   visibleColumns,
   appliedFilters,
   onDelete,
+  selectable = false,
+  isSelected,
+  onToggleSelect,
+  allPageSelected = false,
+  onToggleSelectAllPage,
 }: {
   rows: CaseRow[];
   loading: boolean;
   visibleColumns: CaseColumnKey[];
   appliedFilters: CaseFilters;
   onDelete: (row: CaseRow) => void;
+  selectable?: boolean;
+  isSelected?: (id: string) => boolean;
+  onToggleSelect?: (id: string) => void;
+  allPageSelected?: boolean;
+  onToggleSelectAllPage?: () => void;
 }) {
   const cols = useMemo(
     () =>
@@ -38,6 +48,9 @@ export default function CaseTable({
         .filter((c): c is (typeof COLUMNS)[number] => Boolean(c)),
     [visibleColumns]
   );
+  // The select column sits outside the toggleable column set so it can't
+  // be hidden and doesn't appear in the Columns menu.
+  const totalColSpan = cols.length + (selectable ? 1 : 0);
 
   return (
     <div
@@ -57,6 +70,23 @@ export default function CaseTable({
                   backgroundColor: "var(--color-app-canvas-2)",
                 }}
               >
+                {selectable ? (
+                  <th
+                    scope="col"
+                    className="px-4 py-3"
+                    style={{ width: 44, textAlign: "center" }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={allPageSelected}
+                      onChange={() => onToggleSelectAllPage?.()}
+                      className="h-[18px] w-[18px] cursor-pointer rounded align-middle"
+                      style={{ accentColor: "var(--color-app-copper)" }}
+                      aria-label="Select all matters on this page"
+                      title="Select all on this page"
+                    />
+                  </th>
+                ) : null}
                 {cols.map((col) => (
                   <th
                     key={col.key}
@@ -77,11 +107,11 @@ export default function CaseTable({
             </thead>
             <tbody>
               {loading && rows.length === 0 ? (
-                <SkeletonRows colCount={cols.length} />
+                <SkeletonRows colCount={totalColSpan} />
               ) : rows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={cols.length}
+                    colSpan={totalColSpan}
                     className="px-6 py-16 text-center"
                   >
                     <EmptyVault hasFilters={hasAnyFilter(appliedFilters)} />
@@ -95,6 +125,9 @@ export default function CaseTable({
                     sno={i + 1}
                     cols={cols}
                     onDelete={onDelete}
+                    selectable={selectable}
+                    selected={Boolean(isSelected?.(row.id))}
+                    onToggleSelect={onToggleSelect}
                   />
                 ))
               )}
@@ -110,30 +143,53 @@ function CaseTableRow({
   sno,
   cols,
   onDelete,
+  selectable,
+  selected,
+  onToggleSelect,
 }: {
   row: CaseRow;
   sno: number;
   cols: (typeof COLUMNS)[number][];
   onDelete: (row: CaseRow) => void;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }) {
   // Use a regular row but mark it as a link target via the file/case
   // number cells. The whole row is hoverable for visual feedback; the
   // actions cell stops propagation so its buttons stay isolated.
+  const baseBg = selected ? "var(--color-app-canvas-2)" : "transparent";
   return (
     <tr
       className="group"
       style={{
         borderBottom: "1px solid var(--color-app-edge-soft)",
+        backgroundColor: baseBg,
         transition: "background-color 120ms ease",
+        boxShadow: selected
+          ? "inset 3px 0 0 var(--color-app-copper)"
+          : "none",
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.backgroundColor =
           "rgba(245,235,214,0.55)";
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.backgroundColor = "transparent";
+        e.currentTarget.style.backgroundColor = baseBg;
       }}
     >
+      {selectable ? (
+        <td className="px-4 py-3 align-middle" style={{ textAlign: "center" }}>
+          <input
+            type="checkbox"
+            checked={Boolean(selected)}
+            onChange={() => onToggleSelect?.(row.id)}
+            className="h-[18px] w-[18px] cursor-pointer rounded align-middle"
+            style={{ accentColor: "var(--color-app-copper)" }}
+            aria-label={`Select ${row.caseNo || "matter"}`}
+          />
+        </td>
+      ) : null}
       {cols.map((col) => (
         <td
           key={col.key}
@@ -352,8 +408,8 @@ function renderCell(
           <button
             type="button"
             onClick={() => onDelete(row)}
-            aria-label="Move to Disposed"
-            title="Move to Disposed Cases"
+            aria-label="Delete matter"
+            title="Delete permanently"
             className="inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors"
             style={{
               color: "var(--color-app-danger)",

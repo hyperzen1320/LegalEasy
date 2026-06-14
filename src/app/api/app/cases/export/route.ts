@@ -45,6 +45,11 @@ type ExportBody = {
   format?: string;
   filters?: Record<string, unknown>;
   columns?: unknown;
+  // When the user has ticked individual rows in the vault, the menu sends
+  // their ids here and we export exactly those (ignoring the live filter
+  // tuple). "Select all N matters" leaves this empty and falls back to the
+  // filter query, which already returns the whole matching set.
+  selectedIds?: unknown;
 };
 
 const FORMAT_META: Record<
@@ -103,13 +108,32 @@ export async function POST(request: Request) {
     ? body.columns.filter((c): c is string => typeof c === "string")
     : null;
 
+  // Explicit row selection, if any — valid ObjectIds only.
+  const selectedIds = Array.isArray(body.selectedIds)
+    ? body.selectedIds.filter(
+        (x): x is string =>
+          typeof x === "string" && mongoose.isValidObjectId(x)
+      )
+    : [];
+
   await connectDB();
   const partnerObjId = new mongoose.Types.ObjectId(guard.ctx.user.partnerId);
   const filterInput: CaseFilterInput = {
     partnerId: partnerObjId,
     ...readCaseFilterParams(filterSource),
   };
-  const filter = buildCaseFilter(filterInput);
+  // A non-empty selection wins: export precisely those matters, scoped to
+  // the partner + the active/disposed scope so a stale id can't leak rows
+  // from another chambers or the wrong shelf.
+  const filter =
+    selectedIds.length > 0
+      ? {
+          ...buildCaseFilter(filterInput),
+          _id: {
+            $in: selectedIds.map((id) => new mongoose.Types.ObjectId(id)),
+          },
+        }
+      : buildCaseFilter(filterInput);
 
   // The archive reads best newest-disposal-first; the active roll keeps
   // its soonest-hearing-first ordering.
