@@ -30,6 +30,7 @@ export default async function HearingTrackPage({
   let items: Awaited<ReturnType<typeof loadHearingsBucket>>["items"] = [];
   let counts = { today: 0, tomorrow: 0, pending: 0, all: 0 };
   let officeName = "";
+  let noticeTemplate = "";
 
   if (partnerId) {
     await connectDB();
@@ -40,6 +41,7 @@ export default async function HearingTrackPage({
     items = bucketData.items;
     counts = bucketData.counts;
     officeName = partner?.branding?.officeName || partner?.name || "";
+    noticeTemplate = partner?.noticeTemplate || "";
   }
 
   return (
@@ -50,6 +52,7 @@ export default async function HearingTrackPage({
           items={items}
           counts={counts}
           officeName={officeName}
+          noticeTemplate={noticeTemplate}
           isAdmin={isAdmin}
         />
       </div>
