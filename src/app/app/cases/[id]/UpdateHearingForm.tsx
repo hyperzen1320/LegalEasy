@@ -14,6 +14,8 @@ type ClientContact = {
 
 type CaseContext = {
   caseNo: string;
+  cnr: string;
+  fileNo: string;
   oppositeParty: string;
   courtName: string;
   courtPlace: string;
@@ -26,12 +28,14 @@ export default function UpdateHearingForm({
   initialStatus,
   client,
   caseContext,
+  template,
 }: {
   caseId: string;
   initialNextDate: string;
   initialStatus: string;
   client: ClientContact;
   caseContext: CaseContext;
+  template: string;
 }) {
   const router = useRouter();
   const [nextDate, setNextDate] = useState(initialNextDate);
@@ -81,16 +85,25 @@ export default function UpdateHearingForm({
   // the message names the hearing the advocate just locked in.
   const phoneDigits = (client.phone || "").replace(/\s+/g, "");
   const telLink = phoneDigits ? `tel:${phoneDigits}` : null;
-  const waLink = buildWhatsAppLink({
-    phone: client.whatsapp || client.phone || "",
-    clientName: client.name,
-    caseNo: caseContext.caseNo,
-    oppositeParty: caseContext.oppositeParty,
-    nextHearingDate: parseDateInputLocal(savedDate),
-    courtName: caseContext.courtName,
-    courtPlace: caseContext.courtPlace,
-    officeName: caseContext.officeName,
-  });
+  const waLink = buildWhatsAppLink(
+    client.whatsapp || client.phone || "",
+    template,
+    {
+      caseNo: caseContext.caseNo,
+      clientName: client.name,
+      cnr: caseContext.cnr,
+      fileNo: caseContext.fileNo,
+      status,
+      oppositeParty: caseContext.oppositeParty,
+      courtName: caseContext.courtName,
+      courtPlace: caseContext.courtPlace,
+      // The hearing being notified about just happened on the date we
+      // updated *from*; the new posting is the date we just saved.
+      lastHearingDate: parseDateInputLocal(initialNextDate),
+      nextHearingDate: parseDateInputLocal(savedDate),
+      officeName: caseContext.officeName,
+    }
+  );
   // Show the notify block once a save has landed and nothing new is
   // pending — i.e. exactly "after Save Update", which is when uncle
   // wants the Call / WhatsApp to surface right here in the form.

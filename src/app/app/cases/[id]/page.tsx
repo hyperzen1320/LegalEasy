@@ -84,6 +84,7 @@ export default async function CaseDetailPage({
   if (!c) notFound();
 
   const officeName = partner?.branding?.officeName || partner?.name || "";
+  const noticeTemplate = partner?.noticeTemplate || "";
   const isAdmin = session.user.userType === "partner_admin";
   const clientDocs: ClientDoc[] = docRecords.map((d) => ({
     id: String(d._id),
@@ -99,16 +100,23 @@ export default async function CaseDetailPage({
     ? `tel:${c.clientPhone.replace(/\s+/g, "")}`
     : null;
 
-  const waLink = buildWhatsAppLink({
-    phone: c.clientWhatsapp || c.clientPhone || "",
-    clientName: c.clientName || "",
-    caseNo: c.caseNo || "",
-    oppositeParty: c.oppositeParty || "",
-    nextHearingDate: c.nextHearingDate || null,
-    courtName: c.courtName || "",
-    courtPlace: c.courtPlace || "",
-    officeName,
-  });
+  const waLink = buildWhatsAppLink(
+    c.clientWhatsapp || c.clientPhone || "",
+    noticeTemplate,
+    {
+      caseNo: c.caseNo || "",
+      clientName: c.clientName || "",
+      cnr: c.cnr || "",
+      fileNo: c.fileNo || "",
+      status: c.status || "",
+      oppositeParty: c.oppositeParty || "",
+      courtName: c.courtName || "",
+      courtPlace: c.courtPlace || "",
+      lastHearingDate: c.lastHearingDate || null,
+      nextHearingDate: c.nextHearingDate || null,
+      officeName,
+    }
+  );
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -427,11 +435,14 @@ export default async function CaseDetailPage({
             }}
             caseContext={{
               caseNo: c.caseNo || "",
+              cnr: c.cnr || "",
+              fileNo: c.fileNo || "",
               oppositeParty: c.oppositeParty || "",
               courtName: c.courtName || "",
               courtPlace: c.courtPlace || "",
               officeName,
             }}
+            template={noticeTemplate}
           />
         </section>
 

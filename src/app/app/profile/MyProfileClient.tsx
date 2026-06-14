@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
+import NoticeTemplateEditor from "./NoticeTemplateEditor";
 
 export type ProfileData = {
   id: string;
@@ -21,8 +22,12 @@ export type ProfileData = {
 
 export default function MyProfileClient({
   initialProfile,
+  noticeTemplate,
+  isAdmin,
 }: {
   initialProfile: ProfileData;
+  noticeTemplate: string;
+  isAdmin: boolean;
 }) {
   const router = useRouter();
   const [profile, setProfile] = useState<ProfileData>(initialProfile);
@@ -102,6 +107,7 @@ export default function MyProfileClient({
     profile.designation || (profile.barEnrolmentNo ? "Advocate" : "");
 
   return (
+    <>
     <div
       className="relative mt-7 fade-up-sm rounded-2xl p-7"
       style={{
@@ -314,6 +320,11 @@ export default function MyProfileClient({
         )}
       </div>
     </div>
+    <NoticeTemplateEditor
+      initialTemplate={noticeTemplate}
+      isAdmin={isAdmin}
+    />
+    </>
   );
 }
 
