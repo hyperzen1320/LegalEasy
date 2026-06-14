@@ -31,9 +31,11 @@ export default function AddCaseForm() {
   const [clientName, setClientName] = useState("");
   const [appearingFor, setAppearingFor] = useState("Petitioner");
 
-  // Row 4
+  // Row 4. `sameAsWhatsapp` mirrors the WhatsApp number into Contact —
+  // the common case — while still letting the two differ when unchecked.
   const [clientWhatsapp, setClientWhatsapp] = useState("");
   const [clientPhone, setClientPhone] = useState("");
+  const [sameAsWhatsapp, setSameAsWhatsapp] = useState(false);
 
   // Row 5 — Court is a combobox over the Court Hub master. Selection
   // atomically fills name + number + place + the courtId link; the
@@ -201,7 +203,10 @@ export default function AddCaseForm() {
             label="WhatsApp"
             type="tel"
             value={clientWhatsapp}
-            onChange={setClientWhatsapp}
+            onChange={(v) => {
+              setClientWhatsapp(v);
+              if (sameAsWhatsapp) setClientPhone(v);
+            }}
             placeholder="+91..."
           />
           <Field
@@ -211,7 +216,31 @@ export default function AddCaseForm() {
             value={clientPhone}
             onChange={setClientPhone}
             placeholder="+91..."
+            disabled={sameAsWhatsapp}
           />
+          <label
+            className="-mt-2 inline-flex cursor-pointer items-center gap-2 text-[12px] md:col-span-2"
+            style={{
+              fontFamily: "var(--font-manrope), sans-serif",
+              color: "var(--color-app-fg-soft)",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={sameAsWhatsapp}
+              onChange={(e) => {
+                const on = e.target.checked;
+                setSameAsWhatsapp(on);
+                if (on) setClientPhone(clientWhatsapp);
+              }}
+              style={{
+                accentColor: "var(--color-app-copper)",
+                width: 15,
+                height: 15,
+              }}
+            />
+            Contact number is the same as WhatsApp
+          </label>
 
           <CourtCombobox
             id="courtName"
@@ -381,6 +410,7 @@ function Field({
   onChange,
   placeholder,
   invalid,
+  disabled,
 }: {
   id: string;
   label: string;
@@ -390,6 +420,7 @@ function Field({
   onChange: (v: string) => void;
   placeholder?: string;
   invalid?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <div>
@@ -414,16 +445,22 @@ function Field({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="mt-2 block w-full rounded-md border px-3.5 py-2.5 text-[14px] outline-none transition-all"
+        disabled={disabled}
+        className="mt-2 block w-full rounded-md border px-3.5 py-2.5 text-[14px] outline-none transition-all disabled:cursor-not-allowed"
         style={{
           fontFamily: "var(--font-manrope), sans-serif",
           borderColor: invalid
             ? "var(--color-app-danger)"
             : "var(--color-app-edge)",
-          backgroundColor: "var(--color-app-paper)",
-          color: "var(--color-app-ink)",
+          backgroundColor: disabled
+            ? "var(--color-app-canvas-2)"
+            : "var(--color-app-paper)",
+          color: disabled
+            ? "var(--color-app-fg-muted)"
+            : "var(--color-app-ink)",
         }}
         onFocus={(e) => {
+          if (disabled) return;
           e.currentTarget.style.borderColor = "var(--color-app-copper)";
           e.currentTarget.style.boxShadow =
             "0 0 0 3px rgba(197,133,58,0.15)";

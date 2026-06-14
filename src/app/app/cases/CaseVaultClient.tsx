@@ -191,9 +191,21 @@ export default function CaseVaultClient({
 
   const handleApply = useCallback(
     (next: CaseFilters) => {
-      writeFiltersToUrl(next);
+      // Any filter / search / page-size change snaps back to page 1 —
+      // staying on "page 5" of a now-smaller result set would show nothing.
+      writeFiltersToUrl({ ...next, page: 1 });
     },
     [writeFiltersToUrl]
+  );
+
+  const handlePageChange = useCallback(
+    (page: number) => {
+      writeFiltersToUrl({ ...appliedFilters, page });
+      if (typeof window !== "undefined") {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    },
+    [writeFiltersToUrl, appliedFilters]
   );
 
   const handleColumnsChange = useCallback(
@@ -329,6 +341,9 @@ export default function CaseVaultClient({
         showing={visibleRows.length}
         total={total}
         loading={loading}
+        page={appliedFilters.page}
+        limit={appliedFilters.limit}
+        onPageChange={handlePageChange}
       />
 
       {requestTarget ? (

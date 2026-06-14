@@ -292,7 +292,7 @@ export default function CaseToolBar({
             >
               {LIMIT_OPTIONS.map((n) => (
                 <option key={n} value={n}>
-                  Show {n}
+                  {n} / page
                 </option>
               ))}
             </select>
