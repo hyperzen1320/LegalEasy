@@ -128,51 +128,77 @@ export async function POST(request: Request) {
       { status: 400, headers: guard.ctx.isMobile ? corsHeaders() : undefined }
     );
   }
-  if (!firstName) {
-    return NextResponse.json(
-      { error: "First name is required." },
-      { status: 400, headers: guard.ctx.isMobile ? corsHeaders() : undefined }
-    );
-  }
+  // Only email + password are mandatory. First/last name, role, phone and
+  // designation are all optional — a missing one must never block account
+  // creation (a required-but-empty field used to throw a schema
+  // ValidationError that reached the client as a generic "Network error").
 
   await connectDB();
   const partnerId = new mongoose.Types.ObjectId(guard.ctx.user.partnerId);
+  const headers = guard.ctx.isMobile ? corsHeaders() : undefined;
 
   const existing = await User.findOne({ email });
   if (existing) {
     return NextResponse.json(
       { error: "Another account with this email already exists." },
-      { status: 409, headers: guard.ctx.isMobile ? corsHeaders() : undefined }
+      { status: 409, headers }
     );
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
+  try {
+    const passwordHash = await bcrypt.hash(password, 10);
+    const doc = await User.create({
+      email,
+      passwordHash,
+      firstName,
+      lastName,
+      userType: "user",
+      role,
+      partnerId,
+      phone,
+      designation,
+      active: true,
+    });
 
-  const doc = await User.create({
-    email,
-    passwordHash,
-    firstName,
-    lastName,
-    userType: "user",
-    role,
-    partnerId,
-    phone,
-    designation,
-    active: true,
-  });
+    const newName = `${doc.firstName} ${doc.lastName}`.trim() || doc.email;
+    await logWorkflowActivity(guard.ctx, {
+      action: "user.invited",
+      targetType: "user",
+      targetId: String(doc._id),
+      targetName: newName,
+      message: `invited **${newName}** as ${doc.role}`,
+      metadata: { email: doc.email, role: doc.role },
+    });
 
-  const newName = `${doc.firstName} ${doc.lastName}`.trim() || doc.email;
-  await logWorkflowActivity(guard.ctx, {
-    action: "user.invited",
-    targetType: "user",
-    targetId: String(doc._id),
-    targetName: newName,
-    message: `invited **${newName}** as ${doc.role}`,
-    metadata: { email: doc.email, role: doc.role },
-  });
-
-  return NextResponse.json(
-    { ok: true, user: serialize(doc) },
-    { status: 201, headers: guard.ctx.isMobile ? corsHeaders() : undefined }
-  );
+    return NextResponse.json(
+      { ok: true, user: serialize(doc) },
+      { status: 201, headers }
+    );
+  } catch (err) {
+    // Never let a DB error escape as an uncaught 500 — the add-user form
+    // reads a non-JSON 500 body as a generic "Network error". Translate the
+    // common failures into a clear message the form can show.
+    const code =
+      typeof err === "object" && err !== null
+        ? (err as { code?: number }).code
+        : undefined;
+    if (code === 11000) {
+      return NextResponse.json(
+        { error: "Another account with this email already exists." },
+        { status: 409, headers }
+      );
+    }
+    if (err instanceof mongoose.Error.ValidationError) {
+      const first = Object.values(err.errors)[0]?.message;
+      return NextResponse.json(
+        { error: first || "Please check the details and try again." },
+        { status: 400, headers }
+      );
+    }
+    console.error("[users.create] failed:", err);
+    return NextResponse.json(
+      { error: "Couldn't create the user. Please try again." },
+      { status: 500, headers }
+    );
+  }
 }
