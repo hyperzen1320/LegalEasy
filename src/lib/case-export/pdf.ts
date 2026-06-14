@@ -70,8 +70,8 @@ export async function generatePdf(input: CaseExportInput): Promise<Buffer> {
       bufferPages: true,
       info: {
         Title: `${companyName(input.partner)} — Case Report`,
-        Author: "LegalEasy",
-        Creator: "LegalEasy",
+        Author: "Legalezi",
+        Creator: "Legalezi",
         CreationDate: input.generatedAt,
       },
     });

@@ -55,7 +55,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "Your chambers has been suspended. Please contact LegalEasy support.",
+            "Your chambers has been suspended. Please contact Legalezi support.",
         },
         { status: 403, headers: corsHeaders() }
       );

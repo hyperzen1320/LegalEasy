@@ -48,7 +48,7 @@ export default function Sidebar({
           </span>
           <div className="leading-none">
             <div className="text-[18px] font-semibold tracking-tight text-admin-fg">
-              LegalEasy
+              Legalezi
             </div>
             <div
               className="mt-1 inline-flex items-center gap-1.5 rounded-sm bg-admin-accent-soft px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.12em] text-admin-accent"

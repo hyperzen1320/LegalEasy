@@ -115,7 +115,7 @@ function Hero() {
             className="rise mt-8 max-w-xl font-body text-[18px] leading-8 text-ink-2"
             style={{ animationDelay: "0.3s" }}
           >
-            LegalEasy is the office, in your pocket. Cause-list at dawn,
+            Legalezi is the office, in your pocket. Cause-list at dawn,
             workflow at noon, senior-desk briefings before tea — and a year of
             records that prints, exports, and remembers, so you don&rsquo;t have
             to.
@@ -651,7 +651,7 @@ function DocumentPreview() {
 
         <div className="mt-5 flex items-baseline justify-between border-t border-ink/30 pt-3">
           <div className="font-mono text-[8px] uppercase tracking-[0.22em] text-ink-soft">
-            Generated from LegalEasy · AOMS
+            Generated from Legalezi · AOMS
           </div>
           <div className="font-mono text-[8px] tabular-nums text-ink-soft">
             Page 1 of 4
@@ -788,10 +788,10 @@ function Closing() {
               </span>
             </Link>
             <Link
-              href="mailto:chambers@legaleasy.in"
+              href="mailto:chambers@legalezi.com"
               className="font-body text-[15px] italic text-ink-2 underline-offset-4 transition-all hover:underline"
             >
-              or, write to chambers@legaleasy.in
+              or, write to chambers@legalezi.com
             </Link>
           </div>
         </div>

@@ -33,7 +33,7 @@ export default function LoginForm() {
         );
       } else if (code === "account_suspended") {
         setError(
-          "This chambers has been suspended. Please contact LegalEasy support."
+          "This chambers has been suspended. Please contact Legalezi support."
         );
       } else if (code === "account_cancelled") {
         setError(

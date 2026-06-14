@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { LOGO_MARK_JPG, LOGO_W, LOGO_H } from "@/lib/brand";
 
-// Editorial footer for the LegalEasy product surface. Mirrors the reference
+// Editorial footer for the Legalezi product surface. Mirrors the reference
 // columns; links resolve to the product's own sections, the company pages
 // (About / Contact) and the app where a real destination exists.
 
@@ -55,7 +55,7 @@ export default function ProductFooter() {
               <span className="flex h-14 w-14 items-center justify-center rounded-[10px] bg-white ring-1 ring-rule/50 shadow-[0_2px_8px_rgba(14,26,43,0.10)]">
                 <Image
                   src={LOGO_MARK_JPG}
-                  alt="LegalEasy"
+                  alt="Legalezi"
                   width={LOGO_W}
                   height={LOGO_H}
                   className="object-contain"
@@ -63,7 +63,7 @@ export default function ProductFooter() {
                 />
               </span>
               <div className="font-display text-[36px] font-medium leading-none tracking-tight text-ink">
-                LegalEasy
+                Legalezi
               </div>
             </div>
             <p className="mt-5 max-w-sm font-body text-[15px] leading-7 text-ink-2">
@@ -100,9 +100,27 @@ export default function ProductFooter() {
           </div>
         </div>
 
-        <div className="mt-16 flex flex-col items-start justify-between gap-3 border-t border-rule/40 pt-6 font-mono text-[10px] uppercase tracking-[0.22em] text-ink-soft md:flex-row md:items-center">
-          <div>Vol. I · No. 01 / Bengaluru · India / April 2026</div>
-          <div>© 2026 LegalEasy. All rights reserved.</div>
+        <div className="mt-16 flex flex-col items-start justify-between gap-5 border-t border-rule/40 pt-6 md:flex-row md:items-end">
+          <address className="not-italic">
+            <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-brass-deep">
+              Nambiraj Law Dynasty LLP
+            </div>
+            <div className="mt-2 font-body text-[13px] leading-6 text-ink-2">
+              H-14, T.N.H.B. Colony, 2nd Phase, Krishnagiri – 635 002
+            </div>
+            <div className="mt-0.5 font-body text-[13px] leading-6 text-ink-soft">
+              +91 93537 04141 · +91 63695 04141 ·{" "}
+              <a
+                href="mailto:nambirajlawdynasty@gmail.com"
+                className="underline-offset-2 transition-colors hover:text-ink hover:underline"
+              >
+                nambirajlawdynasty@gmail.com
+              </a>
+            </div>
+          </address>
+          <div className="shrink-0 font-mono text-[10px] uppercase tracking-[0.22em] text-ink-soft">
+            © 2026 Legalezi. All rights reserved.
+          </div>
         </div>
       </div>
     </footer>

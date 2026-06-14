@@ -7,4 +7,4 @@ export const LOGO_MARK_JPG = "/logo-mark.jpg";
 export const LOGO_W = 242;
 export const LOGO_H = 507;
 export const LOGO_ASPECT = LOGO_W / LOGO_H;
-export const BRAND_NAME = "LegalEasy";
+export const BRAND_NAME = "Legalezi";
