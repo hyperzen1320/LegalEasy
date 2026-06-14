@@ -67,6 +67,7 @@ export async function generatePdf(input: CaseExportInput): Promise<Buffer> {
       size: "A4",
       layout: "landscape",
       margin: MARGIN,
+      bufferPages: true,
       info: {
         Title: `${companyName(input.partner)} — Case Report`,
         Author: "LegalEasy",
@@ -133,7 +134,6 @@ export async function generatePdf(input: CaseExportInput): Promise<Buffer> {
         // fresh page with the header band + table header re-drawn.
         if (cursorY + rowHeight > pageBottom) {
           drawOuterBorder(doc, cols, tableTop, cursorY);
-          drawPageFooter(doc, input);
           doc.addPage();
           drawHeader(doc, input, contentWidth);
           const fh = drawFilterSummary(doc, input);
@@ -160,7 +160,17 @@ export async function generatePdf(input: CaseExportInput): Promise<Buffer> {
     }
 
     drawOuterBorder(doc, cols, tableTop, cursorY);
-    drawPageFooter(doc, input);
+
+    // Now that every page exists, stamp each footer with a true
+    // "Page X of Y" — bufferPages lets us revisit the pages at the end.
+    // (Doing it inline earlier always read "Page 1", because the page
+    // count isn't known until the table has finished flowing.)
+    const range = doc.bufferedPageRange();
+    for (let i = 0; i < range.count; i++) {
+      doc.switchToPage(range.start + i);
+      drawPageFooter(doc, input, i + 1, range.count);
+    }
+
     doc.end();
   });
 }
@@ -495,11 +505,10 @@ function drawOuterBorder(
 
 function drawPageFooter(
   doc: PDFKit.PDFDocument,
-  input: CaseExportInput
+  input: CaseExportInput,
+  pageNum: number,
+  totalPages: number
 ) {
-  const range = doc.bufferedPageRange();
-  const pageIndex = range.start + range.count - 1;
-  const pageNum = pageIndex - range.start + 1;
   const y = doc.page.height - MARGIN - 12;
 
   doc.save();
@@ -513,10 +522,11 @@ function drawPageFooter(
     y,
     { lineBreak: false }
   );
-  doc.text(`Page ${pageNum}`, doc.page.width - MARGIN - 80, y, {
-    width: 80,
-    align: "right",
-    lineBreak: false,
-  });
+  doc.text(
+    `Page ${pageNum} of ${totalPages}`,
+    doc.page.width - MARGIN - 110,
+    y,
+    { width: 110, align: "right", lineBreak: false }
+  );
   doc.restore();
 }

@@ -56,11 +56,12 @@ export async function generateXlsx(input: CaseExportInput): Promise<Buffer> {
     c.width = input.columns[i].width;
   }
 
-  // Brand mark — floated over the right end of the ink header band.
+  // Brand mark — floated over the right end of the ink header band, inset
+  // from the edge and sized to sit cleanly within the two-row ink band.
   const logoId = wb.addImage({ base64: LOGO_PNG_BASE64, extension: "png" });
   sheet.addImage(logoId, {
-    tl: { col: Math.max(0, numCols - 0.6), row: 0.12 },
-    ext: { width: 28, height: 58 },
+    tl: { col: Math.max(0, numCols - 0.85), row: 0.1 },
+    ext: { width: 22, height: 46 },
   });
 
   // Row 1 — company name, large. Merged across the table.
@@ -196,7 +197,9 @@ export async function generateXlsx(input: CaseExportInput): Promise<Buffer> {
     const dataRow = sheet.addRow(
       input.columns.map((c) => valueFor(c, row, i))
     );
-    dataRow.height = 18;
+    // Deliberately no fixed row height: with wrapText on, Excel auto-fits
+    // the row to its tallest wrapped cell, so long Status text shows in
+    // full instead of being clipped to a single 18px line.
     dataRow.eachCell((cell, colNumber) => {
       const col = input.columns[colNumber - 1];
       cell.font = {

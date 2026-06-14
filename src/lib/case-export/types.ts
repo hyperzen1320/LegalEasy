@@ -54,7 +54,7 @@ export const ALL_COLUMNS: CaseExportColumn[] = [
   { key: "courtName", label: "Court", width: 20 },
   { key: "courtNumber", label: "Court No", width: 10 },
   { key: "courtPlace", label: "Place", width: 14 },
-  { key: "status", label: "Status", width: 16 },
+  { key: "status", label: "Status", width: 20 },
   { key: "advocateName", label: "Advocate", width: 16 },
   { key: "oppositeParty", label: "Opposite Party", width: 18 },
   { key: "oppositeAdvocate", label: "Opp. Advocate", width: 16 },

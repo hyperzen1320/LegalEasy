@@ -121,7 +121,9 @@ export type CaseFilters = {
   fromDate: string;
   toDate: string;
   search: string;
+  // `limit` is the page size; `page` is the 1-based page index.
   limit: number;
+  page: number;
 };
 
 export const EMPTY_FILTERS: CaseFilters = {
@@ -132,6 +134,7 @@ export const EMPTY_FILTERS: CaseFilters = {
   toDate: "",
   search: "",
   limit: DEFAULT_LIMIT,
+  page: 1,
 };
 
 export function filtersFromQuery(params: URLSearchParams): CaseFilters {
@@ -139,6 +142,8 @@ export function filtersFromQuery(params: URLSearchParams): CaseFilters {
   const limit = (LIMIT_OPTIONS as readonly number[]).includes(limitRaw)
     ? limitRaw
     : DEFAULT_LIMIT;
+  const pageRaw = Number(params.get("page") || "");
+  const page = Number.isFinite(pageRaw) && pageRaw > 1 ? Math.floor(pageRaw) : 1;
   return {
     courtId: params.get("courtId") || "",
     courtPlace: params.get("courtPlace") || "",
@@ -147,6 +152,7 @@ export function filtersFromQuery(params: URLSearchParams): CaseFilters {
     toDate: params.get("toDate") || "",
     search: params.get("search") || "",
     limit,
+    page,
   };
 }
 
@@ -160,6 +166,9 @@ export function filtersToQuery(filters: CaseFilters): URLSearchParams {
   if (filters.search) params.set("search", filters.search);
   if (filters.limit !== DEFAULT_LIMIT) {
     params.set("limit", String(filters.limit));
+  }
+  if (filters.page && filters.page > 1) {
+    params.set("page", String(filters.page));
   }
   return params;
 }

@@ -42,10 +42,18 @@ const MUTED_HEX = "6B6253";
 
 export async function generateDocx(input: CaseExportInput): Promise<Buffer> {
   const cols = input.columns;
-  // Word table widths are in DXA (1/20th of a point). The exportColumn
-  // width was a "character widths" hint — scale it into a usable
-  // approximation by treating one char as ~110 DXA.
-  const colWidths = cols.map((c) => Math.max(c.width * 110, 600));
+  // Word table widths are in DXA (1/20th of a point). Scale the column
+  // weight hints so the WHOLE table fits the landscape-A4 content width
+  // (page 16838 twips − 720+720 margins ≈ 15398). Previously each column
+  // was a fixed `width * 110`, so with the full column set the table was
+  // ~20,000 DXA — wider than the page — and Word clipped every column past
+  // "Court". Scaling to a fixed target keeps all columns on the page no
+  // matter how many the user picks; long cells wrap instead of overflowing.
+  const PAGE_CONTENT_DXA = 15000;
+  const weightTotal = cols.reduce((a, c) => a + c.width, 0) || 1;
+  const colWidths = cols.map((c) =>
+    Math.max(360, Math.round((c.width / weightTotal) * PAGE_CONTENT_DXA))
+  );
   const totalWidth = colWidths.reduce((a, b) => a + b, 0);
 
   const headerRow = new TableRow({

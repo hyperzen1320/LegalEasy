@@ -66,6 +66,12 @@ function ImportModal({ onClose }: { onClose: () => void }) {
     created: number;
     skipped: { caseNo: string; reason: string }[];
   } | null>(null);
+  const [progress, setProgress] = useState<{
+    done: number;
+    total: number;
+    created: number;
+    skipped: number;
+  } | null>(null);
   const [dragOver, setDragOver] = useState(false);
 
   async function handleFile(file: File) {
@@ -109,19 +115,39 @@ function ImportModal({ onClose }: { onClose: () => void }) {
     if (toImport.length === 0) return;
     setStage("importing");
     setError(null);
+    setProgress({ done: 0, total: toImport.length, created: 0, skipped: 0 });
+
+    // Import in chunks so the bar actually moves and a big roll doesn't
+    // ride on one slow request. CNR de-dup still holds across chunks —
+    // every row is checked against the vault on insert — so the outcome is
+    // identical to one call, just visible.
+    const CHUNK = 40;
+    let created = 0;
+    const skipped: { caseNo: string; reason: string }[] = [];
     try {
-      const res = await fetch("/api/app/cases/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rows: toImport }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(data?.error || "Import failed.");
-        setStage("preview");
-        return;
+      for (let start = 0; start < toImport.length; start += CHUNK) {
+        const chunk = toImport.slice(start, start + CHUNK);
+        const res = await fetch("/api/app/cases/import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rows: chunk }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setError(data?.error || "Import failed.");
+          setStage("preview");
+          return;
+        }
+        created += data.created || 0;
+        if (Array.isArray(data.skipped)) skipped.push(...data.skipped);
+        setProgress({
+          done: Math.min(start + chunk.length, toImport.length),
+          total: toImport.length,
+          created,
+          skipped: skipped.length,
+        });
       }
-      setSummary({ created: data.created || 0, skipped: data.skipped || [] });
+      setSummary({ created, skipped });
       setStage("done");
       router.refresh();
     } catch {
@@ -137,6 +163,7 @@ function ImportModal({ onClose }: { onClose: () => void }) {
       className="fixed inset-0 z-[80] flex items-center justify-center p-4"
       style={{ backgroundColor: "rgba(10,17,36,0.45)" }}
       onMouseDown={(e) => {
+        if (stage === "importing") return;
         if (e.target === e.currentTarget) onClose();
       }}
     >
@@ -258,7 +285,7 @@ function ImportModal({ onClose }: { onClose: () => void }) {
             </div>
           ) : null}
 
-          {stage === "preview" || stage === "importing" ? (
+          {stage === "preview" ? (
             <PreviewTable
               rows={rows}
               issues={issues}
@@ -271,6 +298,10 @@ function ImportModal({ onClose }: { onClose: () => void }) {
                 setSelected(rows.map((_, i) => v && !issues[i]?.missingCaseNo))
               }
             />
+          ) : null}
+
+          {stage === "importing" && progress ? (
+            <ImportProgress progress={progress} fileName={fileName} />
           ) : null}
 
           {stage === "done" && summary ? (
@@ -287,7 +318,7 @@ function ImportModal({ onClose }: { onClose: () => void }) {
             className="text-[12px]"
             style={{ fontFamily: "var(--font-dm-mono), monospace", color: "var(--color-app-fg-muted)" }}
           >
-            {stage === "preview" || stage === "importing"
+            {stage === "preview"
               ? `${selectedCount} of ${rows.length} selected`
               : ""}
           </span>
@@ -295,7 +326,8 @@ function ImportModal({ onClose }: { onClose: () => void }) {
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md px-4 py-2 text-[13px] font-semibold"
+              disabled={stage === "importing"}
+              className="rounded-md px-4 py-2 text-[13px] font-semibold disabled:cursor-not-allowed disabled:opacity-50"
               style={{
                 fontFamily: "var(--font-manrope), sans-serif",
                 color: "var(--color-app-fg-soft)",
@@ -475,6 +507,155 @@ function DoneSummary({
         </div>
       ) : null}
     </div>
+  );
+}
+
+// Court-themed determinate loader shown while the roll is being filed.
+// A gold "ledger" bar fills as chunks commit, with a live filed / already-
+// on-record tally underneath.
+function ImportProgress({
+  progress,
+  fileName,
+}: {
+  progress: { done: number; total: number; created: number; skipped: number };
+  fileName: string;
+}) {
+  const pct =
+    progress.total > 0
+      ? Math.min(100, Math.round((progress.done / progress.total) * 100))
+      : 0;
+
+  return (
+    <div className="py-10">
+      <style>{`
+        @keyframes ledger-sheen { 0% { background-position: 0% 0; } 100% { background-position: 200% 0; } }
+      `}</style>
+
+      <div className="flex items-center gap-3">
+        <span
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg"
+          style={{
+            backgroundColor: "var(--color-app-ink)",
+            color: "var(--color-app-copper-bright)",
+          }}
+        >
+          <ScalesIcon />
+        </span>
+        <div className="min-w-0">
+          <div
+            className="text-[16px] font-semibold tracking-tight"
+            style={{
+              fontFamily: "var(--font-crimson), Georgia, serif",
+              color: "var(--color-app-ink)",
+            }}
+          >
+            Entering matters into the vault…
+          </div>
+          <div
+            className="mt-0.5 truncate text-[11px]"
+            style={{
+              fontFamily: "var(--font-dm-mono), monospace",
+              color: "var(--color-app-fg-muted)",
+            }}
+          >
+            {fileName || "Imported roll"}
+          </div>
+        </div>
+        <div
+          className="ml-auto text-[24px] font-semibold tabular-nums"
+          style={{
+            fontFamily: "var(--font-crimson), Georgia, serif",
+            color: "var(--color-app-copper-deep)",
+          }}
+        >
+          {pct}%
+        </div>
+      </div>
+
+      <div
+        className="mt-5 h-3 w-full overflow-hidden rounded-full"
+        style={{
+          backgroundColor: "var(--color-app-canvas-2)",
+          boxShadow: "inset 0 1px 2px rgba(10,17,36,0.12)",
+        }}
+      >
+        <div
+          className="h-full rounded-full transition-[width] duration-500 ease-out"
+          style={{
+            width: `${pct}%`,
+            backgroundImage:
+              "linear-gradient(90deg, var(--color-app-copper-deep), var(--color-app-copper), var(--color-app-gold-bright), var(--color-app-copper))",
+            backgroundSize: "200% 100%",
+            animation: "ledger-sheen 1.4s linear infinite",
+          }}
+        />
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+        <span
+          className="text-[12px] tabular-nums"
+          style={{
+            fontFamily: "var(--font-dm-mono), monospace",
+            color: "var(--color-app-fg-soft)",
+          }}
+        >
+          <span style={{ color: "var(--color-app-ink)", fontWeight: 600 }}>
+            {progress.done}
+          </span>{" "}
+          of{" "}
+          <span style={{ color: "var(--color-app-ink)", fontWeight: 600 }}>
+            {progress.total}
+          </span>{" "}
+          reviewed
+        </span>
+        <span
+          className="text-[11px] uppercase tracking-[0.14em]"
+          style={{ fontFamily: "var(--font-dm-mono), monospace" }}
+        >
+          <span style={{ color: "var(--color-app-aqua)" }}>
+            {progress.created} filed
+          </span>
+          {progress.skipped > 0 ? (
+            <span style={{ color: "var(--color-app-copper-deep)" }}>
+              {"  ·  "}
+              {progress.skipped} already on record
+            </span>
+          ) : null}
+        </span>
+      </div>
+
+      <p
+        className="mt-6 text-[11.5px] italic leading-6"
+        style={{
+          fontFamily: "var(--font-manrope), sans-serif",
+          color: "var(--color-app-fg-muted)",
+        }}
+      >
+        Each matter is checked against the vault by CNR — duplicates are
+        skipped, never overwritten. You can leave this open while it runs.
+      </p>
+    </div>
+  );
+}
+
+function ScalesIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M12 4v16M7 20h10M5 7h14"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M5 7l-2.5 6a3 3 0 0 0 5 0L5 7zM19 7l-2.5 6a3 3 0 0 0 5 0L19 7z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
