@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import CourtCombobox from "../CourtCombobox";
 import AppearingForCombobox from "../AppearingForCombobox";
+import StatusCombobox from "../StatusCombobox";
 
 // Status is now a free-form text field so chambers can use their own
 // vocabulary ("Mediation", "Cross-objection filed", "On-board", etc.)
@@ -267,13 +268,7 @@ export default function AddCaseForm() {
               }
             }}
           />
-          <Field
-            id="status"
-            label="Status"
-            value={status}
-            onChange={setStatus}
-            placeholder="Filed"
-          />
+          <StatusCombobox id="status" value={status} onChange={setStatus} />
 
           <Field
             id="previousDate"

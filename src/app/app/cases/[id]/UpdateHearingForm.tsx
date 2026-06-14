@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { buildWhatsAppLink, parseDateInputLocal } from "@/lib/whatsapp";
 import WhatsAppIcon from "@/app/app/components/WhatsAppIcon";
+import StatusCombobox from "../StatusCombobox";
 
 type ClientContact = {
   name: string;
@@ -175,38 +176,12 @@ export default function UpdateHearingForm({
       </div>
 
       <div className="mt-5">
-        <label
-          htmlFor="caseStatus"
-          className="text-[10px] font-semibold uppercase tracking-[0.18em]"
-          style={{
-            fontFamily: "var(--font-dm-mono), monospace",
-            color: "var(--color-app-fg-muted)",
-          }}
-        >
-          Status / Stage
-        </label>
-        <input
+        <StatusCombobox
           id="caseStatus"
-          type="text"
+          label="Status / Stage"
           value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          placeholder="Filed, Evidence, Arguments, Mediation…"
-          className="mt-2 block w-full rounded-md border px-3.5 py-2.5 text-[14px] outline-none transition-colors"
-          style={{
-            fontFamily: "var(--font-manrope), sans-serif",
-            borderColor: "var(--color-app-edge)",
-            backgroundColor: "var(--color-app-paper)",
-            color: "var(--color-app-ink)",
-          }}
-          onFocus={(e) => {
-            e.currentTarget.style.borderColor = "var(--color-app-copper)";
-            e.currentTarget.style.boxShadow =
-              "0 0 0 3px rgba(197,133,58,0.15)";
-          }}
-          onBlur={(e) => {
-            e.currentTarget.style.borderColor = "var(--color-app-edge)";
-            e.currentTarget.style.boxShadow = "none";
-          }}
+          onChange={setStatus}
+          placeholder="Filed, Evidence, Arguments…"
         />
         <p
           className="mt-1.5 text-[11px]"

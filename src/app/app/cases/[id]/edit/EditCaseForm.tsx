@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import CourtCombobox from "../../CourtCombobox";
 import AppearingForCombobox from "../../AppearingForCombobox";
+import StatusCombobox from "../../StatusCombobox";
 
 // Full case edit form. Mirrors AddCaseForm's field set (so the user's
 // mental model is identical between "Add" and "Edit") but PATCHes the
@@ -373,13 +374,7 @@ export default function EditCaseForm({
               if (next.courtName.trim()) clearMissing("courtName");
             }}
           />
-          <Field
-            id="status"
-            label="Status"
-            value={status}
-            onChange={setStatus}
-            placeholder="Filed"
-          />
+          <StatusCombobox id="status" value={status} onChange={setStatus} />
 
           <Field
             id="previousDate"
