@@ -62,8 +62,13 @@ const UserSchema = new Schema<IUser>(
       trim: true,
     },
     passwordHash: { type: String, required: true },
-    firstName: { type: String, required: true, trim: true },
-    lastName: { type: String, required: true, trim: true },
+    // Only email + password are mandatory for an account. A team member can
+    // be added with just login credentials and filled in later, so the name
+    // fields default to empty rather than being required (a required empty
+    // string used to throw a ValidationError that surfaced as "Network
+    // error" on the add-user form).
+    firstName: { type: String, default: "", trim: true },
+    lastName: { type: String, default: "", trim: true },
     userType: {
       type: String,
       enum: ["global_admin", "partner_admin", "user"],

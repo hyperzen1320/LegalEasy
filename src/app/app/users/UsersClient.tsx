@@ -607,9 +607,9 @@ function AddUserForm({
           phone,
         }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error ?? "Couldn't save");
+        setError(data.error ?? "Couldn't save the user. Please try again.");
         setSubmitting(false);
         return;
       }
@@ -662,7 +662,6 @@ function AddUserForm({
         />
         <Field
           label="First name"
-          required
           value={firstName}
           onChange={setFirstName}
           placeholder="Aarav"
@@ -673,7 +672,7 @@ function AddUserForm({
           onChange={setLastName}
           placeholder="Iyer"
         />
-        <RoleSelect label="Role" value={role} onChange={setRole} required />
+        <RoleSelect label="Role" value={role} onChange={setRole} />
         <Field
           label="Phone"
           type="tel"
