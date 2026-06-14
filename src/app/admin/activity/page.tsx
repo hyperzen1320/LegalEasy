@@ -49,7 +49,15 @@ export default async function ActivityPage({
   const filter = FILTERS.find((f) => f.key === activeFilter) ?? FILTERS[0];
 
   await connectDB();
-  const activitiesDocs = await Activity.find(filter.query)
+  // The global-admin audit log shows global-admin actions only. Partner-
+  // internal events (task.* / case.* / board.* / profile.* …, all dot-
+  // namespaced) are the office's own activity and don't belong here, whereas
+  // global-admin actions (partner_created, plan_updated, …) use underscores.
+  // So on "All" we exclude any dotted action, which cleanly drops everything
+  // performed by partner admins or partner accounts.
+  const query =
+    filter.key === "all" ? { action: { $not: /\./ } } : filter.query;
+  const activitiesDocs = await Activity.find(query)
     .sort({ createdAt: -1 })
     .limit(100)
     .lean();
@@ -69,7 +77,7 @@ export default async function ActivityPage({
     createdAt: a.createdAt.toISOString(),
   }));
 
-  const totalCount = await Activity.countDocuments({});
+  const totalCount = await Activity.countDocuments({ action: { $not: /\./ } });
   const grouped = groupByDay(activities);
 
   return (
