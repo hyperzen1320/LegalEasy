@@ -1,6 +1,5 @@
 import Link from "next/link";
 import Image from "next/image";
-import { LOGO_SRC, LOGO_W, LOGO_H } from "@/lib/brand";
 
 // NAMBIRAJ LAW DYNASTY — company home, a close replica of the reference:
 // hero over the library photo, the "Phenomenon" split, the practising-areas
@@ -110,44 +109,43 @@ function Phenomenon() {
     <section style={{ backgroundColor: PAPER }}>
       <div className="mx-auto grid max-w-[1320px] gap-12 px-6 py-20 md:grid-cols-12 md:gap-16 md:px-10 md:py-28">
         {/* Image + stat block */}
-        <div className="relative md:col-span-6">
-          {/* Same container (4:5, full width) — filled with the statue photo's
-              warm-beige backdrop and our coral emblem (transparent PNG) centred
-              in its place. */}
-          <div
-            className="relative flex aspect-[4/5] w-full items-center justify-center overflow-hidden"
-            style={{
-              background:
-                "radial-gradient(115% 95% at 50% 40%, #e1c9b0 0%, #d4bb9e 52%, #bd9f82 100%)",
-            }}
-          >
-            <Image
-              src={LOGO_SRC}
-              alt="Nambiraj Law Dynasty emblem"
-              width={LOGO_W}
-              height={LOGO_H}
-              sizes="(min-width: 768px) 26vw, 55vw"
-              className="h-[58%] w-auto object-contain drop-shadow-[0_16px_28px_rgba(95,60,35,0.20)]"
-            />
-          </div>
-          <div
-            className="absolute -bottom-8 right-6 flex h-44 w-44 flex-col items-start justify-end p-6 md:right-[-2rem]"
-            style={{ backgroundColor: GOLD }}
-          >
-            <div className="text-[40px] leading-none text-white" style={{ fontFamily: playfair }}>
-              55+
+        <div className="md:col-span-6">
+          {/* Mr. C. Nambiraj's portrait fills the frame (object-cover). The
+              frame is held to 85% of the column so it reads a touch smaller,
+              with the gold "years of practice" plate overhanging its corner. */}
+          <div className="relative mx-auto w-[85%] md:mx-0">
+            <div
+              className="relative aspect-[4/5] w-full overflow-hidden"
+              style={{ backgroundColor: "#e7ded0" }}
+            >
+              <Image
+                src="/nambiraj.jpg"
+                alt="Mr. C. Nambiraj"
+                fill
+                sizes="(min-width: 768px) 22vw, 47vw"
+                className="object-cover object-center"
+              />
             </div>
             <div
-              className="mt-2 text-[11px] uppercase tracking-[0.18em] text-white/90"
-              style={{ fontFamily: inter }}
+              className="absolute -bottom-8 right-6 flex h-36 w-56 flex-col items-start justify-end p-6 md:right-[-2rem]"
+              style={{ backgroundColor: GOLD }}
             >
-              Years of Practice
+              <div className="text-[40px] leading-none text-white" style={{ fontFamily: playfair }}>
+                55+
+              </div>
+              <div
+                className="mt-2 text-[11px] uppercase tracking-[0.18em] text-white/90"
+                style={{ fontFamily: inter }}
+              >
+                Years of Practice
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Text */}
-        <div className="md:col-span-6 md:pl-4">
+        {/* Text — nudged down so the portrait rises above the heading,
+            matching the reference composition. */}
+        <div className="md:col-span-6 md:pl-4 md:pt-12">
           <h2
             className="text-[34px] leading-[1.12] tracking-[-0.01em] md:text-[44px]"
             style={{ fontFamily: playfair, color: NAVY }}
