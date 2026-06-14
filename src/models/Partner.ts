@@ -35,6 +35,10 @@ export interface IPartner {
     // days after which entries are auto-pruned (90 or 365 typically).
     activityRetentionDays: number | null;
   };
+  // The office's pre-filled WhatsApp hearing-notice template. Admin-editable
+  // in My Profile; merge tokens like {{caseNo}} / {{nextHearingDate}} are
+  // substituted per matter when the notice is built. Empty = use the default.
+  noticeTemplate: string;
   isDeleted: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -90,6 +94,7 @@ const PartnerSchema = new Schema<IPartner>(
         default: null,
       },
     },
+    noticeTemplate: { type: String, default: "" },
     isDeleted: { type: Boolean, default: false },
   },
   { timestamps: true }

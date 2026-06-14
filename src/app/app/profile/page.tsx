@@ -2,6 +2,8 @@ import mongoose from "mongoose";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/db";
 import { User } from "@/models/User";
+import { Partner } from "@/models/Partner";
+import { DEFAULT_NOTICE_TEMPLATE } from "@/lib/notice-template";
 import MyProfileClient, { type ProfileData } from "./MyProfileClient";
 
 export const dynamic = "force-dynamic";
@@ -9,12 +11,22 @@ export const dynamic = "force-dynamic";
 export default async function ProfilePage() {
   const session = await auth();
   let profile: ProfileData | null = null;
+  let noticeTemplate = DEFAULT_NOTICE_TEMPLATE;
+  const isAdmin = session?.user?.userType === "partner_admin";
 
   if (session?.user?.id) {
     await connectDB();
-    const user = await User.findById(
-      new mongoose.Types.ObjectId(session.user.id)
-    ).lean();
+    const [user, partner] = await Promise.all([
+      User.findById(new mongoose.Types.ObjectId(session.user.id)).lean(),
+      session.user.partnerId
+        ? Partner.findById(
+            new mongoose.Types.ObjectId(session.user.partnerId)
+          )
+            .select("noticeTemplate")
+            .lean()
+        : null,
+    ]);
+    if (partner?.noticeTemplate) noticeTemplate = partner.noticeTemplate;
     if (user) {
       profile = {
         id: String(user._id),
@@ -57,7 +69,13 @@ export default async function ProfilePage() {
           </p>
         </div>
 
-        {profile ? <MyProfileClient initialProfile={profile} /> : null}
+        {profile ? (
+          <MyProfileClient
+            initialProfile={profile}
+            noticeTemplate={noticeTemplate}
+            isAdmin={isAdmin}
+          />
+        ) : null}
       </div>
     </div>
   );
