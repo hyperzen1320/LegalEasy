@@ -39,10 +39,7 @@ export default function CardPreview({
   const isToday = due && due.toDateString() === new Date().toDateString();
 
   const dueLabel = due
-    ? due.toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-      })
+    ? due.toLocaleDateString("en-IN", { day: "2-digit", month: "short" })
     : "";
 
   const checklistTotal = task.checklistSummary.totalItems;
@@ -52,7 +49,7 @@ export default function CardPreview({
   const allDone = checklistTotal > 0 && checklistDone === checklistTotal;
 
   const priority = task.priority;
-  const priorityDot =
+  const priorityColor =
     priority === "high"
       ? "#c14a37"
       : priority === "medium"
@@ -62,11 +59,11 @@ export default function CardPreview({
           : null;
   const priorityLabel =
     priority === "high"
-      ? "High priority"
+      ? "High"
       : priority === "medium"
-        ? "Medium priority"
+        ? "Medium"
         : priority === "low"
-          ? "Low priority"
+          ? "Low"
           : null;
 
   const descPreview = (task.description || "")
@@ -77,21 +74,26 @@ export default function CardPreview({
   const cardStyle: CSSProperties = {
     backgroundColor: "#ffffff",
     boxShadow: isDraggingOverlay
-      ? "0 24px 48px -12px rgba(10,17,36,0.32), 0 8px 16px -8px rgba(10,17,36,0.18)"
+      ? "0 26px 50px -14px rgba(10,17,36,0.34), 0 8px 16px -8px rgba(10,17,36,0.2)"
       : hover
-        ? "0 8px 20px -8px rgba(10,17,36,0.18), 0 2px 4px -2px rgba(10,17,36,0.06)"
-        : "0 1px 3px rgba(10,17,36,0.06), 0 1px 2px rgba(10,17,36,0.04)",
+        ? "0 12px 26px -12px rgba(10,17,36,0.22), 0 2px 5px -2px rgba(10,17,36,0.07)"
+        : "0 1px 2px rgba(10,17,36,0.05), 0 1px 3px -1px rgba(10,17,36,0.05)",
     transform: isDraggingOverlay
-      ? "rotate(2deg) scale(1.02)"
+      ? "rotate(1.5deg) scale(1.02)"
       : hover
-        ? "translateY(-1px)"
+        ? "translateY(-2px)"
         : "translateY(0)",
     transition:
       "box-shadow 220ms cubic-bezier(0.2, 0.7, 0.1, 1), transform 220ms cubic-bezier(0.2, 0.7, 0.1, 1)",
-    borderRadius: 10,
+    borderRadius: 11,
     cursor: "pointer",
     position: "relative",
-    border: "1px solid rgba(10,17,36,0.05)",
+    border: "1px solid rgba(10,17,36,0.06)",
+    // A colour spine on the left telegraphs priority at a glance even before
+    // the eye reaches the tag.
+    borderLeft: priorityColor
+      ? `3px solid ${priorityColor}`
+      : "1px solid rgba(10,17,36,0.06)",
     animation: isDraggingOverlay
       ? undefined
       : "card-pop 260ms cubic-bezier(0.2, 0.7, 0.1, 1) both",
@@ -146,28 +148,37 @@ export default function CardPreview({
       ) : null}
 
       <div className="px-3.5 py-3">
-        {/* Title row with priority dot */}
-        <div className="flex items-start gap-2">
-          {priorityDot ? (
-            <span
-              className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
-              style={{
-                backgroundColor: priorityDot,
-                boxShadow: `0 0 0 3px ${priorityDot}22`,
-              }}
-              title={priorityLabel ?? ""}
-            />
-          ) : null}
-          <div
-            className="flex-1 text-[14px] leading-[1.32] tracking-tight"
+        {/* Priority tag — labelled, so the colour spine isn't the only cue. */}
+        {priorityLabel && priorityColor ? (
+          <span
+            className="mb-1.5 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em]"
             style={{
-              fontFamily: "var(--font-crimson), Georgia, serif",
-              color: "var(--color-app-ink)",
-              fontWeight: 600,
+              fontFamily: "var(--font-dm-mono), monospace",
+              backgroundColor: `${priorityColor}1c`,
+              color: priorityColor,
             }}
           >
-            {task.title}
-          </div>
+            <span
+              className="h-1.5 w-1.5 rounded-full"
+              style={{ backgroundColor: priorityColor }}
+            />
+            {priorityLabel}
+          </span>
+        ) : null}
+
+        {/* Title */}
+        <div
+          className="text-[14px] leading-[1.34] tracking-tight"
+          style={{
+            fontFamily: "var(--font-crimson), Georgia, serif",
+            color: "var(--color-app-ink)",
+            fontWeight: 600,
+            // Leave room for the hover hamburger so a long title never tucks
+            // under it.
+            paddingRight: 18,
+          }}
+        >
+          {task.title}
         </div>
 
         {/* Description preview */}
@@ -190,7 +201,7 @@ export default function CardPreview({
 
         {/* Checklist progress bar */}
         {checklistTotal > 0 ? (
-          <div className="mt-2.5">
+          <div className="mt-3">
             <div className="flex items-center justify-between">
               <span
                 className="inline-flex items-center gap-1 text-[10px] font-semibold tabular-nums"
@@ -216,7 +227,7 @@ export default function CardPreview({
               </span>
             </div>
             <div
-              className="mt-1 h-1 rounded-full overflow-hidden"
+              className="mt-1 h-1.5 overflow-hidden rounded-full"
               style={{ backgroundColor: "var(--color-app-canvas-2)" }}
             >
               <div
@@ -234,7 +245,7 @@ export default function CardPreview({
 
         {/* Footer chips */}
         {(due || task.assignee || (task.hasDescription && !descPreview)) && (
-          <div className="mt-2.5 flex items-center gap-1.5">
+          <div className="mt-3 flex items-center gap-1.5">
             {due ? (
               <span
                 className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums"
@@ -253,11 +264,7 @@ export default function CardPreview({
                   letterSpacing: 0.3,
                 }}
                 title={
-                  isOverdue
-                    ? "Overdue"
-                    : isToday
-                      ? "Due today"
-                      : "Due " + dueLabel
+                  isOverdue ? "Overdue" : isToday ? "Due today" : "Due " + dueLabel
                 }
               >
                 <ClockIcon />
@@ -283,8 +290,7 @@ export default function CardPreview({
                     fontFamily: "var(--font-crimson), Georgia, serif",
                     backgroundColor: "var(--color-app-ink)",
                     color: "var(--color-app-ivory)",
-                    boxShadow:
-                      "0 0 0 2px #ffffff, 0 1px 3px rgba(10,17,36,0.18)",
+                    boxShadow: "0 0 0 2px #ffffff, 0 1px 3px rgba(10,17,36,0.18)",
                   }}
                 >
                   {initials(task.assignee.name)}

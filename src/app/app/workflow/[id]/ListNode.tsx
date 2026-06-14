@@ -95,13 +95,13 @@ export default function ListColumn({
       style={{
         width: COLUMN_WIDTH,
         maxHeight: "100%",
-        backgroundColor: "rgba(255, 255, 255, 0.9)",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
+        backgroundColor: "rgba(252, 251, 249, 0.92)",
+        backdropFilter: "blur(14px)",
+        WebkitBackdropFilter: "blur(14px)",
         borderRadius: 14,
         boxShadow:
-          "0 16px 32px -12px rgba(10,17,36,0.18), 0 2px 6px -2px rgba(10,17,36,0.08)",
-        border: "1px solid rgba(10,17,36,0.06)",
+          "0 14px 34px -16px rgba(10,17,36,0.22), 0 2px 6px -3px rgba(10,17,36,0.08)",
+        border: "1px solid rgba(10,17,36,0.05)",
         // overflow stays VISIBLE so the list-menu dropdown can escape the
         // wrapper; the top accent stripe self-clips via its own radii.
         overflow: "visible",
@@ -136,9 +136,9 @@ export default function ListColumn({
                 setEditing(false);
               }
             }}
-            className="flex-1 rounded bg-transparent px-1 text-[14px] font-semibold outline-none"
+            className="flex-1 rounded bg-transparent px-1 text-[16px] font-semibold outline-none"
             style={{
-              fontFamily: "var(--font-manrope), sans-serif",
+              fontFamily: "var(--font-crimson), Georgia, serif",
               color: "var(--color-app-ink)",
               border: `1px solid ${stripeColor}`,
             }}
@@ -148,9 +148,9 @@ export default function ListColumn({
             onClick={() => {
               if (canEdit) setEditing(true);
             }}
-            className="flex-1 text-left text-[14px] font-semibold tracking-tight"
+            className="flex-1 text-left text-[16px] font-semibold tracking-tight"
             style={{
-              fontFamily: "var(--font-manrope), sans-serif",
+              fontFamily: "var(--font-crimson), Georgia, serif",
               color: "var(--color-app-ink)",
             }}
           >
@@ -158,11 +158,11 @@ export default function ListColumn({
           </button>
         )}
         <span
-          className="text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded"
+          className="rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums"
           style={{
             fontFamily: "var(--font-dm-mono), monospace",
-            color: "var(--color-app-fg-muted)",
-            backgroundColor: "var(--color-app-canvas-2)",
+            color: stripeColor,
+            backgroundColor: `${stripeColor}1a`,
             letterSpacing: 0.5,
             minWidth: 22,
             textAlign: "center",
