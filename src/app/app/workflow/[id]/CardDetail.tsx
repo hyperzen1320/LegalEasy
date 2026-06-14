@@ -729,15 +729,20 @@ function PriorityPicker({
   disabled: boolean;
   onChange: (p: "low" | "medium" | "high" | null) => void;
 }) {
-  const opts: { v: "low" | "medium" | "high" | null; label: string }[] = [
-    { v: null, label: "—" },
-    { v: "low", label: "Low" },
-    { v: "medium", label: "Medium" },
-    { v: "high", label: "High" },
-  ];
+  // A single compact dropdown with a colour dot — far less congested than
+  // four squeezed-in buttons, and it sits neatly in the quick-row grid.
+  const color =
+    value === "high"
+      ? "var(--color-app-danger)"
+      : value === "medium"
+        ? "var(--color-app-copper-deep)"
+        : value === "low"
+          ? "var(--color-app-aqua)"
+          : "var(--color-app-edge)";
   return (
     <div>
       <label
+        htmlFor="card-priority"
         className="text-[10px] font-semibold uppercase tracking-[0.18em]"
         style={{
           fontFamily: "var(--font-dm-mono), monospace",
@@ -746,46 +751,55 @@ function PriorityPicker({
       >
         Priority
       </label>
-      <div className="mt-2 flex gap-1.5">
-        {opts.map((o) => {
-          const active = value === o.v;
-          return (
-            <button
-              key={o.label}
-              onClick={() => !disabled && onChange(o.v)}
-              disabled={disabled}
-              className="flex-1 rounded-md py-2 text-[11px] font-semibold uppercase transition-all"
-              style={{
-                fontFamily: "var(--font-dm-mono), monospace",
-                letterSpacing: 1.2,
-                backgroundColor: active
-                  ? o.v === "high"
-                    ? "var(--color-app-danger-soft)"
-                    : o.v === "medium"
-                      ? "rgba(197,133,58,0.18)"
-                      : o.v === "low"
-                        ? "var(--color-app-aqua-soft)"
-                        : "var(--color-app-canvas-2)"
-                  : "var(--color-app-paper)",
-                color: active
-                  ? o.v === "high"
-                    ? "var(--color-app-danger)"
-                    : o.v === "medium"
-                      ? "var(--color-app-copper-deep)"
-                      : o.v === "low"
-                        ? "var(--color-app-aqua)"
-                        : "var(--color-app-fg-muted)"
-                  : "var(--color-app-fg-muted)",
-                border: active
-                  ? "none"
-                  : "1px solid var(--color-app-edge)",
-                opacity: disabled ? 0.5 : 1,
-              }}
-            >
-              {o.label}
-            </button>
-          );
-        })}
+      <div className="relative mt-2">
+        <span
+          aria-hidden
+          className="pointer-events-none absolute left-3 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full"
+          style={{
+            backgroundColor: color,
+            boxShadow: value ? `0 0 0 3px ${color}22` : "none",
+          }}
+        />
+        <select
+          id="card-priority"
+          value={value ?? ""}
+          disabled={disabled}
+          onChange={(e) =>
+            onChange(
+              (e.target.value || null) as "low" | "medium" | "high" | null
+            )
+          }
+          className="block w-full cursor-pointer appearance-none rounded-md border py-2 pl-8 pr-9 text-[13px] outline-none transition-colors disabled:cursor-not-allowed"
+          style={{
+            fontFamily: "var(--font-manrope), sans-serif",
+            borderColor: "var(--color-app-edge)",
+            backgroundColor: "var(--color-app-paper)",
+            color: value
+              ? "var(--color-app-ink)"
+              : "var(--color-app-fg-muted)",
+            opacity: disabled ? 0.5 : 1,
+          }}
+        >
+          <option value="">No priority</option>
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </select>
+        <span
+          aria-hidden
+          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2"
+          style={{ color: "var(--color-app-fg-muted)" }}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M6 9l6 6 6-6"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </span>
       </div>
     </div>
   );
