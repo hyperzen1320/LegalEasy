@@ -130,7 +130,7 @@ export default function AddPartnerForm({
           value={primaryEmail}
           onChange={setPrimaryEmail}
           placeholder="ks@nagendhran.in"
-          hint="This is the partner-admin's login. Must be unique across LegalEasy."
+          hint="This is the partner-admin's login. Must be unique across Legalezi."
         />
         <div className="grid gap-5 md:grid-cols-2">
           <Field id="city" label="City" value={city} onChange={setCity} placeholder="Bengaluru" />

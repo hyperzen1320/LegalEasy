@@ -87,7 +87,7 @@ const dmMono = DM_Mono({
 
 export const metadata: Metadata = {
   title:
-    "LegalEasy — Your office, every hearing, every client, under one cover.",
+    "Legalezi — Your office, every hearing, every client, under one cover.",
   description:
     "An advocate office, in your pocket. Cases, hearings, clients, courts, workflow, and document export — built for the Indian Bar.",
 };

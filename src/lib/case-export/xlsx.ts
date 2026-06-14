@@ -28,7 +28,7 @@ const EDGE = "FFD9CFB8";
 
 export async function generateXlsx(input: CaseExportInput): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
-  wb.creator = "LegalEasy";
+  wb.creator = "Legalezi";
   wb.created = input.generatedAt;
 
   const sheet = wb.addWorksheet("Case Report", {

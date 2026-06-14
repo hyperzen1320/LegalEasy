@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import LoginForm from "./LoginForm";
 
 export const metadata: Metadata = {
-  title: "Sign in — LegalEasy",
+  title: "Sign in — Legalezi",
   description:
     "Welcome back to chambers. Sign in to pick up where the day left you.",
 };
@@ -80,10 +80,10 @@ export default function LoginPage() {
               Need access? Speak to your office&rsquo;s administrator. New
               chambers are added by invitation —{" "}
               <a
-                href="mailto:chambers@legaleasy.in"
+                href="mailto:chambers@legalezi.com"
                 className="not-italic font-mono text-[11px] uppercase tracking-[0.18em] text-ink underline-offset-4 hover:underline"
               >
-                chambers@legaleasy.in
+                chambers@legalezi.com
               </a>
               .
             </p>

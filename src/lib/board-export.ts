@@ -41,7 +41,7 @@ export type BoardExportInput = {
 };
 
 function companyName(p: BoardExportInput["partner"]): string {
-  return p.officeName?.trim() || p.name?.trim() || "LegalEasy";
+  return p.officeName?.trim() || p.name?.trim() || "Legalezi";
 }
 
 function companyInitials(p: BoardExportInput["partner"]): string {
@@ -88,7 +88,7 @@ export async function generateBoardXlsx(
   input: BoardExportInput
 ): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
-  wb.creator = "LegalEasy";
+  wb.creator = "Legalezi";
   wb.created = input.generatedAt;
 
   const sheet = wb.addWorksheet("Board", {

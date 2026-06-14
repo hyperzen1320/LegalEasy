@@ -146,7 +146,7 @@ export async function generateDocx(input: CaseExportInput): Promise<Buffer> {
   }
 
   const doc = new Document({
-    creator: "LegalEasy",
+    creator: "Legalezi",
     title: `${companyName(input.partner)} — Case Report`,
     description: "Case Vault export",
     sections: [

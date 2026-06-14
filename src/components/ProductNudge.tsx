@@ -220,7 +220,7 @@ export default function ProductNudge() {
                 className="text-[8.5px] uppercase tracking-[0.2em]"
                 style={{ fontFamily: inter, color: "var(--color-heritage-muted)" }}
               >
-                from LegalEasy
+                from Legalezi
               </div>
             </div>
             <button

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import Logo from "./Logo";
 
 type NavItem = { name: string; href: string };
 
@@ -75,19 +76,22 @@ export default function MobileMenu({ nav }: { nav: NavItem[] }) {
               style={{ backgroundColor: "var(--color-heritage-paper)" }}
             >
               <div className="mx-auto flex w-full max-w-[1320px] items-center justify-between px-6 py-5">
-                <Link href="/" onClick={close} className="leading-none">
-                  <div
-                    className="text-[22px] font-bold tracking-[0.06em]"
-                    style={{ fontFamily: playfair, color: "var(--color-heritage-navy)" }}
-                  >
-                    NAMBIRAJ
-                  </div>
-                  <div
-                    className="mt-1 text-[10px] tracking-[0.32em]"
-                    style={{ fontFamily: inter, color: "var(--color-heritage-muted)" }}
-                  >
-                    LAW DYNASTY
-                  </div>
+                <Link href="/" onClick={close} className="flex items-center gap-3 leading-none">
+                  <Logo size={40} className="shrink-0" />
+                  <span>
+                    <span
+                      className="block text-[22px] font-bold tracking-[0.06em]"
+                      style={{ fontFamily: playfair, color: "var(--color-heritage-navy)" }}
+                    >
+                      NAMBIRAJ
+                    </span>
+                    <span
+                      className="mt-1 block text-[10px] tracking-[0.32em]"
+                      style={{ fontFamily: inter, color: "var(--color-heritage-muted)" }}
+                    >
+                      LAW DYNASTY
+                    </span>
+                  </span>
                 </Link>
                 <button
                   type="button"

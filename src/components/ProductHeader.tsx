@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { LOGO_MARK_JPG, LOGO_W, LOGO_H } from "@/lib/brand";
 
-// Editorial masthead for the LegalEasy product surface (/product, /login).
+// Editorial masthead for the Legalezi product surface (/product, /login).
 // Distinct from the NAMBIRAJ company Header — this is the product's own
 // brand. Nav items deep-link into the product page's sections so they work
 // from the login page too. "Sign in" is the route into the app.
@@ -23,7 +23,7 @@ export default function ProductHeader() {
           <span className="flex h-10 w-10 items-center justify-center rounded-[7px] bg-white ring-1 ring-rule/60 shadow-[0_1px_3px_rgba(14,26,43,0.10)]">
             <Image
               src={LOGO_MARK_JPG}
-              alt="LegalEasy"
+              alt="Legalezi"
               width={LOGO_W}
               height={LOGO_H}
               priority
@@ -33,7 +33,7 @@ export default function ProductHeader() {
           </span>
           <span className="leading-none">
             <span className="block font-display text-[20px] font-medium tracking-tight text-ink">
-              LegalEasy
+              Legalezi
             </span>
             <span className="mt-1 block font-mono text-[9px] uppercase tracking-[0.28em] text-ink-soft">
               Advocate · Edition

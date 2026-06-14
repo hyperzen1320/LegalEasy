@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import MobileMenu from "./MobileMenu";
 import ClientDiaryCue from "./ClientDiaryCue";
+import Logo from "./Logo";
 
 export const NAV = [
   { name: "Home", href: "/" },
@@ -32,19 +33,22 @@ export default function Header() {
     >
       <div className="relative mx-auto flex max-w-[1320px] items-center justify-between gap-6 px-6 py-5 md:px-10">
         {/* Wordmark */}
-        <Link href="/" className="leading-none">
-          <div
-            className="text-[22px] font-bold tracking-[0.06em]"
-            style={{ fontFamily: playfair, color: "var(--color-heritage-navy)" }}
-          >
-            NAMBIRAJ
-          </div>
-          <div
-            className="mt-1 text-[10px] tracking-[0.32em]"
-            style={{ fontFamily: inter, color: "var(--color-heritage-muted)" }}
-          >
-            LAW DYNASTY
-          </div>
+        <Link href="/" className="flex items-center gap-3 leading-none">
+          <Logo size={44} priority className="shrink-0" />
+          <span>
+            <span
+              className="block text-[22px] font-bold tracking-[0.06em]"
+              style={{ fontFamily: playfair, color: "var(--color-heritage-navy)" }}
+            >
+              NAMBIRAJ
+            </span>
+            <span
+              className="mt-1 block text-[10px] tracking-[0.32em]"
+              style={{ fontFamily: inter, color: "var(--color-heritage-muted)" }}
+            >
+              LAW DYNASTY
+            </span>
+          </span>
         </Link>
 
         {/* Centre nav */}
