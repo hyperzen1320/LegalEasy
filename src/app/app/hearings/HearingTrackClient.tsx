@@ -8,9 +8,13 @@ import {
   type HearingRow,
   type Bucket,
 } from "@/lib/hearing-row";
-import { parseDateInputLocal } from "@/lib/whatsapp";
+import {
+  buildWhatsAppLink as buildNoticeLink,
+  parseDateInputLocal,
+} from "@/lib/whatsapp";
 import CnrLink from "@/app/app/components/CnrLink";
 import WhatsAppIcon from "@/app/app/components/WhatsAppIcon";
+import StatusCombobox from "@/app/app/cases/StatusCombobox";
 
 export type { HearingRow, Bucket };
 
@@ -21,12 +25,14 @@ export default function HearingTrackClient({
   items,
   counts,
   officeName,
+  noticeTemplate,
   isAdmin,
 }: {
   bucket: Bucket;
   items: HearingRow[];
   counts: Counts;
   officeName: string;
+  noticeTemplate: string;
   isAdmin: boolean;
 }) {
   // Search filters the loaded bucket client-side — instant, and it carries
@@ -131,6 +137,7 @@ export default function HearingTrackClient({
                 c={c}
                 index={i}
                 officeName={officeName}
+                noticeTemplate={noticeTemplate}
               />
             ))}
           </div>
@@ -142,7 +149,7 @@ export default function HearingTrackClient({
                 c={c}
                 index={i}
                 officeName={officeName}
-                bucket={bucket}
+                noticeTemplate={noticeTemplate}
                 showDate={bucket === "all"}
               />
             ))}
@@ -502,20 +509,20 @@ function ScheduledRow({
   c,
   index,
   officeName,
-  bucket,
+  noticeTemplate,
   showDate,
 }: {
   c: HearingRow;
   index: number;
   officeName: string;
-  bucket: Bucket;
+  noticeTemplate: string;
   showDate: boolean;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const courtLine = [c.courtName, c.courtPlace].filter(Boolean).join(", ");
   const telLink = buildTelLink(c);
-  const waLink = buildWhatsAppLink(c, officeName, bucket);
+  const waLink = rowWaLink(c, noticeTemplate, officeName);
 
   return (
     <div
@@ -624,6 +631,7 @@ function ScheduledRow({
         <InlineHearingUpdate
           row={c}
           officeName={officeName}
+          noticeTemplate={noticeTemplate}
           onClose={() => {
             setEditing(false);
             router.refresh();
@@ -640,15 +648,17 @@ function PendingCard({
   c,
   index,
   officeName,
+  noticeTemplate,
 }: {
   c: HearingRow;
   index: number;
   officeName: string;
+  noticeTemplate: string;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const telLink = buildTelLink(c);
-  const waLink = buildWhatsAppLink(c, officeName, "pending");
+  const waLink = rowWaLink(c, noticeTemplate, officeName);
 
   // Two flavours of pending — the previous date passed without being
   // replaced (overdue) or the matter was never given a next date
@@ -821,6 +831,7 @@ function PendingCard({
         <InlineHearingUpdate
           row={c}
           officeName={officeName}
+          noticeTemplate={noticeTemplate}
           onClose={() => {
             setEditing(false);
             router.refresh();
@@ -840,10 +851,12 @@ function PendingCard({
 function InlineHearingUpdate({
   row,
   officeName,
+  noticeTemplate,
   onClose,
 }: {
   row: HearingRow;
   officeName: string;
+  noticeTemplate: string;
   onClose: () => void;
 }) {
   const [nextDate, setNextDate] = useState(
@@ -888,9 +901,16 @@ function InlineHearingUpdate({
   const savedIso = saved
     ? parseDateInputLocal(savedDate)?.toISOString() ?? null
     : null;
-  const notifyRow: HearingRow = { ...row, nextHearingDate: savedIso };
+  // For the notice: the hearing just held was on the date we updated *from*
+  // (the previous date), and the new posting is what we saved. Undated rows
+  // fall back to the matter's archived last hearing date.
+  const notifyRow: HearingRow = {
+    ...row,
+    lastHearingDate: row.nextHearingDate || row.lastHearingDate,
+    nextHearingDate: savedIso,
+  };
   const telLink = buildTelLink(notifyRow);
-  const waLink = buildWhatsAppLink(notifyRow, officeName, "pending");
+  const waLink = rowWaLink(notifyRow, noticeTemplate, officeName);
   const hasContact = Boolean(telLink || waLink);
   const showNotify = saved && !dirty;
 
@@ -941,30 +961,15 @@ function InlineHearingUpdate({
           </p>
         </div>
         <div>
-          <label
-            className="text-[10px] font-semibold uppercase tracking-[0.18em]"
-            style={{
-              fontFamily: "var(--font-dm-mono), monospace",
-              color: "var(--color-app-fg-muted)",
-            }}
-          >
-            Status / Stage
-          </label>
-          <input
-            type="text"
+          <StatusCombobox
+            id={`pending-status-${row.id}`}
+            label="Status / Stage"
             value={status}
-            onChange={(e) => {
-              setStatus(e.target.value);
+            onChange={(v) => {
+              setStatus(v);
               setSaved(false);
             }}
             placeholder="Filed, Evidence, Arguments…"
-            className="mt-2 block w-full rounded-md border px-3 py-2 text-[13px] outline-none transition-colors"
-            style={{
-              fontFamily: "var(--font-manrope), sans-serif",
-              borderColor: "var(--color-app-edge)",
-              backgroundColor: "var(--color-app-paper)",
-              color: "var(--color-app-ink)",
-            }}
           />
           <p
             className="mt-1.5 text-[11px]"
@@ -1390,57 +1395,27 @@ function buildTelLink(c: HearingRow): string | null {
   return `tel:${target}`;
 }
 
-function buildWhatsAppLink(
+// Builds the WhatsApp notice for a hearing row from the office's editable
+// template (the bilingual notice with {{caseNo}} / {{nextHearingDate}} etc.),
+// filling the merge fields from the row.
+function rowWaLink(
   c: HearingRow,
-  officeName: string,
-  bucket: Bucket
+  template: string,
+  officeName: string
 ): string | null {
-  const raw = (c.clientWhatsapp || c.clientPhone || "").replace(/\D/g, "");
-  if (!raw) return null;
-  const wa = raw.length === 10 ? `91${raw}` : raw;
-
-  const dateStr =
-    bucket === "today"
-      ? "today"
-      : bucket === "tomorrow"
-        ? "tomorrow"
-        : c.nextHearingDate
-          ? new Date(c.nextHearingDate).toLocaleDateString("en-IN", {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-            })
-          : "the date communicated separately";
-
-  const venue =
-    [c.courtName, c.courtPlace].filter(Boolean).join(", ") ||
-    "the Hon'ble Court";
-  const office = officeName || "this office";
-  const matter = c.oppositeParty
-    ? `${c.clientName || "you"} vs ${c.oppositeParty}`
-    : c.caseNo;
-
-  const lines = [
-    `Dear Mr./Ms. ${c.clientName || "Client"},`,
-    ``,
-    `Warm greetings from ${office}.`,
-    ``,
-    `This is to formally apprise you that the next hearing in your matter ${c.caseNo}` +
-      (c.oppositeParty ? ` (${matter})` : ``) +
-      ` is scheduled ${dateStr} before the ${venue}.`,
-    ``,
-    `You are kindly requested to ensure your presence on the said date and time, accompanied by all relevant documents previously discussed, so as to enable us to proceed with your matter without procedural complication.`,
-    ``,
-    `For any clarification or to revisit the brief prior to the hearing, please feel free to contact our office at your convenience.`,
-    ``,
-    `Thank you for your continued cooperation and trust.`,
-    ``,
-    `Regards,`,
-    office,
-  ];
-
-  return `https://wa.me/${wa}?text=${encodeURIComponent(lines.join("\n"))}`;
+  return buildNoticeLink(c.clientWhatsapp || c.clientPhone || "", template, {
+    caseNo: c.caseNo || "",
+    clientName: c.clientName || "",
+    cnr: c.cnr || "",
+    fileNo: c.fileNo || "",
+    status: c.status || "",
+    oppositeParty: c.oppositeParty || "",
+    courtName: c.courtName || "",
+    courtPlace: c.courtPlace || "",
+    lastHearingDate: c.lastHearingDate ? new Date(c.lastHearingDate) : null,
+    nextHearingDate: c.nextHearingDate ? new Date(c.nextHearingDate) : null,
+    officeName: officeName || "",
+  });
 }
 
 function overdueDaysFor(iso: string | null): number | null {
