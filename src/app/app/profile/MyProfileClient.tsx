@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import NoticeTemplateEditor from "./NoticeTemplateEditor";
+import { fullName, initials } from "@/lib/display-name";
 
 export type ProfileData = {
   id: string;
@@ -102,14 +103,16 @@ export default function MyProfileClient({
     }
   }
 
-  const initials = `${profile.firstName?.[0] ?? ""}${profile.lastName?.[0] ?? ""}`.toUpperCase();
+  const displayName = fullName(profile.firstName, profile.lastName);
+  const avatarInitials = initials(profile.firstName, profile.lastName);
   const designationLine =
     profile.designation || (profile.barEnrolmentNo ? "Advocate" : "");
 
   return (
     <>
+    <div className="mt-7 lg:grid lg:grid-cols-[1fr_300px] lg:items-start lg:gap-6">
     <div
-      className="relative mt-7 fade-up-sm rounded-2xl p-7"
+      className="relative fade-up-sm rounded-2xl p-7"
       style={{
         backgroundColor: "var(--color-app-paper)",
         boxShadow: "0 1px 0 var(--color-app-edge)",
@@ -143,14 +146,14 @@ export default function MyProfileClient({
             boxShadow: "0 8px 24px -10px rgba(197,133,58,0.55)",
           }}
         >
-          {initials ? (
+          {avatarInitials ? (
             <span
               className="text-[26px] font-semibold"
               style={{
                 fontFamily: "var(--font-crimson), Georgia, serif",
               }}
             >
-              {initials}
+              {avatarInitials}
             </span>
           ) : (
             <UserIcon />
@@ -164,7 +167,7 @@ export default function MyProfileClient({
               color: "var(--color-app-ink)",
             }}
           >
-            {profile.name || "—"}
+            {displayName || profile.name || "—"}
           </h3>
           {designationLine ? (
             <p
@@ -320,11 +323,68 @@ export default function MyProfileClient({
         )}
       </div>
     </div>
+    <NambirajCard />
+    </div>
     <NoticeTemplateEditor
       initialTemplate={noticeTemplate}
       isAdmin={isAdmin}
     />
     </>
+  );
+}
+
+function NambirajCard() {
+  return (
+    <a
+      href="https://legalezi.com"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="fade-up-sm group mt-6 flex flex-col rounded-2xl p-6 transition-transform hover:-translate-y-0.5 lg:mt-0"
+      style={{
+        background:
+          "linear-gradient(150deg, var(--color-app-ink-2) 0%, var(--color-app-ink) 100%)",
+        boxShadow: "0 14px 34px -20px rgba(18,29,53,0.55)",
+      }}
+    >
+      <div
+        className="text-[9px] uppercase tracking-[0.24em]"
+        style={{
+          fontFamily: "var(--font-dm-mono), monospace",
+          color: "var(--color-app-copper-bright)",
+        }}
+      >
+        The Firm Online
+      </div>
+      <div
+        className="mt-3 text-[22px] font-semibold leading-tight tracking-tight"
+        style={{
+          fontFamily: "var(--font-crimson), Georgia, serif",
+          color: "var(--color-app-ivory)",
+        }}
+      >
+        Nambiraj Law Dynasty
+      </div>
+      <p
+        className="mt-2 text-[13px] leading-6"
+        style={{
+          fontFamily: "var(--font-manrope), sans-serif",
+          color: "var(--color-app-ivory-soft)",
+        }}
+      >
+        Visit our public chambers website — the firm&rsquo;s heritage, practice
+        areas and contact.
+      </p>
+      <span
+        className="mt-4 inline-flex items-center gap-1.5 text-[12px] font-semibold"
+        style={{
+          fontFamily: "var(--font-dm-mono), monospace",
+          color: "var(--color-app-copper-bright)",
+        }}
+      >
+        legalezi.com
+        <span className="transition-transform group-hover:translate-x-0.5">↗</span>
+      </span>
+    </a>
   );
 }
 

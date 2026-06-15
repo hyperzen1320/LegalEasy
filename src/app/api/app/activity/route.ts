@@ -59,7 +59,13 @@ export async function GET(request: Request) {
 
   await maybePrune(partnerId);
 
-  const filter: Record<string, unknown> = { partnerId };
+  // Exclude global-admin actions (e.g. "Reset partner-admin password",
+  // "Extended trial") — those are recorded against this partnerId but belong
+  // to the platform admin's audit trail, not the office's own activity feed.
+  const filter: Record<string, unknown> = {
+    partnerId,
+    actorType: { $ne: "global_admin" },
+  };
   // Compose createdAt bounds. `from` and `to` give a range; `before` is
   // the pagination cursor and tightens the upper bound further when set.
   const createdAt: Record<string, Date> = {};
