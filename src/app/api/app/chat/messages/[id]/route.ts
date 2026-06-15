@@ -194,12 +194,34 @@ export async function DELETE(
     );
   }
 
+  // ?scope=me deletes the message for just this user (WhatsApp "Delete for
+  // me"); anything else is the "Delete for everyone" tombstone. Default
+  // stays "everyone" so older clients keep their prior behaviour.
+  const scope =
+    new URL(request.url).searchParams.get("scope") === "me"
+      ? "me"
+      : "everyone";
+
+  if (scope === "me") {
+    // Anyone who can read the room may hide a message from their own thread;
+    // the message itself is untouched for everyone else.
+    await ChatMessage.updateOne(
+      { _id: msg._id },
+      { $addToSet: { deletedFor: userId } }
+    );
+    return NextResponse.json(
+      { ok: true, scope: "me" },
+      { headers: guard.ctx.isMobile ? corsHeaders() : undefined }
+    );
+  }
+
+  // "Delete for everyone" — the author, or the office admin (moderation).
   const isAuthor =
     msg.senderId && String(msg.senderId) === guard.ctx.user.id;
   const isAdmin = guard.ctx.user.userType === "partner_admin";
   if (!isAuthor && !isAdmin) {
     return NextResponse.json(
-      { error: "You can only delete your own messages." },
+      { error: "You can only delete your own messages for everyone." },
       {
         status: 403,
         headers: guard.ctx.isMobile ? corsHeaders() : undefined,

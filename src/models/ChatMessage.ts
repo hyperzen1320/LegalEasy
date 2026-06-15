@@ -7,9 +7,14 @@ import mongoose, { Schema, Types, type Model } from "mongoose";
 // from the office, or has their name/role changed. The live `actorUserId`
 // reference is preserved on `senderId` for permission checks (edit/delete).
 //
-// Soft-deletes only — we set `isDeleted: true` and replace the body with
-// a placeholder client-side. This keeps the message-id chain intact so
-// reply threads (future) and the activity audit don't develop holes.
+// Two flavours of delete (WhatsApp style):
+//   • Delete for everyone — a tombstone: `isDeleted: true` + empty `body`,
+//     shown to all as "This message was deleted". Author or admin only.
+//   • Delete for me — the user's id is pushed to `deletedFor`; the message
+//     list filters those out for that one user, leaving it intact for
+//     everyone else.
+// Either way the row stays so the message-id chain (reply threads, audit)
+// never develops holes.
 
 export type ChatMessageType = "text" | "system";
 
@@ -34,6 +39,9 @@ export interface IChatMessage {
   attachments: IChatAttachment[];
   type: ChatMessageType;
   isDeleted: boolean;
+  // Users who "deleted for me" — the list endpoint hides the message from
+  // each of them; everyone else still sees it.
+  deletedFor: Types.ObjectId[];
   editedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -78,6 +86,11 @@ const ChatMessageSchema = new Schema<IChatMessage>(
       default: "text",
     },
     isDeleted: { type: Boolean, default: false },
+    deletedFor: {
+      type: [Schema.Types.ObjectId],
+      ref: "User",
+      default: [],
+    },
     editedAt: { type: Date, default: null },
   },
   { timestamps: true }

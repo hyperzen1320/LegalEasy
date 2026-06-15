@@ -21,7 +21,7 @@ export default function MessageBubble({
   isAdmin: boolean;
   showSender: boolean;
   onEdit: (id: string, body: string) => Promise<boolean>;
-  onDelete: (id: string) => Promise<boolean>;
+  onDelete: (id: string, scope: "me" | "everyone") => Promise<boolean>;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -39,11 +39,17 @@ export default function MessageBubble({
   }, [editing, editValue.length]);
 
   const isMine = message.isMine;
+  // Optimistic (un-sent) rows carry a temp id — no server actions on them.
+  const isReal = !message.id.startsWith("tmp-");
   const canEdit =
     isMine &&
     !message.isDeleted &&
     Date.now() - new Date(message.createdAt).getTime() < 5 * 60_000;
-  const canDelete = (isMine || isAdmin) && !message.isDeleted;
+  // Author, or admin moderation, can tombstone a message for everyone.
+  const canDeleteEveryone =
+    isReal && (isMine || isAdmin) && !message.isDeleted;
+  // Anyone can hide any message from just their own thread (WhatsApp style).
+  const canDeleteForMe = isReal;
 
   const time = new Date(message.createdAt).toLocaleTimeString("en-IN", {
     hour: "2-digit",
@@ -227,7 +233,7 @@ export default function MessageBubble({
         </div>
       </div>
 
-      {(canEdit || canDelete) && !editing ? (
+      {(canEdit || canDeleteEveryone || canDeleteForMe) && !editing ? (
         <div className="relative self-center opacity-0 transition-opacity group-hover:opacity-100">
           <button
             onClick={() => setMenuOpen((v) => !v)}
@@ -248,7 +254,7 @@ export default function MessageBubble({
                 onClick={() => setMenuOpen(false)}
               />
               <div
-                className="absolute right-0 top-9 z-40 w-32 overflow-hidden rounded-md"
+                className="absolute right-0 top-9 z-40 w-44 overflow-hidden rounded-md"
                 style={{
                   backgroundColor: "var(--color-app-paper)",
                   border: "1px solid var(--color-app-edge)",
@@ -262,7 +268,7 @@ export default function MessageBubble({
                       setEditValue(message.body);
                       setEditing(true);
                     }}
-                    className="block w-full px-3 py-2 text-left text-[12px]"
+                    className="block w-full px-3 py-2 text-left text-[12px] hover:bg-[var(--color-app-canvas-2)]"
                     style={{
                       fontFamily: "var(--font-manrope), sans-serif",
                       color: "var(--color-app-ink)",
@@ -271,19 +277,34 @@ export default function MessageBubble({
                     Edit
                   </button>
                 ) : null}
-                {canDelete ? (
+                {canDeleteEveryone ? (
                   <button
                     onClick={async () => {
                       setMenuOpen(false);
-                      await onDelete(message.id);
+                      await onDelete(message.id, "everyone");
                     }}
-                    className="block w-full px-3 py-2 text-left text-[12px]"
+                    className="block w-full px-3 py-2 text-left text-[12px] hover:bg-[var(--color-app-canvas-2)]"
                     style={{
                       fontFamily: "var(--font-manrope), sans-serif",
                       color: "var(--color-app-danger)",
                     }}
                   >
-                    Delete
+                    Delete for everyone
+                  </button>
+                ) : null}
+                {canDeleteForMe ? (
+                  <button
+                    onClick={async () => {
+                      setMenuOpen(false);
+                      await onDelete(message.id, "me");
+                    }}
+                    className="block w-full px-3 py-2 text-left text-[12px] hover:bg-[var(--color-app-canvas-2)]"
+                    style={{
+                      fontFamily: "var(--font-manrope), sans-serif",
+                      color: "var(--color-app-danger)",
+                    }}
+                  >
+                    Delete for me
                   </button>
                 ) : null}
               </div>

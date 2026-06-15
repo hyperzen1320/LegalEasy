@@ -31,7 +31,7 @@ export default function MessageList({
   emptyLabel: string;
   onLoadOlder: () => Promise<void>;
   onEdit: (id: string, body: string) => Promise<boolean>;
-  onDelete: (id: string) => Promise<boolean>;
+  onDelete: (id: string, scope: "me" | "everyone") => Promise<boolean>;
   onScrolledToBottom?: () => void;
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
