@@ -134,7 +134,7 @@ export default function MobileMenu({ nav }: { nav: NavItem[] }) {
                     color: "#ffffff",
                   }}
                 >
-                  Client Diary
+                  Advocate Diary
                 </Link>
               </nav>
             </div>,

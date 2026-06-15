@@ -14,7 +14,7 @@ export default function WhatsAppFab() {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat with us on WhatsApp"
-      className="group fixed bottom-5 right-5 z-50 inline-flex items-center gap-2.5 rounded-full py-3 pl-3.5 pr-5 text-white shadow-[0_14px_34px_-10px_rgba(37,211,102,0.6)] transition-transform duration-200 ease-out hover:scale-[1.04] sm:bottom-6 sm:right-6"
+      className="group fixed bottom-5 right-5 z-50 inline-flex items-center justify-center rounded-full p-2.5 text-white shadow-[0_14px_34px_-10px_rgba(37,211,102,0.6)] transition-transform duration-200 ease-out hover:scale-[1.04] sm:bottom-6 sm:right-6"
       style={{ backgroundColor: "#25D366" }}
     >
       <style>{`
@@ -33,12 +33,6 @@ export default function WhatsAppFab() {
         }}
       >
         <WhatsAppGlyph />
-      </span>
-      <span
-        className="text-[13.5px] font-semibold tracking-tight"
-        style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}
-      >
-        WhatsApp
       </span>
     </a>
   );
