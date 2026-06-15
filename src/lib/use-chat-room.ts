@@ -74,7 +74,10 @@ export function useChatRoom(
   loadOlder: () => Promise<void>;
   markRead: () => Promise<void>;
   editMessage: (id: string, body: string) => Promise<boolean>;
-  deleteMessage: (id: string) => Promise<boolean>;
+  deleteMessage: (
+    id: string,
+    scope?: "me" | "everyone"
+  ) => Promise<boolean>;
   refresh: () => Promise<void>;
 } {
   const [messages, setMessages] = useState<ChatMessageDTO[]>([]);
@@ -394,21 +397,31 @@ export function useChatRoom(
   );
 
   const deleteMessage = useCallback(
-    async (id: string): Promise<boolean> => {
+    async (
+      id: string,
+      scope: "me" | "everyone" = "everyone"
+    ): Promise<boolean> => {
       try {
-        const res = await fetch(`/api/app/chat/messages/${id}`, {
-          method: "DELETE",
-        });
+        const res = await fetch(
+          `/api/app/chat/messages/${id}?scope=${scope}`,
+          { method: "DELETE" }
+        );
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
           setError(data.error || "Couldn't delete the message.");
           return false;
         }
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === id ? { ...m, isDeleted: true, body: "" } : m
-          )
-        );
+        if (scope === "me") {
+          // Hidden for me — drop it from my thread entirely.
+          setMessages((prev) => prev.filter((m) => m.id !== id));
+        } else {
+          // Tombstone for everyone — keep the row, blank the body.
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === id ? { ...m, isDeleted: true, body: "" } : m
+            )
+          );
+        }
         return true;
       } catch {
         setError("Couldn't delete the message.");

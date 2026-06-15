@@ -131,7 +131,12 @@ export async function GET(
       ? Math.min(limitParam, MAX_LIMIT)
       : DEFAULT_LIMIT;
 
-  const filter: Record<string, unknown> = { roomId: room._id };
+  const filter: Record<string, unknown> = {
+    roomId: room._id,
+    // Hide anything this user has "deleted for me" — gone from their thread,
+    // untouched for everyone else.
+    deletedFor: { $ne: userId },
+  };
   if (before && mongoose.isValidObjectId(before)) {
     filter._id = { $lt: new mongoose.Types.ObjectId(before) };
   }
