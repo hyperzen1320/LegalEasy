@@ -535,59 +535,71 @@ function ScheduledRow({
       }}
     >
       <div className="group flex items-center gap-5 p-5">
-        <Link
-          href={`/app/cases/${c.id}`}
-          className="min-w-0 flex-1"
-          style={{ display: "block" }}
-        >
-          <div className="flex flex-wrap items-baseline gap-3">
-            <span
-              className="text-[22px] font-semibold tracking-tight"
-              style={{
-                fontFamily: "var(--font-crimson), Georgia, serif",
-                color: "var(--color-app-ink)",
-              }}
-            >
-              {c.caseNo}
-            </span>
-            {showDate ? <NextDateChip iso={c.nextHearingDate} /> : null}
-            {c.status ? (
+        <div className="min-w-0 flex-1">
+          <Link
+            href={`/app/cases/${c.id}`}
+            style={{ display: "block" }}
+          >
+            <div className="flex flex-wrap items-baseline gap-3">
               <span
-                className="rounded-md px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em]"
+                className="text-[22px] font-semibold tracking-tight"
                 style={{
-                  fontFamily: "var(--font-dm-mono), monospace",
-                  backgroundColor: "var(--color-app-aqua-soft)",
-                  color: "var(--color-app-aqua)",
+                  fontFamily: "var(--font-crimson), Georgia, serif",
+                  color: "var(--color-app-ink)",
                 }}
               >
-                {c.status}
+                {c.caseNo}
               </span>
-            ) : null}
-          </div>
-          {(c.clientName || courtLine) && (
+              {showDate ? <NextDateChip iso={c.nextHearingDate} /> : null}
+              {c.status ? (
+                <span
+                  className="rounded-md px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em]"
+                  style={{
+                    fontFamily: "var(--font-dm-mono), monospace",
+                    backgroundColor: "var(--color-app-aqua-soft)",
+                    color: "var(--color-app-aqua)",
+                  }}
+                >
+                  {c.status}
+                </span>
+              ) : null}
+            </div>
+            {(c.clientName || courtLine) && (
+              <div
+                className="mt-1.5 text-[13px]"
+                style={{
+                  fontFamily: "var(--font-manrope), sans-serif",
+                  color: "var(--color-app-fg-soft)",
+                }}
+              >
+                {c.clientName ? (
+                  <span style={{ color: "var(--color-app-ink)", fontWeight: 600 }}>
+                    {c.clientName}
+                  </span>
+                ) : null}
+                {c.clientName && courtLine ? (
+                  <span style={{ color: "var(--color-app-copper-deep)" }}> · </span>
+                ) : null}
+                {courtLine ? (
+                  <span style={{ color: "var(--color-app-fg-muted)" }}>
+                    {courtLine}
+                  </span>
+                ) : null}
+              </div>
+            )}
+          </Link>
+          {c.cnr ? (
             <div
               className="mt-1.5 text-[13px]"
               style={{
                 fontFamily: "var(--font-manrope), sans-serif",
-                color: "var(--color-app-fg-soft)",
+                color: "var(--color-app-fg-muted)",
               }}
             >
-              {c.clientName ? (
-                <span style={{ color: "var(--color-app-ink)", fontWeight: 600 }}>
-                  {c.clientName}
-                </span>
-              ) : null}
-              {c.clientName && courtLine ? (
-                <span style={{ color: "var(--color-app-copper-deep)" }}> · </span>
-              ) : null}
-              {courtLine ? (
-                <span style={{ color: "var(--color-app-fg-muted)" }}>
-                  {courtLine}
-                </span>
-              ) : null}
+              CNR <CnrLink cnr={c.cnr} />
             </div>
-          )}
-        </Link>
+          ) : null}
+        </div>
 
         {/* Action cluster */}
         <div className="flex shrink-0 items-center gap-2">
