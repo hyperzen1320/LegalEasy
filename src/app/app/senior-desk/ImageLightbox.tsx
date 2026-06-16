@@ -28,6 +28,32 @@ export default function ImageLightbox({
     };
   }, [onClose]);
 
+  // Share the actual image file via the Web Share API (mobile browsers + some
+  // desktops). Falls back to a download if sharing is unsupported or dismissed.
+  async function share() {
+    try {
+      const res = await fetch(src);
+      const blob = await res.blob();
+      const file = new File([blob], filename, {
+        type: blob.type || "image/jpeg",
+      });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: filename });
+        return;
+      }
+      if (navigator.share) {
+        await navigator.share({ title: filename });
+        return;
+      }
+    } catch {
+      // Dismissed or unsupported — fall through to a download.
+    }
+    const a = document.createElement("a");
+    a.href = `${src}?download=1`;
+    a.download = filename;
+    a.click();
+  }
+
   if (typeof document === "undefined") return null;
 
   return createPortal(
@@ -49,6 +75,18 @@ export default function ImageLightbox({
           {filename}
         </span>
         <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={share}
+            aria-label="Share"
+            title="Share"
+            className="flex h-9 w-9 items-center justify-center rounded-md transition-colors hover:bg-white/10"
+            style={{ color: "#ffffff" }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+            </svg>
+          </button>
           <a
             href={`${src}?download=1`}
             download={filename}
