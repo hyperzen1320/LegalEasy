@@ -125,6 +125,8 @@ export default function MobileMenu({ nav }: { nav: NavItem[] }) {
 
                 <Link
                   href="/product"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   onClick={close}
                   className="mt-10 flex items-center justify-center px-6 py-4 text-[12px] uppercase tracking-[0.18em] transition-opacity hover:opacity-90"
                   style={{

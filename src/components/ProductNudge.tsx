@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { LOGO_MARK_JPG, LOGO_W, LOGO_H } from "@/lib/brand";
 
@@ -92,7 +92,6 @@ type Phase = "idle" | "in" | "out";
 
 export default function ProductNudge() {
   const pathname = usePathname();
-  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
   const ad = pickAd(pathname);
@@ -125,7 +124,10 @@ export default function ProductNudge() {
 
   const open = () => {
     setPhase("out");
-    router.push(ad.href);
+    // Open the product in a new tab so the visitor keeps their place on the
+    // chambers site. Called from a click/keydown handler, so it's a trusted
+    // gesture and won't trip the popup blocker.
+    window.open(ad.href, "_blank", "noopener,noreferrer");
   };
   const close = (e: React.MouseEvent) => {
     e.stopPropagation();

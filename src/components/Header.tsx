@@ -68,6 +68,8 @@ export default function Header() {
           <span className="relative inline-flex">
             <Link
               href="/product"
+              target="_blank"
+              rel="noopener noreferrer"
               className="px-6 py-3 text-[11.5px] uppercase tracking-[0.16em] transition-opacity hover:opacity-90"
               style={{
                 fontFamily: inter,
