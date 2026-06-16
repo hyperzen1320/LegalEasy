@@ -48,7 +48,7 @@ export default async function ProfilePage() {
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
       <div className="mx-auto max-w-[1280px]">
-        <div>
+        <div className="text-center">
           <h2
             className="text-[30px] font-semibold tracking-tight leading-[1.1] sm:text-[40px]"
             style={{
@@ -67,7 +67,15 @@ export default async function ProfilePage() {
           >
             Personal and office identity.
           </p>
+          <div
+            className="mx-auto mt-5 h-px w-16"
+            style={{
+              background:
+                "linear-gradient(90deg, transparent, var(--color-app-copper), transparent)",
+            }}
+          />
         </div>
+        <NambirajBanner />
 
         {profile ? (
           <MyProfileClient
@@ -78,5 +86,66 @@ export default async function ProfilePage() {
         ) : null}
       </div>
     </div>
+  );
+}
+
+// A "visit the public site" banner under the centred page title — full width,
+// text on the left and the link on the right, so the header reads as one piece.
+function NambirajBanner() {
+  return (
+    <a
+      href="https://legalezi.com"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group mt-7 flex flex-col gap-5 rounded-2xl px-7 py-6 transition-transform hover:-translate-y-0.5 sm:flex-row sm:items-center sm:justify-between sm:px-9 sm:py-7"
+      style={{
+        background:
+          "linear-gradient(120deg, var(--color-app-ink-2) 0%, var(--color-app-ink) 100%)",
+        boxShadow: "0 16px 38px -22px rgba(18,29,53,0.55)",
+      }}
+    >
+      <div className="min-w-0">
+        <div
+          className="text-[9px] uppercase tracking-[0.24em]"
+          style={{
+            fontFamily: "var(--font-dm-mono), monospace",
+            color: "var(--color-app-copper-bright)",
+          }}
+        >
+          The Firm Online
+        </div>
+        <div
+          className="mt-2 text-[24px] font-semibold leading-tight tracking-tight sm:text-[28px]"
+          style={{
+            fontFamily: "var(--font-crimson), Georgia, serif",
+            color: "var(--color-app-ivory)",
+          }}
+        >
+          Nambiraj Law Dynasty
+        </div>
+        <p
+          className="mt-1.5 max-w-2xl text-[13px] leading-6"
+          style={{
+            fontFamily: "var(--font-manrope), sans-serif",
+            color: "var(--color-app-ivory-soft)",
+          }}
+        >
+          Visit our public chambers website — the firm&rsquo;s heritage,
+          practice areas and contact.
+        </p>
+      </div>
+      <span
+        className="inline-flex shrink-0 items-center gap-2 rounded-lg px-6 py-3.5 text-[13px] font-semibold transition-transform group-hover:translate-x-0.5"
+        style={{
+          fontFamily: "var(--font-dm-mono), monospace",
+          backgroundColor: "rgba(197,133,58,0.14)",
+          color: "var(--color-app-copper-bright)",
+          border: "1px solid rgba(197,133,58,0.35)",
+        }}
+      >
+        legalezi.com
+        <span aria-hidden>↗</span>
+      </span>
+    </a>
   );
 }

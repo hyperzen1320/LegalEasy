@@ -145,6 +145,21 @@ export async function PATCH(
     }
   }
 
+  // Keep the partner-admin user's name in sync with the Contact Name — the
+  // dashboard, sidebar and profile all read that User (via the session), so
+  // editing Contact Name here must propagate to it. Runs even on an unchanged
+  // save, so a stale legacy name reconciles with a single Save.
+  if (typeof body.primaryContactName === "string") {
+    const trimmed = body.primaryContactName.trim();
+    if (trimmed) {
+      const parts = trimmed.split(/\s+/);
+      await User.updateOne(
+        { partnerId: partner._id, userType: "partner_admin", isDeleted: false },
+        { $set: { firstName: parts[0] || "", lastName: parts.slice(1).join(" ") } }
+      );
+    }
+  }
+
   if (typeof body.plan === "string" && body.plan !== partner.plan) {
     if (!["trial", "solo", "office", "chambers"].includes(body.plan)) {
       return NextResponse.json(

@@ -168,8 +168,12 @@ export async function POST(request: Request) {
   });
 
   const passwordHash = await bcrypt.hash(parsed.password, 12);
-  const [firstName, ...rest] = parsed.primaryContactName.split(" ");
-  const lastName = rest.join(" ") || "—";
+  // Match the My Profile / partner-edit split: first token is the first name,
+  // the rest the surname, no "—" placeholder (a no-space name like
+  // "G.S.Tejas" stays whole in firstName and shows in full).
+  const nameParts = parsed.primaryContactName.trim().split(/\s+/);
+  const firstName = nameParts[0] || "";
+  const lastName = nameParts.slice(1).join(" ");
 
   try {
     await User.create({
