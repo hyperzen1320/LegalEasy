@@ -10,6 +10,26 @@ const nextConfig: NextConfig = {
   // from node_modules — the files come along intact and the generators
   // can read their data.
   serverExternalPackages: ["pdfkit", "exceljs", "docx"],
+
+  // Never let the browser cache the signed-in surfaces. Without this the
+  // back/forward cache can resurrect a fully-rendered /app or /admin page
+  // after sign-out — so it looks like you're still "in" even though the
+  // session is gone. no-store disables that cache; the Back button then
+  // re-requests the page and the auth proxy bounces it to /login.
+  async headers() {
+    const noStore = [
+      {
+        key: "Cache-Control",
+        value: "no-store, no-cache, must-revalidate, max-age=0",
+      },
+    ];
+    return [
+      { source: "/app", headers: noStore },
+      { source: "/app/:path*", headers: noStore },
+      { source: "/admin", headers: noStore },
+      { source: "/admin/:path*", headers: noStore },
+    ];
+  },
 };
 
 export default nextConfig;

@@ -8,10 +8,11 @@ import { Task } from "@/models/Task";
 import Logo from "@/components/Logo";
 import SeniorDeskTile from "./SeniorDeskTile";
 import { fullName } from "@/lib/display-name";
+import { User } from "@/models/User";
 
 export default async function PartnerDashboard() {
   const session = await auth();
-  const displayName = fullName(
+  let displayName = fullName(
     session?.user?.firstName,
     session?.user?.lastName,
     "Counsel",
@@ -48,6 +49,14 @@ export default async function PartnerDashboard() {
 
   if (partnerId) {
     await connectDB();
+    // Read the name fresh from the DB so a change in global admin (Contact
+    // Name) or My Profile shows here immediately, not only after re-login.
+    if (session?.user?.email) {
+      const me = await User.findOne({ email: session.user.email })
+        .select("firstName lastName")
+        .lean();
+      if (me) displayName = fullName(me.firstName, me.lastName, "Counsel");
+    }
     // Disposed cases stay out of every dashboard tile and the today's
     // board cause-list — they only appear in /app/disposed-cases.
     const activeFilter = {

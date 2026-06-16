@@ -40,8 +40,28 @@ export default function Sidebar({
       {/* emerald rail — brand signature */}
       <div className="absolute left-0 top-0 h-full w-[3px] bg-admin-accent" />
 
+      {/* Back to the public site (legalezi.com) */}
+      <div className="px-6 pt-5 pb-1">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 text-[11px] font-medium text-admin-fg-soft transition-colors hover:text-admin-fg"
+          aria-label="Back to legalezi.com"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path
+              d="M15 5l-7 7 7 7"
+              stroke="currentColor"
+              strokeWidth="1.9"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          Back to legalezi.com
+        </Link>
+      </div>
+
       {/* Brand */}
-      <div className="px-6 pb-6 pt-7">
+      <div className="px-6 pb-6 pt-2">
         <Link href="/admin" className="group flex items-center gap-3">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-white shadow-sm">
             <Logo size={26} />
