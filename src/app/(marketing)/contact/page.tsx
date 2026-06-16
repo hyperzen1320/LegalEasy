@@ -15,7 +15,7 @@ const playfair = "var(--font-playfair), Georgia, serif";
 const inter = "var(--font-inter), system-ui, sans-serif";
 
 const WHATSAPP_HREF =
-  "https://wa.me/919353704141?text=" +
+  "https://wa.me/916369504141?text=" +
   encodeURIComponent("Hello, I would like to inquire about your legal services.");
 
 export default function ContactPage() {
@@ -64,17 +64,17 @@ export default function ContactPage() {
 
                   <Detail label="Phone">
                     <a
-                      href="tel:+919353704141"
-                      className="transition-colors hover:text-[var(--color-heritage-gold-deep)]"
-                    >
-                      +91 93537 04141
-                    </a>
-                    <br />
-                    <a
                       href="tel:+916369504141"
                       className="transition-colors hover:text-[var(--color-heritage-gold-deep)]"
                     >
                       +91 63695 04141
+                    </a>
+                    <br />
+                    <a
+                      href="tel:+914343225164"
+                      className="transition-colors hover:text-[var(--color-heritage-gold-deep)]"
+                    >
+                      04343 225164
                     </a>
                   </Detail>
 

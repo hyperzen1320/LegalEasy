@@ -73,10 +73,27 @@ export default function Header() {
                 fontFamily: inter,
                 fontWeight: 600,
                 backgroundColor: "var(--color-heritage-navy)",
-                color: "#ffffff",
               }}
             >
-              Advocate Diary
+              <style>{`
+                .le-diary-text {
+                  background: linear-gradient(95deg, #ffffff 0%, var(--color-heritage-gold) 28%, #ffffff 50%, var(--color-heritage-gold) 72%, #ffffff 100%);
+                  background-size: 220% auto;
+                  -webkit-background-clip: text;
+                  background-clip: text;
+                  -webkit-text-fill-color: transparent;
+                  color: transparent;
+                  animation: le-diary-shimmer 3.4s linear infinite;
+                }
+                @keyframes le-diary-shimmer {
+                  from { background-position: 0% center; }
+                  to { background-position: 220% center; }
+                }
+                @media (prefers-reduced-motion: reduce) {
+                  .le-diary-text { animation: none; background-position: 30% center; }
+                }
+              `}</style>
+              <span className="le-diary-text">Advocate Diary</span>
             </Link>
             <ClientDiaryCue />
           </span>

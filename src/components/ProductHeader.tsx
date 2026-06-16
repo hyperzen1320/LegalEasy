@@ -18,8 +18,24 @@ export default function ProductHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-rule/40 bg-paper/90 backdrop-blur">
       <div className="mx-auto flex max-w-[1320px] items-center justify-between gap-6 px-6 py-4 md:px-10">
-        {/* Wordmark */}
-        <Link href="/product" className="flex items-center gap-3">
+        {/* Back to the public site + wordmark */}
+        <div className="flex items-center gap-3 sm:gap-4">
+          <Link
+            href="/"
+            aria-label="Back to legalezi.com"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-rule/50 text-ink transition-colors hover:border-ink hover:bg-ink hover:text-paper"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path
+                d="M15 5l-7 7 7 7"
+                stroke="currentColor"
+                strokeWidth="1.9"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </Link>
+          <Link href="/product" className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-[7px] bg-white ring-1 ring-rule/60 shadow-[0_1px_3px_rgba(14,26,43,0.10)]">
             <Image
               src={LOGO_MARK_JPG}
@@ -39,7 +55,8 @@ export default function ProductHeader() {
               Advocate · Edition
             </span>
           </span>
-        </Link>
+          </Link>
+        </div>
 
         {/* Section nav */}
         <nav className="hidden items-center gap-8 lg:flex">

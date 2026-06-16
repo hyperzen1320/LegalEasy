@@ -9,14 +9,15 @@ const OFFICE = [
   "Nambiraj Law Dynasty LLP.,",
   "H-14, T.N.H.B. Colony, 2nd Phase,",
   "Krishnagiri - 635 002",
-  "+91 93537 04141 · +91 63695 04141",
+  "+91 63695 04141 · 04343 225164",
   "nambirajlawdynasty@gmail.com",
 ];
 
-const CONNECT = [
+const SOCIAL = [
+  { name: "Instagram", href: "#", icon: <InstagramIcon /> },
+  { name: "Facebook", href: "#", icon: <FacebookIcon /> },
   { name: "LinkedIn", href: "#", icon: <LinkedInIcon /> },
-  { name: "Legal Publications", href: "#", icon: <PublicationIcon /> },
-  { name: "Inquiry Form", href: "/contact", icon: <InquiryIcon /> },
+  { name: "Reddit", href: "#", icon: <RedditIcon /> },
 ];
 
 export default function Footer() {
@@ -25,7 +26,7 @@ export default function Footer() {
       <div className="mx-auto max-w-[1320px] px-6 py-16 md:px-10 md:py-20">
         <div className="grid gap-12 md:grid-cols-12">
           {/* Brand */}
-          <div className="md:col-span-4">
+          <div className="md:col-span-5">
             <div className="flex items-center gap-3.5">
               <Logo size={54} className="shrink-0" />
               <div
@@ -47,7 +48,7 @@ export default function Footer() {
           </div>
 
           {/* Explore */}
-          <div className="md:col-span-2">
+          <div className="md:col-span-3">
             <div
               className="text-[11px] uppercase tracking-[0.22em]"
               style={{ fontFamily: inter, color: "var(--color-heritage-gold)" }}
@@ -70,7 +71,7 @@ export default function Footer() {
           </div>
 
           {/* Office */}
-          <div className="md:col-span-3">
+          <div className="md:col-span-4">
             <div
               className="text-[11px] uppercase tracking-[0.22em]"
               style={{ fontFamily: inter, color: "var(--color-heritage-gold)" }}
@@ -89,39 +90,30 @@ export default function Footer() {
               ))}
             </div>
           </div>
+        </div>
 
-          {/* Connect */}
-          <div className="md:col-span-3">
-            <div
-              className="text-[11px] uppercase tracking-[0.22em]"
-              style={{ fontFamily: inter, color: "var(--color-heritage-gold)" }}
+        {/* Social — centred, symbols only */}
+        <div className="mt-14 flex items-center justify-center gap-4">
+          {SOCIAL.map((s) => (
+            <a
+              key={s.name}
+              href={s.href}
+              target={s.href.startsWith("http") ? "_blank" : undefined}
+              rel={s.href.startsWith("http") ? "noopener noreferrer" : undefined}
+              aria-label={s.name}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full border transition-colors hover:bg-[var(--color-heritage-gold)] hover:text-[var(--color-heritage-navy)]"
+              style={{
+                borderColor: "rgba(255,255,255,0.2)",
+                color: "var(--color-heritage-gold)",
+              }}
             >
-              Connect
-            </div>
-            <ul className="mt-5 space-y-3">
-              {CONNECT.map((l) => (
-                <li key={l.name}>
-                  <Link
-                    href={l.href}
-                    className="group inline-flex items-center gap-2.5 text-[14px] transition-colors hover:text-white"
-                    style={{ fontFamily: inter, color: "rgba(255,255,255,0.75)" }}
-                  >
-                    <span
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border transition-colors group-hover:border-[var(--color-heritage-gold)]"
-                      style={{ borderColor: "rgba(255,255,255,0.18)", color: "var(--color-heritage-gold)" }}
-                    >
-                      {l.icon}
-                    </span>
-                    {l.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+              {s.icon}
+            </a>
+          ))}
         </div>
 
         <div
-          className="mt-16 border-t pt-6 text-center text-[11px] uppercase tracking-[0.2em]"
+          className="mt-10 border-t pt-6 text-center text-[11px] uppercase tracking-[0.2em]"
           style={{
             fontFamily: inter,
             borderColor: "rgba(255,255,255,0.12)",
@@ -135,37 +127,36 @@ export default function Footer() {
   );
 }
 
+function InstagramIcon() {
+  return (
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" strokeWidth="1.7" />
+      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.7" />
+      <circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" />
+    </svg>
+  );
+}
+
+function FacebookIcon() {
+  return (
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M13.5 22v-8h2.7l.4-3.2h-3.1V8.7c0-.9.26-1.5 1.55-1.5H16.7V4.3c-.29-.04-1.28-.13-2.43-.13-2.4 0-4.05 1.47-4.05 4.16v2.34H7.5V14h2.72v8z" />
+    </svg>
+  );
+}
+
 function LinkedInIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
       <path d="M4.98 3.5A2.5 2.5 0 1 1 5 8.5a2.5 2.5 0 0 1-.02-5zM3 9h4v12H3zM9 9h3.8v1.7h.05c.53-1 1.83-2.05 3.77-2.05 4.03 0 4.78 2.65 4.78 6.1V21H19v-5.4c0-1.29-.02-2.95-1.8-2.95-1.8 0-2.08 1.4-2.08 2.85V21H9z" />
     </svg>
   );
 }
 
-function PublicationIcon() {
+function RedditIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5zM20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function InquiryIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M4 6h16v12H4zM4 7l8 6 8-6"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M22 11.6a2.05 2.05 0 0 0-3.47-1.46 10 10 0 0 0-5.04-1.59l.86-4.05 2.82.6a1.46 1.46 0 1 0 .16-.98l-3.2-.68a.4.4 0 0 0-.47.31l-.96 4.5a10 10 0 0 0-5.1 1.6 2.05 2.05 0 1 0-2.3 3.34 3.6 3.6 0 0 0-.05.6c0 3.05 3.58 5.53 8 5.53s8-2.48 8-5.53a3.6 3.6 0 0 0-.05-.6A2.05 2.05 0 0 0 22 11.6zM8.5 13a1.35 1.35 0 1 1 2.7 0 1.35 1.35 0 0 1-2.7 0zm6.93 3.66c-.83.83-2.4.9-2.86.9-.46 0-2.03-.07-2.86-.9a.31.31 0 0 1 .44-.44c.52.52 1.64.71 2.42.71.78 0 1.9-.19 2.42-.71a.31.31 0 0 1 .44.44zM15 14.35a1.35 1.35 0 1 1 0-2.7 1.35 1.35 0 0 1 0 2.7z" />
     </svg>
   );
 }
