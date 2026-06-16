@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ScrollCue from "@/components/ScrollCue";
 
 // NAMBIRAJ LAW DYNASTY — About, a close replica of the reference: a navy
 // hero with the 55+ practice bar, then the "Firm History" and "About Us"
@@ -32,7 +33,7 @@ export default function AboutPage() {
 
 function AboutHero() {
   return (
-    <section style={{ backgroundColor: NAVY }}>
+    <section className="relative" style={{ backgroundColor: NAVY }}>
       <div className="mx-auto max-w-[1320px] px-6 py-24 md:px-10 md:py-32">
         <div
           className="text-[12px] uppercase tracking-[0.28em]"
@@ -72,6 +73,7 @@ function AboutHero() {
           </span>
         </div>
       </div>
+      <ScrollCue />
     </section>
   );
 }

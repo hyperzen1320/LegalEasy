@@ -3,7 +3,7 @@
 // a visitor lands in chat with the first message already typed. Pure anchor
 // + CSS — no client JS needed.
 
-const PHONE = "919353704141"; // +91 93537 04141
+const PHONE = "916369504141"; // +91 63695 04141
 const MESSAGE = "Hello, I would like to inquire about your legal services.";
 const HREF = `https://wa.me/${PHONE}?text=${encodeURIComponent(MESSAGE)}`;
 
