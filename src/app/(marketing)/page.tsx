@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import ScrollCue from "@/components/ScrollCue";
 
 // NAMBIRAJ LAW DYNASTY — company home, a close replica of the reference:
 // hero over the library photo, the "Phenomenon" split, the practising-areas
@@ -34,7 +35,7 @@ export default function Home() {
 
 function Hero() {
   return (
-    <section className="relative flex min-h-[640px] items-center overflow-hidden md:min-h-[88vh]">
+    <section className="relative flex min-h-[560px] items-center overflow-hidden md:min-h-[76vh]">
       <Image
         src="/hero-library.jpg"
         alt=""
@@ -52,21 +53,39 @@ function Hero() {
             "linear-gradient(100deg, rgba(10,16,28,0.86) 0%, rgba(10,16,28,0.62) 45%, rgba(10,16,28,0.30) 100%)",
         }}
       />
-      <div className="relative mx-auto w-full max-w-[1320px] px-6 py-24 md:px-10">
+      {/* Since 1969 — centred at the crown of the hero, a quiet royal mark */}
+      <div className="absolute left-1/2 top-9 z-10 flex -translate-x-1/2 items-center gap-4 md:top-11">
+        <span
+          aria-hidden
+          className="h-px w-10 sm:w-16"
+          style={{ background: "linear-gradient(to right, transparent, var(--color-heritage-gold))" }}
+        />
+        <span
+          className="whitespace-nowrap text-[13px] italic tracking-[0.32em] sm:text-[14px]"
+          style={{ fontFamily: playfair, color: GOLD }}
+        >
+          Since 1969
+        </span>
+        <span
+          aria-hidden
+          className="h-px w-10 sm:w-16"
+          style={{ background: "linear-gradient(to left, transparent, var(--color-heritage-gold))" }}
+        />
+      </div>
+      <div className="relative mx-auto w-full max-w-[1320px] px-6 py-20 md:px-10">
         <div className="max-w-2xl">
-          <div
-            className="text-[14px] italic tracking-[0.28em]"
-            style={{ fontFamily: inter, color: GOLD }}
-          >
-            ESTABLISHED 1969
-          </div>
           <h1
-            className="mt-6 text-[46px] leading-[1.04] tracking-[-0.01em] text-white sm:text-[64px] md:text-[78px]"
+            className="text-[42px] leading-[1.05] tracking-[-0.01em] text-white sm:text-[58px] md:text-[70px]"
             style={{ fontFamily: playfair, fontWeight: 500 }}
           >
-            Justice is not just a profession, it is our{" "}
-            <span className="italic">lineage.</span>
+            Justice is not just a profession
           </h1>
+          <p
+            className="mt-3 text-[26px] italic leading-[1.1] sm:text-[32px] md:text-[38px]"
+            style={{ fontFamily: playfair, color: GOLD }}
+          >
+            it is our lineage.
+          </p>
           <p
             className="mt-7 max-w-xl text-[17px] leading-8"
             style={{ fontFamily: inter, color: "rgba(255,255,255,0.78)" }}
@@ -75,29 +94,9 @@ function Hero() {
             values with modern legal infrastructure to serve the under-privileged
             and the visionary alike.
           </p>
-          <div className="mt-10 flex flex-wrap items-center gap-4">
-            <Link
-              href="/contact"
-              className="px-7 py-4 text-[12px] uppercase tracking-[0.18em] transition-opacity hover:opacity-90"
-              style={{
-                fontFamily: inter,
-                fontWeight: 600,
-                backgroundColor: GOLD,
-                color: "#ffffff",
-              }}
-            >
-              Consult Our Dynasty
-            </Link>
-            <Link
-              href="/about"
-              className="border px-7 py-4 text-[12px] uppercase tracking-[0.18em] text-white transition-colors hover:bg-white/10"
-              style={{ fontFamily: inter, fontWeight: 600, borderColor: "rgba(255,255,255,0.5)" }}
-            >
-              Firm History
-            </Link>
-          </div>
         </div>
       </div>
+      <ScrollCue />
     </section>
   );
 }
@@ -108,36 +107,46 @@ function Phenomenon() {
   return (
     <section style={{ backgroundColor: PAPER }}>
       <div className="mx-auto grid max-w-[1320px] gap-12 px-6 py-20 md:grid-cols-12 md:gap-16 md:px-10 md:py-28">
-        {/* Image + stat block */}
+        {/* Portrait + a quiet royal stat at its side — the years of practice
+            stand proudly in the margin rather than overlaying the photograph. */}
         <div className="md:col-span-6">
-          {/* Mr. C. Nambiraj's portrait fills the frame (object-cover). The
-              frame is held to 85% of the column so it reads a touch smaller,
-              with the gold "years of practice" plate overhanging its corner. */}
-          <div className="relative mx-auto w-[85%] md:mx-0">
+          <div className="mx-auto flex w-full max-w-[440px] items-stretch gap-5 md:mx-0 md:max-w-none">
             <div
-              className="relative aspect-[4/5] w-full overflow-hidden"
+              className="relative aspect-[4/5] w-[74%] shrink-0 overflow-hidden"
               style={{ backgroundColor: "#e7ded0" }}
             >
               <Image
                 src="/nambiraj.jpg"
                 alt="Mr. C. Nambiraj"
                 fill
-                sizes="(min-width: 768px) 22vw, 47vw"
+                sizes="(min-width: 768px) 26vw, 50vw"
                 className="object-cover object-center"
               />
             </div>
-            <div
-              className="absolute -bottom-8 right-6 flex h-36 w-56 flex-col items-start justify-end p-6 md:right-[-2rem]"
-              style={{ backgroundColor: GOLD }}
-            >
-              <div className="text-[40px] leading-none text-white" style={{ fontFamily: playfair }}>
-                55+
+            <div className="flex flex-1 flex-col justify-end pb-1">
+              <div
+                className="text-[52px] leading-[0.85] md:text-[58px]"
+                style={{ fontFamily: playfair, color: GOLD_DEEP }}
+              >
+                55<span className="align-super text-[0.55em]">+</span>
+              </div>
+              <div className="mt-3 h-px w-10" style={{ backgroundColor: GOLD }} />
+              <div
+                className="mt-3 text-[10.5px] uppercase leading-5 tracking-[0.2em]"
+                style={{
+                  fontFamily: inter,
+                  color: "color-mix(in oklch, var(--color-heritage-navy) 68%, white)",
+                }}
+              >
+                Years of
+                <br />
+                Practice
               </div>
               <div
-                className="mt-2 text-[11px] uppercase tracking-[0.18em] text-white/90"
-                style={{ fontFamily: inter }}
+                className="mt-4 text-[10.5px] uppercase tracking-[0.22em]"
+                style={{ fontFamily: inter, fontWeight: 600, color: GOLD_DEEP }}
               >
-                Years of Practice
+                Since 1969
               </div>
             </div>
           </div>

@@ -5,15 +5,7 @@ import { usePathname } from "next/navigation";
 import MobileMenu from "./MobileMenu";
 import ClientDiaryCue from "./ClientDiaryCue";
 import Logo from "./Logo";
-
-export const NAV = [
-  { name: "Home", href: "/" },
-  { name: "About Us", href: "/about" },
-  { name: "Practicing Area", href: "/practicing-area" },
-  { name: "Services", href: "/services" },
-  { name: "Our Team", href: "/our-team" },
-  { name: "Contact", href: "/contact" },
-];
+import { NAV } from "@/lib/nav";
 
 const playfair = "var(--font-playfair), Georgia, serif";
 const inter = "var(--font-inter), system-ui, sans-serif";
@@ -73,18 +65,6 @@ export default function Header() {
 
         {/* Right actions */}
         <div className="hidden items-center gap-6 md:flex">
-          <div className="relative">
-            <span
-              className="absolute -top-1.5 right-0 h-1.5 w-1.5 rounded-full"
-              style={{ backgroundColor: "var(--color-heritage-gold)" }}
-            />
-            <span
-              className="text-[11px] uppercase tracking-[0.16em]"
-              style={{ fontFamily: inter, color: "var(--color-heritage-navy)" }}
-            >
-              Alerts
-            </span>
-          </div>
           <span className="relative inline-flex">
             <Link
               href="/product"
@@ -96,7 +76,7 @@ export default function Header() {
                 color: "#ffffff",
               }}
             >
-              Client Diary
+              Advocate Diary
             </Link>
             <ClientDiaryCue />
           </span>

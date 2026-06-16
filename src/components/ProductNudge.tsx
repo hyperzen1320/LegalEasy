@@ -7,7 +7,7 @@ import Image from "next/image";
 import { LOGO_MARK_JPG, LOGO_W, LOGO_H } from "@/lib/brand";
 
 // A product "calling card" that slides in from the right a few seconds after a
-// company page settles, inviting the visitor into the Client Diary product.
+// company page settles, inviting the visitor into the Advocate Diary product.
 // Each page gets its own creative line and its own destination, so the nudge
 // always feels written for where you're standing — never a generic banner.
 //
@@ -31,9 +31,9 @@ type Ad = {
 
 const ADS: Record<string, Ad> = {
   "/": {
-    badge: "Client Diary",
+    badge: "Advocate Diary",
     tag: "An introduction",
-    title: "Do you wanna try out our Client Diary?",
+    title: "Do you wanna try out our Advocate Diary?",
     body: "The advocate's office, set in order — cause-lists, hearings and matters in one calm place.",
     cta: "Yes, show me",
     href: "/product",
@@ -42,7 +42,7 @@ const ADS: Record<string, Ad> = {
     badge: "Since 1969",
     tag: "Heritage, digitised",
     title: "Fifty-five years of practice, now in your pocket.",
-    body: "The same discipline behind this dynasty, running quietly as a daily Client Diary.",
+    body: "The same discipline behind this dynasty, running quietly as a daily Advocate Diary.",
     cta: "See the story",
     href: "/product",
   },

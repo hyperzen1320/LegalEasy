@@ -91,7 +91,7 @@ export default function ContactPage() {
                     </a>
                   </Detail>
 
-                  <Detail label="Hours">Mon — Sat · 10:00 to 18:30</Detail>
+                  <Detail label="Hours">Mon — Sat · 9 AM to 6 PM</Detail>
                 </dl>
               </Reveal>
             </div>

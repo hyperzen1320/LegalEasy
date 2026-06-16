@@ -1,6 +1,9 @@
-// Shared navy masthead for the company sub-pages (Practicing Area, Services,
-// Contact). A gold eyebrow, a large Playfair title, and a lead — the same
-// opening the reference firm site uses, on the heritage navy band.
+// Shared navy masthead for the company sub-pages (The Firm, Practicing Area,
+// Services, Our Team, Contact). A gold eyebrow, a large Playfair title, and a
+// lead — the same opening the reference firm site uses, on the heritage navy
+// band — with a scroll cue inviting the reader down into the page.
+
+import ScrollCue from "./ScrollCue";
 
 const playfair = "var(--font-playfair), Georgia, serif";
 const inter = "var(--font-inter), system-ui, sans-serif";
@@ -15,7 +18,7 @@ export default function HeritageHero({
   lead?: string;
 }) {
   return (
-    <section style={{ backgroundColor: "var(--color-heritage-navy)" }}>
+    <section className="relative" style={{ backgroundColor: "var(--color-heritage-navy)" }}>
       <div className="mx-auto max-w-[1320px] px-6 py-24 md:px-10 md:py-32">
         <div
           className="text-[12px] uppercase tracking-[0.28em]"
@@ -38,6 +41,7 @@ export default function HeritageHero({
           </p>
         ) : null}
       </div>
+      <ScrollCue />
     </section>
   );
 }
