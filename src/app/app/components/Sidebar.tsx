@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import Logo from "@/components/Logo";
 import { useChatUnread } from "@/lib/use-chat-unread";
+import { fullName, initials } from "@/lib/display-name";
 
 type NavItem = {
   name: string;
@@ -254,8 +255,7 @@ export default function Sidebar({
               fontFamily: "var(--font-manrope), sans-serif",
             }}
           >
-            {(user.firstName[0] || "?").toUpperCase()}
-            {(user.lastName[0] || "").toUpperCase()}
+            {initials(user.firstName, user.lastName, "?")}
           </div>
           <div className="min-w-0 flex-1">
             <div
@@ -265,7 +265,7 @@ export default function Sidebar({
                 color: "var(--color-app-ivory)",
               }}
             >
-              {user.firstName} {user.lastName}
+              {fullName(user.firstName, user.lastName)}
             </div>
             <div
               className="truncate text-[10px]"

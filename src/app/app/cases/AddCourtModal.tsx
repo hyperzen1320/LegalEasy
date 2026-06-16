@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { CourtOption } from "./CourtCombobox";
 
 // AddCourtModal — focus-trapped popup over the case form. Triggered from
@@ -86,7 +87,12 @@ export default function AddCourtModal({
     }
   }
 
-  return (
+  // Rendered through a portal to document.body — the combobox lives inside
+  // the case <form>, and a nested <form> is invalid HTML (the browser drops
+  // it), which made "Save & Pick" submit the outer case form instead of this
+  // modal, so the court was never created. Portalling lifts the modal's own
+  // form out of the case form entirely.
+  return createPortal(
     <div
       className="fixed inset-0 z-[200] flex items-start justify-center px-4 pt-[10vh]"
       style={{ backgroundColor: "rgba(10,17,36,0.55)" }}
@@ -228,7 +234,8 @@ export default function AddCourtModal({
           </div>
         </div>
       </form>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

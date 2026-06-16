@@ -7,10 +7,15 @@ import { Board } from "@/models/Board";
 import { Task } from "@/models/Task";
 import Logo from "@/components/Logo";
 import SeniorDeskTile from "./SeniorDeskTile";
+import { fullName } from "@/lib/display-name";
 
 export default async function PartnerDashboard() {
   const session = await auth();
-  const firstName = session?.user?.firstName ?? "Counsel";
+  const displayName = fullName(
+    session?.user?.firstName,
+    session?.user?.lastName,
+    "Counsel",
+  );
   const partnerId = session?.user?.partnerId
     ? new mongoose.Types.ObjectId(session.user.partnerId)
     : null;
@@ -118,7 +123,7 @@ export default async function PartnerDashboard() {
       <div className="mx-auto max-w-[1280px] space-y-8">
         <Hero
           greeting={greeting}
-          firstName={firstName}
+          name={displayName}
           stats={stats}
         />
 
@@ -136,11 +141,11 @@ export default async function PartnerDashboard() {
 
 function Hero({
   greeting,
-  firstName,
+  name,
   stats,
 }: {
   greeting: string;
-  firstName: string;
+  name: string;
   stats: { todayHearings: number; pendingDates: number };
 }) {
   const today = new Date();
@@ -190,7 +195,7 @@ function Hero({
       >
         {greeting},{" "}
         <span style={{ fontStyle: "italic", color: "var(--color-app-copper-bright)" }}>
-          {firstName}.
+          {name}.
         </span>
       </h2>
 
@@ -252,7 +257,7 @@ function StatsRow({
   };
 }) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <StatCard
         label="Today Hearings"
         value={stats.todayHearings}
@@ -348,7 +353,7 @@ function StatCard({
   return (
     <Link
       href={href}
-      className="fade-up-sm group relative flex flex-col rounded-2xl p-6 transition-transform hover:-translate-y-0.5"
+      className="fade-up-sm group relative flex flex-col rounded-2xl px-6 py-4 transition-transform hover:-translate-y-0.5"
       style={{
         backgroundColor: styles.bg,
         animationDelay: `${delay}s`,
@@ -357,7 +362,7 @@ function StatCard({
     >
       {/* Icon */}
       <div
-        className="mb-5 flex h-9 w-9 items-center justify-center rounded-md"
+        className="mb-3 flex h-9 w-9 items-center justify-center rounded-md"
         style={{ backgroundColor: styles.iconBg, color: styles.text }}
       >
         {icon}
@@ -365,7 +370,7 @@ function StatCard({
 
       {/* Big number */}
       <div
-        className="text-[56px] font-semibold leading-none tabular-nums tracking-tight"
+        className="text-[44px] font-semibold leading-none tabular-nums tracking-tight sm:text-[48px]"
         style={{
           fontFamily: "var(--font-crimson), Georgia, serif",
           color: styles.text,
@@ -376,7 +381,7 @@ function StatCard({
 
       {/* Label */}
       <div
-        className="mt-3 text-[11px] uppercase tracking-[0.18em]"
+        className="mt-2.5 text-[11px] uppercase tracking-[0.18em]"
         style={{
           fontFamily: "var(--font-dm-mono), monospace",
           color: styles.label,

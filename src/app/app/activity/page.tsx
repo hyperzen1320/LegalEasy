@@ -6,6 +6,7 @@ import { Activity } from "@/models/Activity";
 import { Partner } from "@/models/Partner";
 import { Board } from "@/models/Board";
 import { User } from "@/models/User";
+import { fullName } from "@/lib/display-name";
 import ActivityClient, {
   type ActivityRow,
   type ActivityActor,
@@ -39,7 +40,7 @@ export default async function ActivityPage() {
   }
 
   const [docs, boards, users] = await Promise.all([
-    Activity.find({ partnerId })
+    Activity.find({ partnerId, actorType: { $ne: "global_admin" } })
       .sort({ createdAt: -1 })
       .limit(PAGE_SIZE + 1)
       .lean(),
@@ -72,7 +73,7 @@ export default async function ActivityPage() {
 
   const actors: ActivityActor[] = users.map((u) => ({
     id: String(u._id),
-    name: `${u.firstName} ${u.lastName}`.trim(),
+    name: fullName(u.firstName, u.lastName),
   }));
 
   const boardOptions: ActivityBoardOption[] = boards.map((b) => ({

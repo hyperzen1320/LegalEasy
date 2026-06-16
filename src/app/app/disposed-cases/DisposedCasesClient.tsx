@@ -69,6 +69,13 @@ export default function DisposedCasesClient({
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // Multi-select — admin bulk restore / permanent delete over the archive.
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState<null | "restore" | "delete">(null);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+
   async function runDelete() {
     if (!deleteTarget) return;
     setDeleteBusy(true);
@@ -136,6 +143,86 @@ export default function DisposedCasesClient({
     setCourtFilter("");
     setFromDate("");
     setToDate("");
+  }
+
+  const selectedArray = Array.from(selectedIds);
+  const allFilteredSelected =
+    filtered.length > 0 && filtered.every((c) => selectedIds.has(c.id));
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+  function toggleSelectAll() {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (filtered.length > 0 && filtered.every((c) => prev.has(c.id))) {
+        filtered.forEach((c) => next.delete(c.id));
+      } else {
+        filtered.forEach((c) => next.add(c.id));
+      }
+      return next;
+    });
+  }
+  function exitSelectMode() {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+    setBulkError(null);
+  }
+
+  async function runBulkRestore() {
+    if (selectedArray.length === 0) return;
+    setBulkBusy("restore");
+    setBulkError(null);
+    try {
+      const res = await fetch("/api/app/cases/bulk-restore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedArray }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setBulkError(data?.error || "Couldn't restore those matters.");
+        return;
+      }
+      setSelectedIds(new Set());
+      setSelectMode(false);
+      router.refresh();
+    } catch {
+      setBulkError("Network error. Try again.");
+    } finally {
+      setBulkBusy(null);
+    }
+  }
+
+  async function runBulkDelete() {
+    if (selectedArray.length === 0) return;
+    setBulkBusy("delete");
+    setBulkError(null);
+    try {
+      const res = await fetch("/api/app/cases/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedArray }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setBulkError(data?.error || "Couldn't delete those matters.");
+        return;
+      }
+      setConfirmBulkDelete(false);
+      setSelectedIds(new Set());
+      setSelectMode(false);
+      router.refresh();
+    } catch {
+      setBulkError("Network error. Try again.");
+    } finally {
+      setBulkBusy(null);
+    }
   }
 
   return (
@@ -289,15 +376,132 @@ export default function DisposedCasesClient({
           )}
         </p>
         {isAdmin ? (
-          <DisposedExportMenu
-            courtId={courtFilter}
-            fromDate={fromDate}
-            toDate={toDate}
-            search={query}
-            disabled={filtered.length === 0}
-          />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+              className="inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-[12px] font-semibold uppercase tracking-[0.18em] transition-all hover:-translate-y-0.5"
+              style={{
+                fontFamily: "var(--font-dm-mono), monospace",
+                backgroundColor: selectMode
+                  ? "var(--color-app-canvas-2)"
+                  : "var(--color-app-paper)",
+                color: "var(--color-app-ink)",
+                border: "1px solid var(--color-app-edge)",
+              }}
+            >
+              {selectMode ? "Cancel" : "Select"}
+            </button>
+            <DisposedExportMenu
+              courtId={courtFilter}
+              fromDate={fromDate}
+              toDate={toDate}
+              search={query}
+              disabled={filtered.length === 0}
+            />
+          </div>
         ) : null}
       </div>
+
+      {selectMode ? (
+        <div
+          className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl px-4 py-3"
+          style={{
+            backgroundColor: "var(--color-app-ink)",
+            boxShadow: "0 10px 26px -18px rgba(10,17,36,0.5)",
+          }}
+        >
+          <button
+            type="button"
+            onClick={toggleSelectAll}
+            className="inline-flex items-center gap-2 text-[12px] font-semibold"
+            style={{
+              fontFamily: "var(--font-manrope), sans-serif",
+              color: "var(--color-app-ivory)",
+            }}
+          >
+            <span
+              className="flex h-5 w-5 items-center justify-center rounded-[5px] border"
+              style={{
+                borderColor: allFilteredSelected
+                  ? "var(--color-app-copper)"
+                  : "var(--color-app-ivory-dim)",
+                backgroundColor: allFilteredSelected
+                  ? "var(--color-app-copper)"
+                  : "transparent",
+              }}
+            >
+              {allFilteredSelected ? (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M5 12l5 5L20 7"
+                    stroke="var(--color-app-copper-text)"
+                    strokeWidth="2.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              ) : null}
+            </span>
+            {allFilteredSelected ? "Deselect all" : "Select all"}
+            <span
+              className="ml-1 rounded-full px-2 py-0.5 text-[11px] tabular-nums"
+              style={{
+                fontFamily: "var(--font-dm-mono), monospace",
+                backgroundColor: "var(--color-app-ink-2)",
+                color: "var(--color-app-copper-bright)",
+              }}
+            >
+              {selectedIds.size} selected
+            </span>
+          </button>
+
+          <div className="flex items-center gap-2">
+            {bulkError ? (
+              <span
+                className="text-[11px]"
+                style={{
+                  fontFamily: "var(--font-manrope), sans-serif",
+                  color: "var(--color-app-copper-bright)",
+                }}
+              >
+                {bulkError}
+              </span>
+            ) : null}
+            <button
+              type="button"
+              onClick={runBulkRestore}
+              disabled={selectedIds.size === 0 || Boolean(bulkBusy)}
+              className="inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-[12px] font-semibold transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed"
+              style={{
+                fontFamily: "var(--font-manrope), sans-serif",
+                backgroundColor: "var(--color-app-paper)",
+                color: "var(--color-app-ink)",
+                opacity: selectedIds.size === 0 || bulkBusy ? 0.55 : 1,
+              }}
+            >
+              {bulkBusy === "restore" ? "Restoring…" : "Restore"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setBulkError(null);
+                setConfirmBulkDelete(true);
+              }}
+              disabled={selectedIds.size === 0 || Boolean(bulkBusy)}
+              className="inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-[12px] font-semibold transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed"
+              style={{
+                fontFamily: "var(--font-manrope), sans-serif",
+                backgroundColor: "var(--color-app-danger)",
+                color: "#ffffff",
+                opacity: selectedIds.size === 0 || bulkBusy ? 0.55 : 1,
+              }}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {filtered.length === 0 ? (
         <div
@@ -338,6 +542,9 @@ export default function DisposedCasesClient({
               c={c}
               index={i}
               isAdmin={isAdmin}
+              selectMode={selectMode}
+              selected={selectedIds.has(c.id)}
+              onToggleSelect={() => toggleSelect(c.id)}
               onDelete={() => {
                 setDeleteError(null);
                 setDeleteTarget(c);
@@ -367,6 +574,33 @@ export default function DisposedCasesClient({
             if (deleteBusy) return;
             setDeleteTarget(null);
             setDeleteError(null);
+          }}
+        />
+      ) : null}
+
+      {confirmBulkDelete ? (
+        <ConfirmDeleteDialog
+          title={`Delete ${selectedIds.size} matter${
+            selectedIds.size === 1 ? "" : "s"
+          }?`}
+          message={
+            <>
+              These{" "}
+              <span style={{ color: "var(--color-app-ink)", fontWeight: 600 }}>
+                {selectedIds.size}
+              </span>{" "}
+              archived {selectedIds.size === 1 ? "matter" : "matters"} will be
+              permanently removed from the database. This frees their CNRs for
+              reuse and <strong>can&apos;t be undone</strong>.
+            </>
+          }
+          busy={bulkBusy === "delete"}
+          error={bulkError}
+          onConfirm={runBulkDelete}
+          onClose={() => {
+            if (bulkBusy) return;
+            setConfirmBulkDelete(false);
+            setBulkError(null);
           }}
         />
       ) : null}
@@ -615,33 +849,83 @@ function DisposedCard({
   index,
   isAdmin,
   onDelete,
+  selectMode,
+  selected,
+  onToggleSelect,
 }: {
   c: DisposedCaseRow;
   index: number;
   isAdmin: boolean;
   onDelete: () => void;
+  selectMode: boolean;
+  selected: boolean;
+  onToggleSelect: () => void;
 }) {
   return (
     <Link
       href={`/app/cases/${c.id}`}
       prefetch
-      className="fade-up-sm group grid grid-cols-[1fr_auto] gap-5 rounded-xl p-5 transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5"
+      onClick={(e) => {
+        // In select mode the card is a selection toggle, not a navigation.
+        if (selectMode) {
+          e.preventDefault();
+          onToggleSelect();
+        }
+      }}
+      className={`fade-up-sm group grid gap-5 rounded-xl p-5 transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 ${
+        selectMode ? "grid-cols-[auto_1fr_auto]" : "grid-cols-[1fr_auto]"
+      }`}
       style={{
-        backgroundColor: "var(--color-app-paper)",
-        boxShadow: "0 1px 0 var(--color-app-edge)",
+        backgroundColor: selected
+          ? "var(--color-app-canvas-2)"
+          : "var(--color-app-paper)",
+        boxShadow: selected
+          ? "inset 0 0 0 1.5px var(--color-app-copper), 0 1px 0 var(--color-app-edge)"
+          : "0 1px 0 var(--color-app-edge)",
         // Slate accent on the left edge to visually distinguish archived
         // matters from the copper-accented active vault.
-        borderLeft: "3px solid var(--color-app-fg-muted)",
+        borderLeft: `3px solid ${
+          selected ? "var(--color-app-copper)" : "var(--color-app-fg-muted)"
+        }`,
         animationDelay: `${Math.min(index, 12) * 35}ms`,
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.boxShadow =
-          "0 12px 28px -18px rgba(10,17,36,0.22), 0 1px 0 var(--color-app-edge)";
+        e.currentTarget.style.boxShadow = selected
+          ? "inset 0 0 0 1.5px var(--color-app-copper), 0 1px 0 var(--color-app-edge)"
+          : "0 12px 28px -18px rgba(10,17,36,0.22), 0 1px 0 var(--color-app-edge)";
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.boxShadow = "0 1px 0 var(--color-app-edge)";
+        e.currentTarget.style.boxShadow = selected
+          ? "inset 0 0 0 1.5px var(--color-app-copper), 0 1px 0 var(--color-app-edge)"
+          : "0 1px 0 var(--color-app-edge)";
       }}
     >
+      {selectMode ? (
+        <span
+          className="flex h-5 w-5 shrink-0 items-center justify-center self-start rounded-[5px] border"
+          style={{
+            borderColor: selected
+              ? "var(--color-app-copper)"
+              : "var(--color-app-edge)",
+            backgroundColor: selected
+              ? "var(--color-app-copper)"
+              : "transparent",
+          }}
+          aria-hidden
+        >
+          {selected ? (
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M5 12l5 5L20 7"
+                stroke="var(--color-app-copper-text)"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          ) : null}
+        </span>
+      ) : null}
       <div className="min-w-0">
         {/* Top row: case no + file no + DISPOSED pill */}
         <div className="flex flex-wrap items-baseline gap-3">
@@ -763,7 +1047,7 @@ function DisposedCard({
             {fmtDate(c.disposedAt)}
           </div>
         </div>
-        {isAdmin ? (
+        {isAdmin && !selectMode ? (
           <button
             type="button"
             onClick={(e) => {

@@ -5,7 +5,9 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { corsHeaders } from "@/lib/cors";
 
 const FILTERS: Record<string, Record<string, unknown>> = {
-  all: {},
+  // Platform admin trail only — never the chambers' own internal activity
+  // (case/court/task events live in each partner's feed, not here).
+  all: { actorType: "global_admin" },
   created: { action: "partner_created" },
   updated: {
     action: {
@@ -41,7 +43,7 @@ export async function GET(request: Request) {
   await connectDB();
   const [docs, total] = await Promise.all([
     Activity.find(query).sort({ createdAt: -1 }).limit(limit).lean(),
-    Activity.countDocuments({}),
+    Activity.countDocuments({ actorType: "global_admin" }),
   ]);
 
   const activities = docs.map((a) => ({
