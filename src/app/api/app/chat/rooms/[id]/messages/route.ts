@@ -5,8 +5,6 @@ import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
 import { ChatRoom } from "@/models/ChatRoom";
 import { ChatMessage } from "@/models/ChatMessage";
-import { Activity } from "@/models/Activity";
-import { logWorkflowActivity } from "@/lib/activity";
 import { userCanReadRoom, previewFromBody } from "@/lib/chat-rooms";
 
 // GET  /api/app/chat/rooms/[id]/messages?before=<msgId>&limit=50
@@ -17,8 +15,7 @@ import { userCanReadRoom, previewFromBody } from "@/lib/chat-rooms";
 // top-to-bottom thread without reversing.
 //
 // POST writes a message and bumps the room's denormalised last-message
-// fields. Activity is emitted once per (sender, room) per 60s to avoid
-// flooding the office-wide feed.
+// fields.
 
 export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders() });
@@ -27,10 +24,6 @@ export async function OPTIONS() {
 const MAX_LIMIT = 100;
 const DEFAULT_LIMIT = 50;
 const MAX_BODY = 4000;
-// Activity batching window — only emit ONE chat.message activity row per
-// (sender, room) per this many ms. Stops the feed from drowning in
-// "Tejas sent a message" rows during a chatty exchange.
-const ACTIVITY_BATCH_MS = 60_000;
 
 type AttachmentDTO = {
   id: string;
@@ -285,42 +278,6 @@ export async function POST(
       },
     }
   );
-
-  // Activity emission — debounced per (sender, room). We look for an
-  // existing chat.message row from this sender for this room within the
-  // batch window. If one exists, we skip emitting a new one. The live-feed
-  // doesn't need every single message; it needs to know "something happened
-  // in this room recently" so other tabs poll-then-fetch.
-  const since = new Date(Date.now() - ACTIVITY_BATCH_MS);
-  const recentActivity = await Activity.findOne({
-    partnerId,
-    actorUserId: userId,
-    action: "chat.message",
-    targetType: "chat_room",
-    targetId: room._id,
-    createdAt: { $gte: since },
-  })
-    .select("_id")
-    .lean();
-
-  if (!recentActivity) {
-    await logWorkflowActivity(guard.ctx, {
-      action: "chat.message",
-      targetType: "chat_room",
-      targetId: String(room._id),
-      targetName:
-        room.type === "group" ? room.title || "Group Chat" : "Private chat",
-      message:
-        room.type === "group"
-          ? `sent a message in **${room.title || "Group Chat"}**`
-          : `sent a private message`,
-      metadata: {
-        roomType: room.type,
-        roomId: String(room._id),
-        preview,
-      },
-    });
-  }
 
   return NextResponse.json(
     {

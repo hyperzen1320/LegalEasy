@@ -39,6 +39,14 @@ export async function GET(request: Request) {
   const guard = await requirePartner(request);
   if ("error" in guard) return guard.error;
 
+  // The activity feed is the office admin's audit trail — staff never see it.
+  if (guard.ctx.user.userType !== "partner_admin") {
+    return NextResponse.json(
+      { error: "Not authorized." },
+      { status: 403, headers: guard.ctx.isMobile ? corsHeaders() : undefined }
+    );
+  }
+
   await connectDB();
   const partnerId = new mongoose.Types.ObjectId(guard.ctx.user.partnerId);
 
@@ -97,11 +105,21 @@ export async function GET(request: Request) {
   if (targetId && mongoose.isValidObjectId(targetId)) {
     filter.targetId = new mongoose.Types.ObjectId(targetId);
   }
+  // Senior Desk chat is private to its participants — never surface it in the
+  // office audit feed, even for admins, and even if an action filter is passed.
+  const actionConditions: Record<string, unknown>[] = [
+    { action: { $nin: ["chat.message", "chat.private_started"] } },
+  ];
   if (action) {
-    filter.action = action;
+    actionConditions.push({ action });
   } else if (actionPrefix) {
-    filter.action = { $regex: `^${actionPrefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}` };
+    actionConditions.push({
+      action: {
+        $regex: `^${actionPrefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
+      },
+    });
   }
+  filter.$and = actionConditions;
   if (targetType) {
     filter.targetType = targetType;
   }
