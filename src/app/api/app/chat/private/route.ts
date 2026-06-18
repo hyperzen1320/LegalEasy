@@ -4,7 +4,6 @@ import { connectDB } from "@/lib/db";
 import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
 import { User } from "@/models/User";
-import { logWorkflowActivity } from "@/lib/activity";
 import { getOrCreatePrivateRoom } from "@/lib/chat-rooms";
 
 // POST /api/app/chat/private   { withUserId: string }
@@ -99,25 +98,6 @@ export async function POST(request: Request) {
   const created = !room.lastMessageAt && !room.updatedAt
     ? true
     : Math.abs(Date.now() - new Date(room.createdAt).getTime()) < 1500;
-
-  if (created) {
-    const otherName =
-      `${other.firstName} ${other.lastName}`.trim() || other.email;
-    // Activity stays high-level — the partner-wide feed gets one row when
-    // a new private thread opens; the messages themselves are batched.
-    await logWorkflowActivity(guard.ctx, {
-      action: "chat.private_started",
-      targetType: "chat_room",
-      targetId: String(room._id),
-      targetName: otherName,
-      message: `started a private chat with **${otherName}**`,
-      metadata: {
-        roomType: "private",
-        otherUserId: String(otherId),
-        otherUserName: otherName,
-      },
-    });
-  }
 
   return NextResponse.json(
     {
