@@ -588,7 +588,7 @@ function ScheduledRow({
               </div>
             )}
           </Link>
-          {c.cnr ? (
+          {(c.fileNo || c.cnr) ? (
             <div
               className="mt-1.5 text-[13px]"
               style={{
@@ -596,7 +596,19 @@ function ScheduledRow({
                 color: "var(--color-app-fg-muted)",
               }}
             >
-              CNR <CnrLink cnr={c.cnr} />
+              {c.fileNo ? (
+                <span style={{ fontFamily: "var(--font-dm-mono), monospace" }}>
+                  File {c.fileNo}
+                </span>
+              ) : null}
+              {c.fileNo && c.cnr ? (
+                <span style={{ color: "var(--color-app-copper-deep)" }}> · </span>
+              ) : null}
+              {c.cnr ? (
+                <span>
+                  CNR <CnrLink cnr={c.cnr} />
+                </span>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -732,6 +744,19 @@ function PendingCard({
               ) : (
                 <span style={{ color: "var(--color-app-fg-muted)" }}>—</span>
               )}
+              {c.fileNo ? (
+                <>
+                  <span style={{ color: "var(--color-app-copper-deep)" }}> · </span>
+                  <span
+                    style={{
+                      color: "var(--color-app-fg-muted)",
+                      fontFamily: "var(--font-dm-mono), monospace",
+                    }}
+                  >
+                    File {c.fileNo}
+                  </span>
+                </>
+              ) : null}
               {c.cnr ? (
                 <>
                   <span style={{ color: "var(--color-app-copper-deep)" }}> · </span>
@@ -874,24 +899,34 @@ function InlineHearingUpdate({
   const [nextDate, setNextDate] = useState(
     row.nextHearingDate ? row.nextHearingDate.slice(0, 10) : ""
   );
-  const [status, setStatus] = useState(row.status || "");
+  const [status, setStatus] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [savedDate, setSavedDate] = useState("");
 
-  const dirty =
-    nextDate !== (row.nextHearingDate ? row.nextHearingDate.slice(0, 10) : "") ||
-    status !== (row.status || "");
+  const origDate = row.nextHearingDate ? row.nextHearingDate.slice(0, 10) : "";
+  // Status starts blank so the advocate consciously sets it. A blank status on
+  // save keeps whatever's on record (never silently wiped); a typed status only
+  // counts as a change when it differs from what's stored.
+  const statusChanged =
+    status.trim().length > 0 && status.trim() !== (row.status || "");
+  const dirty = nextDate !== origDate || statusChanged;
 
   async function save() {
     setError(null);
     setSaving(true);
     try {
+      const payload: Record<string, unknown> = {
+        nextHearingDate: nextDate || null,
+      };
+      // Only touch the status when one was actually typed — a blank field
+      // leaves the stored status untouched.
+      if (status.trim()) payload.status = status.trim();
       const res = await fetch(`/api/app/cases/${row.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nextHearingDate: nextDate || null, status }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -936,8 +971,9 @@ function InlineHearingUpdate({
         borderBottomRightRadius: 12,
       }}
     >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
+      {/* Date (narrow) · Status (centre, fills the row) · Update (right) */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+        <div className="sm:w-[190px] sm:shrink-0">
           <label
             className="text-[10px] font-semibold uppercase tracking-[0.18em]"
             style={{
@@ -962,17 +998,8 @@ function InlineHearingUpdate({
               color: "var(--color-app-ink)",
             }}
           />
-          <p
-            className="mt-1.5 text-[11px]"
-            style={{
-              fontFamily: "var(--font-manrope), sans-serif",
-              color: "var(--color-app-fg-muted)",
-            }}
-          >
-            Leave blank to keep it pending.
-          </p>
         </div>
-        <div>
+        <div className="sm:flex-1">
           <StatusCombobox
             id={`pending-status-${row.id}`}
             label="Status / Stage"
@@ -981,23 +1008,45 @@ function InlineHearingUpdate({
               setStatus(v);
               setSaved(false);
             }}
-            placeholder="Filed, Evidence, Arguments…"
+            placeholder="Select or type — blank keeps current"
           />
-          <p
-            className="mt-1.5 text-[11px]"
-            style={{
-              fontFamily: "var(--font-manrope), sans-serif",
-              color: "var(--color-app-fg-muted)",
-            }}
-          >
-            Type{" "}
-            <span style={{ fontWeight: 600, color: "var(--color-app-ink)" }}>
-              Disposed
-            </span>{" "}
-            to archive this matter.
-          </p>
         </div>
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving || !dirty}
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md px-6 py-2.5 text-[13px] font-semibold transition-all"
+          style={{
+            fontFamily: "var(--font-manrope), sans-serif",
+            backgroundColor: dirty
+              ? "var(--color-app-copper)"
+              : "var(--color-app-paper)",
+            color: dirty
+              ? "var(--color-app-copper-text)"
+              : "var(--color-app-fg-muted)",
+            border: dirty ? "none" : "1px solid var(--color-app-edge)",
+            opacity: saving ? 0.6 : 1,
+            cursor: dirty && !saving ? "pointer" : "default",
+            boxShadow: dirty ? "0 8px 20px -10px rgba(197,133,58,0.6)" : "none",
+          }}
+        >
+          {saving ? "Saving…" : saved && !dirty ? "Saved" : "Update"}
+        </button>
       </div>
+      <p
+        className="mt-2.5 text-[11px]"
+        style={{
+          fontFamily: "var(--font-manrope), sans-serif",
+          color: "var(--color-app-fg-muted)",
+        }}
+      >
+        Leave the date blank to keep the matter pending. Leave status blank to
+        keep it as-is, or type{" "}
+        <span style={{ fontWeight: 600, color: "var(--color-app-ink)" }}>
+          Disposed
+        </span>{" "}
+        to archive.
+      </p>
 
       {error ? (
         <div
@@ -1013,7 +1062,7 @@ function InlineHearingUpdate({
         </div>
       ) : null}
 
-      <div className="mt-5 flex items-center justify-between gap-3">
+      <div className="mt-4">
         <button
           type="button"
           onClick={onClose}
@@ -1024,26 +1073,6 @@ function InlineHearingUpdate({
           }}
         >
           {saved ? "Done" : "Cancel"}
-        </button>
-        <button
-          type="button"
-          onClick={save}
-          disabled={saving || !dirty}
-          className="inline-flex items-center gap-2 rounded-md px-5 py-2.5 text-[13px] font-semibold transition-all"
-          style={{
-            fontFamily: "var(--font-manrope), sans-serif",
-            backgroundColor: dirty
-              ? "var(--color-app-copper)"
-              : "var(--color-app-paper)",
-            color: dirty
-              ? "var(--color-app-copper-text)"
-              : "var(--color-app-fg-muted)",
-            opacity: saving ? 0.6 : 1,
-            cursor: dirty && !saving ? "pointer" : "default",
-            boxShadow: dirty ? "0 8px 20px -10px rgba(197,133,58,0.6)" : "none",
-          }}
-        >
-          {saving ? "Saving…" : saved && !dirty ? "Saved" : "Save Update"}
         </button>
       </div>
 
