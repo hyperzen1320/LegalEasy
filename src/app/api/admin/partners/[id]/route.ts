@@ -2,29 +2,16 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { connectDB } from "@/lib/db";
 import { Partner } from "@/models/Partner";
+import { Plan, PLAN_KEY_PATTERN } from "@/models/Plan";
 import { User } from "@/models/User";
 import { logActivity } from "@/lib/activity";
 import { requireAdmin } from "@/lib/admin-auth";
 import { corsHeaders } from "@/lib/cors";
 
-type Plan = "trial" | "solo" | "office" | "chambers";
 type Status = "trial" | "active" | "past_due" | "cancelled" | "suspended";
 
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-
-const SEAT_LIMITS: Record<Plan, number> = {
-  trial: 5,
-  solo: 1,
-  office: 10,
-  chambers: 999999,
-};
-const MATTER_LIMITS: Record<Plan, number> = {
-  trial: 50,
-  solo: 100,
-  office: 1000,
-  chambers: 999999,
-};
 
 export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders() });
@@ -161,23 +148,34 @@ export async function PATCH(
   }
 
   if (typeof body.plan === "string" && body.plan !== partner.plan) {
-    if (!["trial", "solo", "office", "chambers"].includes(body.plan)) {
+    const nextPlan = body.plan.trim().toLowerCase();
+    if (!PLAN_KEY_PATTERN.test(nextPlan)) {
       return NextResponse.json(
         { error: "Invalid plan" },
         { status: 400, headers: corsHeaders() }
       );
     }
+    // Limits follow the chosen Plan doc (same as partner creation), so any
+    // admin-created plan is assignable to an existing office too.
+    const planDoc = await Plan.findOne({ key: nextPlan }).lean();
+    if (!planDoc) {
+      return NextResponse.json(
+        {
+          error: `Unknown plan “${nextPlan}”. Pick a plan that exists in Subscriptions.`,
+        },
+        { status: 400, headers: corsHeaders() }
+      );
+    }
     const beforePlan = partner.plan;
-    const newPlan = body.plan as Plan;
-    partner.plan = newPlan;
-    partner.subscription.seatLimit = SEAT_LIMITS[newPlan];
-    partner.subscription.matterLimit = MATTER_LIMITS[newPlan];
-    if (newPlan !== "trial" && partner.subscription.status === "trial") {
+    partner.plan = nextPlan;
+    partner.subscription.seatLimit = planDoc.seatLimit;
+    partner.subscription.matterLimit = planDoc.matterLimit;
+    if (nextPlan !== "trial" && partner.subscription.status === "trial") {
       partner.subscription.status = "active";
       partner.subscription.startDate = new Date();
       partner.subscription.endDate = new Date(Date.now() + ONE_YEAR_MS);
     }
-    changes.push({ field: "plan", before: beforePlan, after: newPlan });
+    changes.push({ field: "plan", before: beforePlan, after: nextPlan });
     activityAction = "partner_plan_changed";
   }
 

@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connectDB } from "@/lib/db";
-import { Plan } from "@/models/Plan";
+import { Plan, CANONICAL_PLAN_KEYS } from "@/models/Plan";
 import EditPlanForm from "./EditPlanForm";
+import DeletePlanZone from "./DeletePlanZone";
 
 export default async function PlanEditPage({
   params,
@@ -78,6 +79,16 @@ export default async function PlanEditPage({
 
       <div className="mt-10">
         <EditPlanForm plan={plan} />
+      </div>
+
+      <div className="mt-8">
+        <DeletePlanZone
+          planKey={plan.key}
+          planLabel={plan.label}
+          isCanonical={(CANONICAL_PLAN_KEYS as readonly string[]).includes(
+            plan.key
+          )}
+        />
       </div>
     </div>
   );
