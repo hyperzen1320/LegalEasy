@@ -25,6 +25,7 @@ const NAV: NavItem[] = [
     href: "/admin/activity",
     icon: IconActivity,
   },
+  { name: "Tutorials", href: "/admin/tutorials", icon: IconTutorials },
   { name: "Settings", href: "/admin/settings", icon: IconSettings, soon: true },
 ];
 
@@ -200,6 +201,14 @@ function IconActivity() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
       <path d="M3 12h4l2-7 4 14 2-7h6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function IconTutorials() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M10 9.5l4.5 2.5-4.5 2.5z" fill="currentColor" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
     </svg>
   );
 }
