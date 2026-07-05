@@ -25,7 +25,7 @@ const NAV: NavItem[] = [
     href: "/admin/activity",
     icon: IconActivity,
   },
-  { name: "Settings", href: "/admin/settings", icon: IconSettings, soon: true },
+  { name: "Settings", href: "/admin/settings", icon: IconSettings },
 ];
 
 export default function Sidebar({
