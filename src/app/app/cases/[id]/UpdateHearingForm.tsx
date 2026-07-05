@@ -22,10 +22,41 @@ type CaseContext = {
   officeName: string;
 };
 
+// Copper focus ring shared by the disposal fields — same treatment the
+// next-hearing date input gets inline.
+function focusRing(
+  e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>
+) {
+  e.currentTarget.style.borderColor = "var(--color-app-copper)";
+  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(197,133,58,0.15)";
+}
+function blurRing(
+  e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>
+) {
+  e.currentTarget.style.borderColor = "var(--color-app-edge)";
+  e.currentTarget.style.boxShadow = "none";
+}
+
+const FIELD_STYLE: React.CSSProperties = {
+  fontFamily: "var(--font-manrope), sans-serif",
+  borderColor: "var(--color-app-edge)",
+  backgroundColor: "var(--color-app-paper)",
+  color: "var(--color-app-ink)",
+};
+
+const DISPOSAL_LABEL_STYLE: React.CSSProperties = {
+  fontFamily: "var(--font-dm-mono), monospace",
+  color: "var(--color-app-fg-muted)",
+};
+
 export default function UpdateHearingForm({
   caseId,
   initialNextDate,
   initialStatus,
+  initialDisposalDate,
+  initialCaStatus,
+  initialDisposalRemarks,
+  initialReceivedByClient,
   client,
   caseContext,
   template,
@@ -33,6 +64,10 @@ export default function UpdateHearingForm({
   caseId: string;
   initialNextDate: string;
   initialStatus: string;
+  initialDisposalDate: string;
+  initialCaStatus: string;
+  initialDisposalRemarks: string;
+  initialReceivedByClient: boolean;
   client: ClientContact;
   caseContext: CaseContext;
   template: string;
@@ -40,6 +75,17 @@ export default function UpdateHearingForm({
   const router = useRouter();
   const [nextDate, setNextDate] = useState(initialNextDate);
   const [status, setStatus] = useState(initialStatus);
+  // Disposal record — only meaningful (and only shown) when the status is
+  // "Disposed". Seeded from what's on file so an admin can edit the record
+  // of an already-closed matter without re-disposing it.
+  const [disposalDate, setDisposalDate] = useState(initialDisposalDate);
+  const [caStatus, setCaStatus] = useState(initialCaStatus);
+  const [disposalRemarks, setDisposalRemarks] = useState(
+    initialDisposalRemarks
+  );
+  const [receivedByClient, setReceivedByClient] = useState(
+    initialReceivedByClient
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -47,8 +93,16 @@ export default function UpdateHearingForm({
   // message so it always quotes what's on record, not a half-typed edit.
   const [savedDate, setSavedDate] = useState(initialNextDate);
 
+  const isDisposed = status.trim().toLowerCase() === "disposed";
+
   const dirty =
-    nextDate !== initialNextDate || status !== initialStatus;
+    nextDate !== initialNextDate ||
+    status !== initialStatus ||
+    (isDisposed &&
+      (disposalDate !== initialDisposalDate ||
+        caStatus !== initialCaStatus ||
+        disposalRemarks !== initialDisposalRemarks ||
+        receivedByClient !== initialReceivedByClient));
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -62,6 +116,17 @@ export default function UpdateHearingForm({
         body: JSON.stringify({
           nextHearingDate: nextDate || null,
           status,
+          // Only send the disposal record when the matter is being (or
+          // staying) disposed — otherwise the server keeps whatever's on
+          // file and an ordinary status change never wipes it.
+          ...(isDisposed
+            ? {
+                disposalDate: disposalDate || null,
+                caStatus,
+                disposalRemarks,
+                receivedByClient,
+              }
+            : {}),
         }),
       });
       const data = await res.json();
@@ -210,6 +275,120 @@ export default function UpdateHearingForm({
           to archive this matter to Disposed Cases.
         </p>
       </div>
+
+      {/* Disposal record — revealed the moment the stage is "Disposed",
+          so the admin captures the order date, C.A. status, a note and
+          whether the client has the copy in the same save. */}
+      {isDisposed ? (
+        <div
+          className="mt-6 rounded-lg p-5"
+          style={{
+            backgroundColor: "var(--color-app-canvas-2)",
+            border: "1px solid var(--color-app-edge)",
+          }}
+        >
+          <div
+            className="text-[11px] font-semibold uppercase tracking-[0.18em]"
+            style={{
+              fontFamily: "var(--font-dm-mono), monospace",
+              color: "var(--color-app-copper-deep)",
+            }}
+          >
+            Disposal details
+          </div>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label
+                htmlFor="disposalDate"
+                className="text-[10px] font-semibold uppercase tracking-[0.18em]"
+                style={DISPOSAL_LABEL_STYLE}
+              >
+                Disposed date
+              </label>
+              <input
+                id="disposalDate"
+                type="date"
+                value={disposalDate}
+                onChange={(e) => setDisposalDate(e.target.value)}
+                className="mt-2 block w-full rounded-md border px-3.5 py-2.5 text-[14px] outline-none transition-colors"
+                style={FIELD_STYLE}
+                onFocus={focusRing}
+                onBlur={blurRing}
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="caStatus"
+                className="text-[10px] font-semibold uppercase tracking-[0.18em]"
+                style={DISPOSAL_LABEL_STYLE}
+              >
+                C.A. status
+              </label>
+              <input
+                id="caStatus"
+                list="caStatusOptions"
+                value={caStatus}
+                onChange={(e) => setCaStatus(e.target.value)}
+                placeholder="Applied / Ready / Delivered"
+                autoComplete="off"
+                className="mt-2 block w-full rounded-md border px-3.5 py-2.5 text-[14px] outline-none transition-colors"
+                style={FIELD_STYLE}
+                onFocus={focusRing}
+                onBlur={blurRing}
+              />
+              <datalist id="caStatusOptions">
+                <option value="Applied" />
+                <option value="Ready" />
+                <option value="Delivered" />
+              </datalist>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <label
+              htmlFor="disposalRemarks"
+              className="text-[10px] font-semibold uppercase tracking-[0.18em]"
+              style={DISPOSAL_LABEL_STYLE}
+            >
+              Disposal note
+            </label>
+            <textarea
+              id="disposalRemarks"
+              value={disposalRemarks}
+              onChange={(e) => setDisposalRemarks(e.target.value)}
+              rows={3}
+              placeholder="Decree passed / Compromised / Withdrawn / Dismissed…"
+              className="mt-2 block w-full resize-y rounded-md border px-3.5 py-2.5 text-[14px] outline-none transition-colors"
+              style={FIELD_STYLE}
+              onFocus={focusRing}
+              onBlur={blurRing}
+            />
+          </div>
+
+          <label className="mt-4 flex cursor-pointer items-center gap-2.5">
+            <input
+              type="checkbox"
+              checked={receivedByClient}
+              onChange={(e) => setReceivedByClient(e.target.checked)}
+              style={{
+                width: 16,
+                height: 16,
+                accentColor: "var(--color-app-copper)",
+              }}
+            />
+            <span
+              className="text-[13px]"
+              style={{
+                fontFamily: "var(--font-manrope), sans-serif",
+                color: "var(--color-app-ink)",
+              }}
+            >
+              Received by client
+            </span>
+          </label>
+        </div>
+      ) : null}
 
       {error && (
         <div

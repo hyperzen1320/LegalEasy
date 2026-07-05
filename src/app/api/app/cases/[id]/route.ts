@@ -76,7 +76,10 @@ function serialize(c: NonNullable<Awaited<ReturnType<typeof loadCaseForPartner>>
       nextDate: h.nextDate ? h.nextDate.toISOString() : null,
     })),
     disposedAt: c.disposedAt ? c.disposedAt.toISOString() : null,
+    disposalDate: c.disposalDate ? c.disposalDate.toISOString() : null,
     disposalRemarks: c.disposalRemarks || "",
+    caStatus: c.caStatus || "",
+    receivedByClient: Boolean(c.receivedByClient),
     createdAt: c.createdAt.toISOString(),
     updatedAt: c.updatedAt.toISOString(),
   };
@@ -265,6 +268,26 @@ export async function PATCH(
     doc.disposalRemarks = body.disposalRemarks.trim();
   }
 
+  // C.A. (certified-copy application) status + received-by-client flag —
+  // the rest of the disposal record. Editable by an admin on an already-
+  // disposed matter, same as the remarks, so they can track copies moving
+  // Applied → Ready → Delivered after the matter is closed.
+  if (typeof body.caStatus === "string") {
+    doc.caStatus = body.caStatus.trim();
+  }
+  if (typeof body.receivedByClient === "boolean") {
+    doc.receivedByClient = body.receivedByClient;
+  }
+  // The recorded disposal date — distinct from disposedAt (the system
+  // archive timestamp): editable via the disposal form's date picker, and
+  // what the archive shows/sorts by.
+  if (typeof body.disposalDate === "string" || body.disposalDate === null) {
+    doc.disposalDate =
+      typeof body.disposalDate === "string" && body.disposalDate
+        ? new Date(body.disposalDate)
+        : null;
+  }
+
   // Disposal lifecycle. The single source of truth for "is this case
   // archived" is `disposedAt`. We derive its value from status:
   //   • status transitions TO "Disposed"  → stamp disposedAt = now
@@ -276,6 +299,9 @@ export async function PATCH(
   const willBeDisposed = doc.status === "Disposed";
   if (!wasDisposed && willBeDisposed) {
     doc.disposedAt = new Date();
+    // Default the recorded disposal date to today when the admin didn't
+    // pick one, so the archive always has a date to show and sort by.
+    if (!doc.disposalDate) doc.disposalDate = doc.disposedAt;
   } else if (wasDisposed && !willBeDisposed) {
     doc.disposedAt = null;
   }
