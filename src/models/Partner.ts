@@ -1,6 +1,9 @@
 import mongoose, { Schema, Types, type Model } from "mongoose";
 
-export type Plan = "trial" | "solo" | "office" | "chambers";
+// A partner's plan is the `key` of a Plan document. Plans are admin-creatable,
+// so this is a free-form slug string rather than a fixed enum. The API validates
+// that the chosen key actually exists in the Plan collection at assign time.
+export type Plan = string;
 export type SubscriptionStatus =
   | "trial"
   | "active"
@@ -68,9 +71,10 @@ const PartnerSchema = new Schema<IPartner>(
     state: { type: String, default: "" },
     plan: {
       type: String,
-      enum: ["trial", "solo", "office", "chambers"],
       default: "trial",
       required: true,
+      lowercase: true,
+      trim: true,
     },
     subscription: {
       status: {

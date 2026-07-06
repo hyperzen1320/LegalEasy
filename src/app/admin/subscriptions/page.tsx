@@ -25,22 +25,31 @@ export default async function SubscriptionsListPage() {
   return (
     <div className="mx-auto max-w-[1280px]">
       {/* Header */}
-      <div className="fade-up-sm">
-        <div
-          className="text-[11px] font-medium uppercase tracking-[0.18em] text-admin-accent"
-          style={{ fontFamily: "var(--font-plex-mono), monospace" }}
-        >
-          Catalogue
+      <div className="flex items-end justify-between gap-6">
+        <div className="fade-up-sm">
+          <div
+            className="text-[11px] font-medium uppercase tracking-[0.18em] text-admin-accent"
+            style={{ fontFamily: "var(--font-plex-mono), monospace" }}
+          >
+            Catalogue
+          </div>
+          <h2 className="mt-2 text-[34px] font-semibold tracking-tight text-admin-fg">
+            Subscriptions
+          </h2>
+          <p className="mt-2 max-w-2xl text-[14px] text-admin-fg-muted">
+            Pricing, features, and limits for every plan. Edits save to the
+            database and update the landing page + partner-creation form
+            instantly. Create your own plans — new keys are assignable to
+            offices as soon as they exist.
+          </p>
         </div>
-        <h2 className="mt-2 text-[34px] font-semibold tracking-tight text-admin-fg">
-          Subscriptions
-        </h2>
-        <p className="mt-2 max-w-2xl text-[14px] text-admin-fg-muted">
-          Pricing, features, and limits for every plan. Edits save to the
-          database and update the landing page + partner-creation form
-          instantly. The plan keys are fixed (used in code); everything else is
-          editable.
-        </p>
+
+        <Link
+          href="/admin/subscriptions/new"
+          className="shrink-0 inline-flex items-center gap-2 rounded-md bg-admin-accent px-4 py-2.5 text-[13px] font-medium text-white shadow-sm transition-all hover:bg-admin-accent-hover hover:shadow"
+        >
+          <span>+</span> Add plan
+        </Link>
       </div>
 
       {/* Cards */}
