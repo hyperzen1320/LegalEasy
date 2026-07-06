@@ -279,7 +279,7 @@ function StatsRow({
         label="Tomorrow Hearings"
         value={stats.tomorrowHearings}
         variant="ink"
-        href="/app/hearings"
+        href="/app/hearings?tab=tomorrow"
         icon={<IconCalNext />}
         delay={0.1}
       />
@@ -287,7 +287,7 @@ function StatsRow({
         label="Pending Dates"
         value={stats.pendingDates}
         variant="gold-bright"
-        href="/app/cases"
+        href="/app/hearings?tab=pending"
         icon={<IconAlert />}
         delay={0.15}
       />

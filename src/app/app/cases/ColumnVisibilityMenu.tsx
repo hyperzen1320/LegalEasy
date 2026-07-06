@@ -7,10 +7,11 @@ import {
   type CaseColumnKey,
 } from "./case-vault-types";
 
-// Small popover with one checkbox per togglable column. Always-on
-// columns (S.No, Actions) render as disabled rows so the user can see
-// they exist but can't switch them off. A Reset link restores the
-// default set.
+// Small popover with one checkbox per togglable column. S.No is always
+// on and renders as a disabled row. The Actions column is always shown
+// in the table too, but is intentionally omitted from this menu (it is
+// not a data column the user would export or hide). A Reset link
+// restores the default set.
 
 export default function ColumnVisibilityMenu({
   visible,
@@ -122,7 +123,7 @@ export default function ColumnVisibilityMenu({
             </div>
           </div>
           <ul className="max-h-[360px] overflow-y-auto py-1">
-            {COLUMNS.map((col) => {
+            {COLUMNS.filter((col) => col.key !== "actions").map((col) => {
               const checked = visibleSet.has(col.key);
               const disabled = !col.togglable;
               return (

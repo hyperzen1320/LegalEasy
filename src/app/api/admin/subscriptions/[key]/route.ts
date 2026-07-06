@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { connectDB } from "@/lib/db";
 import { Plan } from "@/models/Plan";
+import { Partner } from "@/models/Partner";
 import { logActivity } from "@/lib/activity";
 import { requireAdmin } from "@/lib/admin-auth";
 import { corsHeaders } from "@/lib/cors";
 
-const VALID_KEYS = ["trial", "solo", "office", "chambers"] as const;
 const VALID_CYCLES = ["trial", "monthly", "yearly", "bespoke"] as const;
 
 export async function OPTIONS() {
@@ -20,13 +20,6 @@ export async function GET(
   const { key } = await context.params;
   const guard = await requireAdmin(request);
   if ("error" in guard) return guard.error;
-
-  if (!(VALID_KEYS as readonly string[]).includes(key)) {
-    return NextResponse.json(
-      { error: "Invalid plan key" },
-      { status: 400, headers: corsHeaders() }
-    );
-  }
 
   await connectDB();
   const plan = await Plan.findOne({ key }).lean();
@@ -71,13 +64,6 @@ export async function PATCH(
   const { key } = await context.params;
   const guard = await requireAdmin(request);
   if ("error" in guard) return guard.error;
-
-  if (!(VALID_KEYS as readonly string[]).includes(key)) {
-    return NextResponse.json(
-      { error: "Invalid plan key" },
-      { status: 400, headers: corsHeaders() }
-    );
-  }
 
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== "object") {
@@ -189,4 +175,64 @@ export async function PATCH(
     { ok: true, changes: changes.map((c) => c.field) },
     { headers: corsHeaders() }
   );
+}
+
+export async function DELETE(
+  request: Request,
+  context: { params: Promise<{ key: string }> }
+) {
+  const { key } = await context.params;
+  const guard = await requireAdmin(request);
+  if ("error" in guard) return guard.error;
+
+  await connectDB();
+  const plan = await Plan.findOne({ key }).lean();
+  if (!plan) {
+    return NextResponse.json(
+      { error: "Plan not found" },
+      { status: 404, headers: corsHeaders() }
+    );
+  }
+
+  // Refuse if any live office is assigned to this plan — deleting it would
+  // orphan their seat/matter limits. Admin must reassign those offices first.
+  const inUse = await Partner.countDocuments({ plan: key, isDeleted: false });
+  if (inUse > 0) {
+    return NextResponse.json(
+      {
+        error: `Can’t delete this plan — ${inUse} ${
+          inUse === 1 ? "office is" : "offices are"
+        } currently on it. Move ${
+          inUse === 1 ? "it" : "them"
+        } to another plan first.`,
+        inUse,
+      },
+      { status: 409, headers: corsHeaders() }
+    );
+  }
+
+  await Plan.deleteOne({ _id: plan._id });
+
+  await logActivity({
+    actor: {
+      id: guard.ctx.user.id,
+      name: `${guard.ctx.user.firstName} ${guard.ctx.user.lastName}`.trim(),
+      email: guard.ctx.user.email,
+      type: "global_admin",
+    },
+    action: "plan_deleted",
+    targetType: "system",
+    targetId: String(plan._id),
+    targetName: plan.label,
+    message: `Deleted subscription plan ${plan.label} (${key}).`,
+    metadata: { key, via: guard.ctx.isMobile ? "mobile" : "web" },
+    partnerId: null,
+  });
+
+  revalidatePath("/");
+  revalidatePath("/admin/subscriptions");
+  revalidatePath("/admin/subscriptions/" + key);
+  revalidatePath("/admin/partners/new");
+
+  return NextResponse.json({ ok: true }, { headers: corsHeaders() });
 }

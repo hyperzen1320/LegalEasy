@@ -133,7 +133,7 @@ export default async function CaseDetailPage({
   const role = session.user.userType === "partner_admin" ? "admin" : "junior";
   const breadcrumbHref = isDisposed ? "/app/disposed-cases" : "/app/cases";
   const breadcrumbLabel = isDisposed ? "Disposed Cases" : "Case Vault";
-  const disposedDateLabel = c.disposedAt ? fmtDate(c.disposedAt) : "";
+  const disposedDateLabel = fmtDate(c.disposalDate ?? c.disposedAt);
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
@@ -226,6 +226,24 @@ export default async function CaseDetailPage({
                   </>
                 ) : null}
               </div>
+              {c.caStatus || c.receivedByClient ? (
+                <div
+                  className="mt-1 text-[12px]"
+                  style={{
+                    fontFamily: "var(--font-manrope), sans-serif",
+                    color: "rgba(245,235,214,0.7)",
+                  }}
+                >
+                  {c.caStatus ? (
+                    <>
+                      C.A.:{" "}
+                      <span style={{ fontWeight: 600 }}>{c.caStatus}</span>
+                    </>
+                  ) : null}
+                  {c.caStatus && c.receivedByClient ? " · " : null}
+                  {c.receivedByClient ? "Received by client ✓" : null}
+                </div>
+              ) : null}
               <div
                 className="mt-1.5 text-[11px]"
                 style={{
@@ -428,6 +446,10 @@ export default async function CaseDetailPage({
             caseId={String(c._id)}
             initialNextDate={fmtIso(c.nextHearingDate)}
             initialStatus={c.status || "Filed"}
+            initialDisposalDate={fmtIso(c.disposalDate)}
+            initialCaStatus={c.caStatus || ""}
+            initialDisposalRemarks={c.disposalRemarks || ""}
+            initialReceivedByClient={Boolean(c.receivedByClient)}
             client={{
               name: c.clientName || "",
               phone: c.clientPhone || "",

@@ -18,7 +18,10 @@ export type DisposedCaseRow = {
   courtPlace: string;
   status: string;
   disposedAt: string | null;
+  disposalDate: string | null;
   disposalRemarks: string;
+  caStatus: string;
+  receivedByClient: boolean;
 };
 
 type Format = "xlsx" | "docx" | "pdf";
@@ -1023,6 +1026,35 @@ function DisposedCard({
             “{c.disposalRemarks}”
           </p>
         ) : null}
+
+        {c.caStatus || c.receivedByClient ? (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {c.caStatus ? (
+              <span
+                className="rounded px-1.5 py-0.5 text-[10px] uppercase tracking-[0.14em]"
+                style={{
+                  fontFamily: "var(--font-dm-mono), monospace",
+                  backgroundColor: "var(--color-app-canvas-2)",
+                  color: "var(--color-app-copper-deep)",
+                }}
+              >
+                C.A. · {c.caStatus}
+              </span>
+            ) : null}
+            {c.receivedByClient ? (
+              <span
+                className="rounded px-1.5 py-0.5 text-[10px] uppercase tracking-[0.14em]"
+                style={{
+                  fontFamily: "var(--font-dm-mono), monospace",
+                  backgroundColor: "var(--color-app-canvas-2)",
+                  color: "var(--color-app-aqua)",
+                }}
+              >
+                Received ✓
+              </span>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       {/* Right column: disposal date + (admin) permanent delete */}
@@ -1044,7 +1076,7 @@ function DisposedCard({
               color: "var(--color-app-ink)",
             }}
           >
-            {fmtDate(c.disposedAt)}
+            {fmtDate(c.disposalDate ?? c.disposedAt)}
           </div>
         </div>
         {isAdmin && !selectMode ? (
