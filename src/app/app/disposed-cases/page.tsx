@@ -43,7 +43,10 @@ export default async function DisposedCasesPage() {
       courtPlace: c.courtPlace,
       status: c.status,
       disposedAt: c.disposedAt ? c.disposedAt.toISOString() : null,
+      disposalDate: c.disposalDate ? c.disposalDate.toISOString() : null,
       disposalRemarks: c.disposalRemarks || "",
+      caStatus: c.caStatus || "",
+      receivedByClient: Boolean(c.receivedByClient),
     }));
   }
 
