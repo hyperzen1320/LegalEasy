@@ -4,6 +4,8 @@ import { connectDB } from "@/lib/db";
 import { Partner } from "@/models/Partner";
 import { User } from "@/models/User";
 import AppShell from "./components/AppShell";
+import MaintenanceScreen from "./components/MaintenanceScreen";
+import { getGlobalSettings } from "@/lib/global-settings";
 
 export default async function AppLayout({
   children,
@@ -13,6 +15,15 @@ export default async function AppLayout({
   const session = await auth();
   if (!session?.user) redirect("/login");
   if (session.user.userType === "global_admin") redirect("/admin");
+
+  // Platform maintenance — while it's on, the whole office app is replaced by
+  // a holding screen for every chambers user. The global admin operates via
+  // /admin (a separate shell, not gated here), so they can still turn it off.
+  // getGlobalSettings fails OPEN, so a DB hiccup never locks everyone out.
+  const settings = await getGlobalSettings();
+  if (settings.maintenanceMode) {
+    return <MaintenanceScreen message={settings.maintenanceMessage} />;
+  }
 
   // Pull the chambers name and the user's own current name fresh from the DB,
   // so a name change in global admin / My Profile shows in the sidebar right

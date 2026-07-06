@@ -27,7 +27,7 @@ const NAV: NavItem[] = [
   },
   { name: "Support", href: "/admin/support", icon: IconSupport },
   { name: "Tutorials", href: "/admin/tutorials", icon: IconTutorials },
-  { name: "Settings", href: "/admin/settings", icon: IconSettings, soon: true },
+  { name: "Settings", href: "/admin/settings", icon: IconSettings },
 ];
 
 export default function Sidebar({
