@@ -55,7 +55,16 @@ export interface ICase {
   // disposal date around, and it gives us a real timestamp for the
   // archive's chronological view.
   disposedAt: Date | null;
+  // The disposal date the office records for the order — editable, and
+  // distinct from disposedAt (the system archive timestamp). The archive
+  // shows and sorts by this.
+  disposalDate: Date | null;
   disposalRemarks: string;
+  // C.A. (certified-copy application) status — e.g. Applied / Ready /
+  // Delivered — plus whether the client has received the copy. The rest of
+  // the disposal record captured when a matter is closed.
+  caStatus: string;
+  receivedByClient: boolean;
 
   createdBy: Types.ObjectId | null;
   createdAt: Date;
@@ -110,7 +119,10 @@ const CaseSchema = new Schema<ICase>(
     lastHearingDate: { type: Date, default: null },
     hearings: { type: [HearingSchema], default: [] },
     disposedAt: { type: Date, default: null },
+    disposalDate: { type: Date, default: null },
     disposalRemarks: { type: String, default: "", trim: true },
+    caStatus: { type: String, default: "", trim: true },
+    receivedByClient: { type: Boolean, default: false },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
     isDeleted: { type: Boolean, default: false },
   },

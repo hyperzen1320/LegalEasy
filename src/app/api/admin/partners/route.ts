@@ -2,13 +2,12 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { connectDB } from "@/lib/db";
 import { Partner } from "@/models/Partner";
+import { Plan, PLAN_KEY_PATTERN } from "@/models/Plan";
 import { User } from "@/models/User";
 import { uniquePartnerSlug } from "@/lib/slug";
 import { logActivity } from "@/lib/activity";
 import { requireAdmin } from "@/lib/admin-auth";
 import { corsHeaders } from "@/lib/cors";
-
-type Plan = "trial" | "solo" | "office" | "chambers";
 
 type CreatePartnerInput = {
   name: string;
@@ -17,7 +16,7 @@ type CreatePartnerInput = {
   phone: string;
   city?: string;
   state?: string;
-  plan: Plan;
+  plan: string;
   trialDays: number;
   password: string;
 };
@@ -40,9 +39,11 @@ function validate(body: unknown): CreatePartnerInput | { error: string } {
   if (password.length < 6)
     return { error: "Password must be at least 6 characters" };
 
-  const plan = b.plan as string;
-  if (!["trial", "solo", "office", "chambers"].includes(plan))
-    return { error: "Invalid plan" };
+  // Plan is the key of a Plan document; validate the slug shape here and check
+  // that it actually exists in the catalogue in the handler (needs the DB).
+  const plan =
+    typeof b.plan === "string" ? b.plan.trim().toLowerCase() : "";
+  if (!PLAN_KEY_PATTERN.test(plan)) return { error: "Invalid plan" };
 
   const trialDays = Number(b.trialDays ?? 0);
   if (plan === "trial") {
@@ -61,24 +62,12 @@ function validate(body: unknown): CreatePartnerInput | { error: string } {
     phone: (b.phone as string).trim(),
     city: typeof b.city === "string" ? (b.city as string).trim() : "",
     state: typeof b.state === "string" ? (b.state as string).trim() : "",
-    plan: plan as Plan,
+    plan,
     trialDays,
     password,
   };
 }
 
-const SEAT_LIMITS: Record<Plan, number> = {
-  trial: 5,
-  solo: 1,
-  office: 10,
-  chambers: 999999,
-};
-const MATTER_LIMITS: Record<Plan, number> = {
-  trial: 50,
-  solo: 100,
-  office: 1000,
-  chambers: 999999,
-};
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
 
 export async function OPTIONS() {
@@ -127,9 +116,10 @@ export async function POST(request: Request) {
   }
 
   await connectDB();
-  const [existingUser, existingPartner] = await Promise.all([
+  const [existingUser, existingPartner, planDoc] = await Promise.all([
     User.findOne({ email: parsed.primaryEmail }),
     Partner.findOne({ primaryEmail: parsed.primaryEmail }),
+    Plan.findOne({ key: parsed.plan }).lean(),
   ]);
   if (existingUser || existingPartner) {
     return NextResponse.json(
@@ -138,6 +128,17 @@ export async function POST(request: Request) {
           "This email is already in use. Each email can belong to only one chambers.",
       },
       { status: 409, headers: corsHeaders() }
+    );
+  }
+  // The chosen plan must exist in the catalogue. Seat/matter limits are read
+  // straight off the Plan doc, so any admin-created plan is assignable and any
+  // edit to a plan's limits takes effect for chambers created afterwards.
+  if (!planDoc) {
+    return NextResponse.json(
+      {
+        error: `Unknown plan “${parsed.plan}”. Pick a plan that exists in Subscriptions.`,
+      },
+      { status: 400, headers: corsHeaders() }
     );
   }
 
@@ -151,8 +152,8 @@ export async function POST(request: Request) {
       now.getTime() +
         (isTrial ? parsed.trialDays * 24 * 60 * 60 * 1000 : ONE_YEAR_MS)
     ),
-    seatLimit: SEAT_LIMITS[parsed.plan],
-    matterLimit: MATTER_LIMITS[parsed.plan],
+    seatLimit: planDoc.seatLimit,
+    matterLimit: planDoc.matterLimit,
   };
 
   const partner = await Partner.create({
