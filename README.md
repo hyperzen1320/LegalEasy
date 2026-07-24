@@ -22,6 +22,7 @@
 
 ---
 
+
 ## 🪶 What is this?
 
 A practising advocate's life is twelve open tabs, three diaries, a WhatsApp signal storm, and a stack of yellow files. **LegalEasy** collapses all of that into a single office workspace — designed for Indian legal practice, written like a love letter to good design.
