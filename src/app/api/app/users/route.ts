@@ -6,6 +6,7 @@ import { User } from "@/models/User";
 import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
 import { logWorkflowActivity } from "@/lib/activity";
+import { getSeatStatus, seatLimitMessage } from "@/lib/seats";
 
 export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders() });
@@ -67,8 +68,12 @@ export async function GET(request: Request) {
     isYou: String(u._id) === guard.ctx.user.id,
   }));
 
+  // Seat headroom rides along with the list so the client can show the
+  // meter and pre-disable "Add user" instead of only finding out at POST.
+  const seats = await getSeatStatus(partnerId);
+
   return NextResponse.json(
-    { users, currentUserId: guard.ctx.user.id },
+    { users, currentUserId: guard.ctx.user.id, seats },
     { headers: guard.ctx.isMobile ? corsHeaders() : undefined }
   );
 }
@@ -141,6 +146,20 @@ export async function POST(request: Request) {
   if (existing) {
     return NextResponse.json(
       { error: "Another account with this email already exists." },
+      { status: 409, headers }
+    );
+  }
+
+  // Seat limit. The office's plan has always carried one; until now
+  // nothing read it, so a 5-seat Trial could hold twenty-five people.
+  const seats = await getSeatStatus(partnerId);
+  if (seats.atCap) {
+    return NextResponse.json(
+      {
+        error: seatLimitMessage(seats, "add"),
+        code: "seat_limit_reached",
+        seats,
+      },
       { status: 409, headers }
     );
   }

@@ -6,6 +6,7 @@ import { User } from "@/models/User";
 import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
 import { logWorkflowActivity } from "@/lib/activity";
+import { getSeatStatus, seatLimitMessage } from "@/lib/seats";
 
 export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders() });
@@ -161,6 +162,25 @@ export async function PATCH(
           headers: guard.ctx.isMobile ? corsHeaders() : undefined,
         }
       );
+    }
+    // Switching someone back on takes a seat, exactly as adding a new
+    // person does — otherwise the cap could be walked around by
+    // deactivating, adding a replacement, then re-activating.
+    if (body.active === true && doc.active === false) {
+      const seats = await getSeatStatus(guard.ctx.user.partnerId);
+      if (seats.atCap) {
+        return NextResponse.json(
+          {
+            error: seatLimitMessage(seats, "activate"),
+            code: "seat_limit_reached",
+            seats,
+          },
+          {
+            status: 409,
+            headers: guard.ctx.isMobile ? corsHeaders() : undefined,
+          }
+        );
+      }
     }
     doc.active = body.active;
   }
