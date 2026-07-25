@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { SeatStatus } from "@/lib/seats";
 
 export type UserRow = {
   id: string;
@@ -83,14 +84,82 @@ function rolePillStyle(role: string) {
   }
 }
 
+/* ─── Seat meter ─── */
+
+// A quiet gauge next to Add User: seats used of the plan's allowance, and
+// a bar that turns copper as it fills and vermillion once it's full.
+function SeatMeter({ seats }: { seats: SeatStatus }) {
+  const pct = seats.limit > 0
+    ? Math.min(100, Math.round((seats.used / seats.limit) * 100))
+    : 0;
+  const full = seats.atCap;
+  const nearlyFull = !full && seats.remaining !== null && seats.remaining <= 1;
+  const barColor = full
+    ? "var(--color-app-danger)"
+    : nearlyFull
+      ? "var(--color-app-copper)"
+      : "var(--color-app-aqua)";
+
+  return (
+    <div className="min-w-[168px]">
+      <div className="flex items-baseline justify-between gap-3">
+        <span
+          className="text-[10px] font-semibold uppercase tracking-[0.16em]"
+          style={{
+            fontFamily: "var(--font-dm-mono), monospace",
+            color: "var(--color-app-fg-muted)",
+          }}
+        >
+          Seats
+        </span>
+        <span
+          className="text-[12px] tabular-nums"
+          style={{
+            fontFamily: "var(--font-dm-mono), monospace",
+            color: full ? "var(--color-app-danger)" : "var(--color-app-ink)",
+            fontWeight: 600,
+          }}
+        >
+          {seats.used} / {seats.limit}
+        </span>
+      </div>
+      <div
+        className="mt-1.5 h-1 overflow-hidden rounded-full"
+        style={{ backgroundColor: "var(--color-app-edge)" }}
+        role="meter"
+        aria-valuenow={seats.used}
+        aria-valuemin={0}
+        aria-valuemax={seats.limit}
+        aria-label="Seats used"
+      >
+        <div
+          className="h-full rounded-full transition-all"
+          style={{ width: `${pct}%`, backgroundColor: barColor }}
+        />
+      </div>
+      <div
+        className="mt-1 text-[10px] uppercase tracking-[0.12em]"
+        style={{
+          fontFamily: "var(--font-dm-mono), monospace",
+          color: "var(--color-app-fg-muted)",
+        }}
+      >
+        {seats.planLabel || seats.planKey} plan
+      </div>
+    </div>
+  );
+}
+
 export default function UsersClient({
   initialUsers,
   currentUserId,
   isAdmin,
+  initialSeats,
 }: {
   initialUsers: UserRow[];
   currentUserId: string;
   isAdmin: boolean;
+  initialSeats: SeatStatus;
 }) {
   const [users, setUsers] = useState<UserRow[]>(initialUsers);
   const [adding, setAdding] = useState(false);
@@ -125,6 +194,21 @@ export default function UsersClient({
     setUsers((prev) => prev.filter((u) => u.id !== id));
   }
 
+  // Seats are recounted from the list on every render rather than trusted
+  // from the server snapshot, so adding, deactivating or removing someone
+  // moves the meter immediately — and the Add button locks the moment the
+  // last seat is taken, instead of only failing at POST.
+  const usedSeats = users.filter((u) => u.active).length;
+  const seats: SeatStatus = initialSeats.unlimited
+    ? { ...initialSeats, used: usedSeats }
+    : {
+        ...initialSeats,
+        used: usedSeats,
+        remaining: Math.max(0, initialSeats.limit - usedSeats),
+        atCap: usedSeats >= initialSeats.limit,
+      };
+  const addBlocked = isAdmin && seats.atCap && !adding;
+
   return (
     <>
       {/* Header */}
@@ -151,21 +235,72 @@ export default function UsersClient({
               : `${users.length} ${users.length === 1 ? "person" : "people"} in your office.`}
           </p>
         </div>
-        {isAdmin ? (
-          <button
-            onClick={() => setAdding((v) => !v)}
-            className="inline-flex items-center gap-2 rounded-md px-5 py-3 text-[13px] font-semibold transition-all hover:-translate-y-0.5"
+        <div className="flex items-end gap-4">
+          {!seats.unlimited ? <SeatMeter seats={seats} /> : null}
+          {isAdmin ? (
+            <button
+              onClick={() => setAdding((v) => !v)}
+              disabled={addBlocked}
+              title={
+                addBlocked
+                  ? `All ${seats.limit} seats on your ${seats.planLabel || seats.planKey} plan are in use.`
+                  : undefined
+              }
+              className="inline-flex items-center gap-2 rounded-md px-5 py-3 text-[13px] font-semibold transition-all enabled:hover:-translate-y-0.5"
+              style={{
+                fontFamily: "var(--font-manrope), sans-serif",
+                backgroundColor: addBlocked
+                  ? "var(--color-app-paper)"
+                  : "var(--color-app-copper)",
+                color: addBlocked
+                  ? "var(--color-app-fg-muted)"
+                  : "var(--color-app-copper-text)",
+                border: addBlocked
+                  ? "1px solid var(--color-app-edge)"
+                  : "none",
+                boxShadow: addBlocked
+                  ? "none"
+                  : "0 8px 20px -10px rgba(197,133,58,0.6)",
+                cursor: addBlocked ? "not-allowed" : "pointer",
+              }}
+            >
+              <span aria-hidden>+</span>{" "}
+              {adding ? "Close" : addBlocked ? "Seats full" : "Add User"}
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      {/* At the cap, say so where the admin is about to look for the button */}
+      {addBlocked ? (
+        <div
+          className="mt-6 rounded-xl px-5 py-4 flex items-start gap-3"
+          style={{
+            backgroundColor: "var(--color-app-danger-soft)",
+            border: "1px solid var(--color-app-danger)",
+          }}
+        >
+          <span style={{ color: "var(--color-app-danger)" }}>
+            <InfoIcon />
+          </span>
+          <p
+            className="text-[13px] leading-[1.55]"
             style={{
               fontFamily: "var(--font-manrope), sans-serif",
-              backgroundColor: "var(--color-app-copper)",
-              color: "var(--color-app-copper-text)",
-              boxShadow: "0 8px 20px -10px rgba(197,133,58,0.6)",
+              color: "var(--color-app-ink)",
             }}
           >
-            <span aria-hidden>+</span> {adding ? "Close" : "Add User"}
-          </button>
-        ) : null}
-      </div>
+            All{" "}
+            <strong>
+              {seats.limit} {seats.limit === 1 ? "seat" : "seats"}
+            </strong>{" "}
+            on your{" "}
+            <strong>{seats.planLabel || seats.planKey}</strong> plan are in
+            use. Deactivate someone you no longer need — their name stays on
+            past activity — or contact Legalezi to move to a larger plan.
+          </p>
+        </div>
+      ) : null}
 
       {!isAdmin ? (
         <div
