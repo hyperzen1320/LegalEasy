@@ -7,6 +7,7 @@ import AiAssistantClient, {
   type PromptRow,
   type ResearchTool,
 } from "./AiAssistantClient";
+import { guardFeature } from "@/lib/feature-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,7 @@ const TOOLS: ResearchTool[] = [
 ];
 
 export default async function AIPage() {
+  await guardFeature("ai");
   const session = await auth();
   const partnerId = session?.user?.partnerId
     ? new mongoose.Types.ObjectId(session.user.partnerId)

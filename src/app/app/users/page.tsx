@@ -4,10 +4,12 @@ import { connectDB } from "@/lib/db";
 import { User } from "@/models/User";
 import { getSeatStatus, type SeatStatus } from "@/lib/seats";
 import UsersClient, { type UserRow } from "./UsersClient";
+import { guardFeature } from "@/lib/feature-guard";
 
 export const dynamic = "force-dynamic";
 
 export default async function UsersPage() {
+  await guardFeature("users");
   const session = await auth();
   const partnerId = session?.user?.partnerId
     ? new mongoose.Types.ObjectId(session.user.partnerId)

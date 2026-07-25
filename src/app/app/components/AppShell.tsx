@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
+import type { FeatureMap } from "@/lib/features";
 
 // The responsive app shell. On desktop (lg+) it's the classic two-column
 // grid: a 260px sidebar rail + content. Below lg the sidebar becomes an
@@ -14,11 +15,13 @@ export default function AppShell({
   partnerName,
   user,
   isAdmin,
+  features,
   children,
 }: {
   partnerName: string;
   user: { firstName: string; lastName: string; email: string };
   isAdmin: boolean;
+  features: FeatureMap;
   children: React.ReactNode;
 }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -62,6 +65,7 @@ export default function AppShell({
         partnerName={partnerName}
         user={user}
         isAdmin={isAdmin}
+        features={features}
         drawerOpen={drawerOpen}
         onClose={() => setDrawerOpen(false)}
       />

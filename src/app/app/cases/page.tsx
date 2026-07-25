@@ -8,6 +8,7 @@ import CaseVaultClient, {
   type CaseVaultBootstrap,
 } from "./CaseVaultClient";
 import ImportCasesButton from "./ImportCasesModal";
+import { guardFeature } from "@/lib/feature-guard";
 
 // Server shell. Loads the static-ish dropdown data (courts + office
 // roster) up-front and hands the partner id to the client. All case
@@ -17,6 +18,7 @@ import ImportCasesButton from "./ImportCasesModal";
 export const dynamic = "force-dynamic";
 
 export default async function CaseVaultPage() {
+  await guardFeature("cases");
   const session = await auth();
   const partnerId = session?.user?.partnerId
     ? new mongoose.Types.ObjectId(session.user.partnerId)

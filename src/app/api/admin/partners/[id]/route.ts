@@ -7,6 +7,14 @@ import { User } from "@/models/User";
 import { logActivity } from "@/lib/activity";
 import { requireAdmin } from "@/lib/admin-auth";
 import { corsHeaders } from "@/lib/cors";
+import {
+  FEATURE_BY_KEY,
+  FEATURE_KEYS,
+  fullFeatureMap,
+  isFeatureEnabled,
+  readFeatures,
+  sanitizeFeatureInput,
+} from "@/lib/features";
 
 type Status = "trial" | "active" | "past_due" | "cancelled" | "suspended";
 
@@ -66,6 +74,7 @@ export async function GET(
           seatLimit: partner.subscription.seatLimit,
           matterLimit: partner.subscription.matterLimit,
         },
+        features: fullFeatureMap(readFeatures(partner.features)),
         isDeleted: partner.isDeleted,
         createdAt: partner.createdAt.toISOString(),
         updatedAt: partner.updatedAt.toISOString(),
@@ -224,6 +233,47 @@ export async function PATCH(
     activityAction = "partner_trial_extended";
   }
 
+  // Module switches. The client sends the FULL map (every key with an
+  // explicit boolean), so this is a straight replace rather than a merge —
+  // a key going missing would otherwise silently mean "leave as-is" and a
+  // switch-off could be lost. Only keys that actually moved are recorded,
+  // so the activity row reads like a change list rather than a dump.
+  if (body.features !== undefined) {
+    const incoming = sanitizeFeatureInput(body.features);
+    if (!incoming) {
+      return NextResponse.json(
+        { error: "Invalid modules payload" },
+        { status: 400, headers: corsHeaders() }
+      );
+    }
+    const before = readFeatures(partner.features);
+    const turnedOff: string[] = [];
+    const turnedOn: string[] = [];
+    for (const key of FEATURE_KEYS) {
+      const wasOn = isFeatureEnabled(before, key);
+      const nowOn = incoming[key] !== false;
+      if (wasOn && !nowOn) turnedOff.push(FEATURE_BY_KEY[key].label);
+      if (!wasOn && nowOn) turnedOn.push(FEATURE_BY_KEY[key].label);
+    }
+
+    if (turnedOff.length > 0 || turnedOn.length > 0) {
+      // Store only what's switched OFF. An absent key means enabled, so the
+      // document stays empty for the common "everything on" case and no
+      // existing chambers ever needed migrating.
+      const stored = new Map<string, boolean>();
+      for (const key of FEATURE_KEYS) {
+        if (incoming[key] === false) stored.set(key, false);
+      }
+      partner.features = stored.size > 0 ? stored : undefined;
+      changes.push({
+        field: "features",
+        before: turnedOn,
+        after: turnedOff,
+      });
+      activityAction = "partner_features_changed";
+    }
+  }
+
   if (changes.length === 0) {
     return NextResponse.json(
       { error: "No changes to save" },
@@ -253,7 +303,9 @@ export async function PATCH(
             ? `Unsuspended ${partner.name}.`
             : activityAction === "partner_plan_changed"
               ? `Changed ${partner.name}'s plan.`
-              : `Updated ${partner.name}.`,
+              : activityAction === "partner_features_changed"
+                ? `Changed which modules ${partner.name} can use.`
+                : `Updated ${partner.name}.`,
     metadata: { changes, via: guard.ctx.isMobile ? "mobile" : "web" },
     partnerId: String(partner._id),
   });

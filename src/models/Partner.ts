@@ -42,6 +42,12 @@ export interface IPartner {
   // in My Profile; merge tokens like {{caseNo}} / {{nextHearingDate}} are
   // substituted per matter when the notice is built. Empty = use the default.
   noticeTemplate: string;
+  // Which modules this chambers can reach, set by the global admin. Only
+  // switched-OFF entries need storing: a key that isn't here is enabled.
+  // That's what lets this ship without a migration — every existing
+  // chambers has no map at all and therefore keeps everything.
+  // See lib/features.ts.
+  features?: Map<string, boolean>;
   // How this chambers got here. "admin" = created by a global admin in the
   // console (the only route that existed before self-serve sign-up);
   // "self" = someone signed themselves up on the marketing site and
@@ -109,6 +115,11 @@ const PartnerSchema = new Schema<IPartner>(
       },
     },
     noticeTemplate: { type: String, default: "" },
+    features: {
+      type: Map,
+      of: Boolean,
+      default: undefined,
+    },
     signupSource: {
       type: String,
       enum: ["admin", "self"],

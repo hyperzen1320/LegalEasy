@@ -6,6 +6,7 @@ import { Case } from "@/models/Case";
 import DisposedCasesClient, {
   type DisposedCaseRow,
 } from "./DisposedCasesClient";
+import { guardFeature } from "@/lib/feature-guard";
 
 // Server-rendered shell — pulls the partner's archived matters once,
 // then defers search + filtering to the client component.
@@ -13,6 +14,7 @@ import DisposedCasesClient, {
 export const dynamic = "force-dynamic";
 
 export default async function DisposedCasesPage() {
+  await guardFeature("disposed");
   const session = await auth();
   const partnerId = session?.user?.partnerId
     ? new mongoose.Types.ObjectId(session.user.partnerId)

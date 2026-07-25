@@ -1,11 +1,11 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { connectDB } from "@/lib/db";
-import { Partner } from "@/models/Partner";
 import { User } from "@/models/User";
 import AppShell from "./components/AppShell";
 import MaintenanceScreen from "./components/MaintenanceScreen";
 import { getGlobalSettings } from "@/lib/global-settings";
+import { currentPartnerChrome } from "@/lib/feature-guard";
 
 export default async function AppLayout({
   children,
@@ -25,19 +25,18 @@ export default async function AppLayout({
     return <MaintenanceScreen message={settings.maintenanceMessage} />;
   }
 
-  // Pull the chambers name and the user's own current name fresh from the DB,
-  // so a name change in global admin / My Profile shows in the sidebar right
-  // away rather than only after the next login.
-  let partnerName = "Your Chambers";
+  // Pull the chambers name (and its module switches) fresh from the DB, so
+  // a rename or a module change in global admin shows in the sidebar right
+  // away rather than only after the next login. The lookup is request-cached,
+  // so the page's own guardFeature() call doesn't repeat it.
+  //
+  // Switched-off modules are dropped from the rail here; the page redirect
+  // and the API 403 back that up, so this layer is purely so nothing dead
+  // is on screen.
+  const { name: partnerName, features } = await currentPartnerChrome();
   let freshFirst = session.user.firstName ?? "";
   let freshLast = session.user.lastName ?? "";
   await connectDB();
-  if (session.user.partnerId) {
-    const partner = await Partner.findById(session.user.partnerId)
-      .select("name")
-      .lean();
-    if (partner) partnerName = partner.name;
-  }
   if (session.user.email) {
     const me = await User.findOne({ email: session.user.email })
       .select("firstName lastName")
@@ -56,7 +55,12 @@ export default async function AppLayout({
   const isAdmin = session.user.userType === "partner_admin";
 
   return (
-    <AppShell partnerName={partnerName} user={user} isAdmin={isAdmin}>
+    <AppShell
+      partnerName={partnerName}
+      user={user}
+      isAdmin={isAdmin}
+      features={features}
+    >
       {children}
     </AppShell>
   );

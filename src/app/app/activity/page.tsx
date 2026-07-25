@@ -12,12 +12,14 @@ import ActivityClient, {
   type ActivityActor,
   type ActivityBoardOption,
 } from "./ActivityClient";
+import { guardFeature } from "@/lib/feature-guard";
 
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 50;
 
 export default async function ActivityPage() {
+  await guardFeature("activity");
   const session = await auth();
   if (!session?.user?.partnerId) {
     return null;

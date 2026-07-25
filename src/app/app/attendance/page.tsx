@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import AttendanceClient from "./AttendanceClient";
+import { guardFeature } from "@/lib/feature-guard";
 
 // Server shell. The grid + the marking interaction live entirely in
 // the client component — the page just routes the partner id + the
@@ -9,6 +10,7 @@ import AttendanceClient from "./AttendanceClient";
 export const dynamic = "force-dynamic";
 
 export default async function AttendancePage() {
+  await guardFeature("attendance");
   const session = await auth();
   if (!session?.user) redirect("/login");
 
