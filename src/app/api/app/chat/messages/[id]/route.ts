@@ -228,6 +228,24 @@ export async function DELETE(
       }
     );
   }
+  // A message carrying a FILE is office property once it's been shared —
+  // removing it takes a paper out of everyone's hands, so only the admin
+  // may. Plain text stays author-deletable, which is what people expect
+  // from a chat. ("Delete for me" above is unaffected: hiding a file from
+  // your own thread takes nothing away from anyone else.)
+  if (!isAdmin && (msg.attachments?.length ?? 0) > 0) {
+    return NextResponse.json(
+      {
+        error:
+          "Shared files can only be removed by the office admin. You can still delete this message for yourself.",
+        code: "admin_only_attachment",
+      },
+      {
+        status: 403,
+        headers: guard.ctx.isMobile ? corsHeaders() : undefined,
+      }
+    );
+  }
   if (msg.isDeleted) {
     return NextResponse.json(
       { ok: true, alreadyDeleted: true },

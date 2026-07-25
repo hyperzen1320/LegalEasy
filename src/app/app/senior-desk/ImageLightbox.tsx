@@ -5,14 +5,21 @@ import { createPortal } from "react-dom";
 
 // WhatsApp-style image viewer. A full-screen dark overlay with the image
 // centred — opens in-app instead of redirecting to the raw file. Close on
-// Esc, click-out or ✕; download from the top bar.
+// Esc, click-out or ✕.
+//
+// Share and Download are office-admin only: taking a shared file OUT of
+// chambers is the admin's call. Everyone else can look at it here for as
+// long as they like. The API returns 403 on ?download=1 for non-admins, so
+// hiding the buttons is the courtesy, not the control.
 export default function ImageLightbox({
   src,
   filename,
+  canDownload = true,
   onClose,
 }: {
   src: string;
   filename: string;
+  canDownload?: boolean;
   onClose: () => void;
 }) {
   useEffect(() => {
@@ -75,6 +82,8 @@ export default function ImageLightbox({
           {filename}
         </span>
         <div className="flex shrink-0 items-center gap-1">
+          {canDownload ? (
+          <>
           <button
             type="button"
             onClick={share}
@@ -99,6 +108,8 @@ export default function ImageLightbox({
               <path d="M12 4v11m0 0l-4-4m4 4l4-4M5 19h14" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </a>
+          </>
+          ) : null}
           <button
             type="button"
             onClick={onClose}

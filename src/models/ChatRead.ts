@@ -1,15 +1,22 @@
 import mongoose, { Schema, Types, type Model } from "mongoose";
 
-// Senior Desk — per-user read markers.
+// Senior Desk — per-user read + presence markers.
 //
-// One row per (user, room) pairing. Stores the id of the last message
-// the user has acknowledged in that room; the unread badge is then a
-// simple `count where _id > lastReadMessageId`. We deliberately do NOT
-// expose this to other users (no WhatsApp-style read ticks in v1) — it's
-// a private bookkeeping record.
+// One row per (user, room) pairing. It carries two different facts:
+//
+//   lastReadMessageId  the last message this user has acknowledged. Drives
+//                      the unread badge (`count where _id > lastRead`) and,
+//                      read across the room's other members, the blue
+//                      double tick on a message you sent.
+//
+//   lastSeenAt         the last time this user actually had the room open.
+//                      Bumped by the message list itself (throttled), which
+//                      is the only honest signal a polling client can give
+//                      that a message reached them — that's the grey double
+//                      tick. Without it "delivered" would be a guess.
 //
 // Group room is the same shape: every user gets one ChatRead row scoped
-// to the partner's group room. Created lazily on first "mark as read".
+// to the partner's group room. Created lazily on first read/open.
 
 export interface IChatRead {
   _id: Types.ObjectId;
@@ -18,6 +25,7 @@ export interface IChatRead {
   roomId: Types.ObjectId;
   lastReadMessageId: Types.ObjectId | null;
   lastReadAt: Date;
+  lastSeenAt: Date | null;
 }
 
 const ChatReadSchema = new Schema<IChatRead>(
@@ -42,6 +50,9 @@ const ChatReadSchema = new Schema<IChatRead>(
       default: null,
     },
     lastReadAt: { type: Date, default: () => new Date() },
+    // Null on rows written before delivery was tracked — treated as
+    // "never seen", which degrades a tick to "sent" rather than lying.
+    lastSeenAt: { type: Date, default: null },
   },
   { timestamps: false }
 );

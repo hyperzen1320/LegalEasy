@@ -45,9 +45,15 @@ export default function MessageBubble({
     isMine &&
     !message.isDeleted &&
     Date.now() - new Date(message.createdAt).getTime() < 5 * 60_000;
-  // Author, or admin moderation, can tombstone a message for everyone.
+  // A message carrying a shared FILE is office property — only the admin
+  // may take it out of everyone's hands. Plain text stays author-deletable.
+  // ("Delete for me" is unaffected: hiding something from your own thread
+  // takes nothing away from anyone else.)
+  const hasAttachments = (message.attachments?.length ?? 0) > 0;
   const canDeleteEveryone =
-    isReal && (isMine || isAdmin) && !message.isDeleted;
+    isReal &&
+    !message.isDeleted &&
+    (isAdmin || (isMine && !hasAttachments));
   // Anyone can hide any message from just their own thread (WhatsApp style).
   const canDeleteForMe = isReal;
 
@@ -198,6 +204,7 @@ export default function MessageBubble({
                   attachments={message.attachments}
                   isMine={isMine}
                   hasBody={Boolean(message.body)}
+                  canDownload={isAdmin}
                 />
               ) : null}
             </>
@@ -229,6 +236,9 @@ export default function MessageBubble({
             >
               (edited)
             </span>
+          ) : null}
+          {isMine && !message.isDeleted && message.receipt ? (
+            <ReceiptTicks receipt={message.receipt} />
           ) : null}
         </div>
       </div>
@@ -320,10 +330,14 @@ function AttachmentList({
   attachments,
   isMine,
   hasBody,
+  canDownload,
 }: {
   attachments: ChatAttachment[];
   isMine: boolean;
   hasBody: boolean;
+  // Saving a shared file out of chambers is office-admin only; everyone
+  // else opens it inline. The API enforces the same rule.
+  canDownload: boolean;
 }) {
   const [lightbox, setLightbox] = useState<{ src: string; filename: string } | null>(
     null
@@ -374,7 +388,7 @@ function AttachmentList({
                 {formatBytes(a.size)}
               </span>
             </span>
-            <DownloadGlyph />
+            {canDownload ? <DownloadGlyph /> : <ViewGlyph />}
           </a>
         );
       })}
@@ -382,6 +396,7 @@ function AttachmentList({
         <ImageLightbox
           src={lightbox.src}
           filename={lightbox.filename}
+          canDownload={canDownload}
           onClose={() => setLightbox(null)}
         />
       ) : null}
@@ -410,6 +425,30 @@ function FileGlyph() {
   );
 }
 
+// What a non-admin gets instead of the download arrow — the file opens in
+// a new tab to be read, and that's the whole of it.
+function ViewGlyph() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+      style={{ flexShrink: 0, marginLeft: "auto", opacity: 0.7 }}
+    >
+      <path
+        d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="12" r="2.6" stroke="currentColor" strokeWidth="1.7" />
+    </svg>
+  );
+}
+
 function DownloadGlyph() {
   return (
     <svg
@@ -428,6 +467,65 @@ function DownloadGlyph() {
         strokeLinejoin="round"
       />
     </svg>
+  );
+}
+
+/* ─── Delivery ticks ─── */
+
+// WhatsApp's vocabulary, because it's the one every user in chambers
+// already knows:
+//   ✓   sent      — on the server, nobody has opened the room since
+//   ✓✓  delivered — somebody has had the room open since it was sent
+//   ✓✓  read      — everyone else has read past it (aqua)
+function ReceiptTicks({
+  receipt,
+}: {
+  receipt: "sent" | "delivered" | "read";
+}) {
+  const label =
+    receipt === "read"
+      ? "Read by everyone"
+      : receipt === "delivered"
+        ? "Delivered"
+        : "Sent";
+  const color =
+    receipt === "read"
+      ? "var(--color-app-aqua)"
+      : "var(--color-app-fg-muted)";
+
+  return (
+    <span
+      className="inline-flex items-center"
+      style={{ color }}
+      title={label}
+      aria-label={label}
+      role="img"
+    >
+      <svg
+        width={receipt === "sent" ? 12 : 17}
+        height="12"
+        viewBox={receipt === "sent" ? "0 0 12 12" : "0 0 17 12"}
+        fill="none"
+        aria-hidden
+      >
+        <path
+          d="M1 6.6L4 9.6L10.4 2.6"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        {receipt !== "sent" ? (
+          <path
+            d="M6 6.6L9 9.6L15.4 2.6"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ) : null}
+      </svg>
+    </span>
   );
 }
 
