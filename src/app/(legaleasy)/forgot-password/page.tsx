@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import LoginForm from "./LoginForm";
+import ForgotPasswordForm from "./ForgotPasswordForm";
 
 export const metadata: Metadata = {
-  title: "Sign in — Legalezi",
+  title: "Reset your password — Legalezi",
   description:
-    "Welcome back to chambers. Sign in to pick up where the day left you.",
+    "Lost the key to chambers? Verify your office email and set a new password.",
 };
 
-export default function LoginPage() {
+export default function ForgotPasswordPage() {
   return (
     <section className="relative overflow-hidden">
       {/* paper grain */}
@@ -16,7 +16,7 @@ export default function LoginPage() {
         aria-hidden
         className="pointer-events-none absolute inset-0 opacity-[0.05] paper-grain"
       />
-      {/* brass glow, top-left this time */}
+      {/* brass glow */}
       <div
         aria-hidden
         className="pointer-events-none absolute -left-40 top-32 h-[420px] w-[420px] rounded-full opacity-[0.18]"
@@ -32,10 +32,10 @@ export default function LoginPage() {
           <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-soft">
             <span className="text-brass-deep">Vol. I · No. 01</span>
             <span className="mx-2 text-rule">·</span>
-            <span>Private Wing</span>
+            <span>Lost Key</span>
           </div>
           <div className="hidden font-mono text-[10px] uppercase tracking-[0.22em] text-ink-soft md:block">
-            Restricted · Members Only · By Invitation
+            Verified by email · One-time code
           </div>
         </div>
       </div>
@@ -48,29 +48,27 @@ export default function LoginPage() {
             style={{ animationDelay: "0.05s" }}
           >
             <span className="mr-3 inline-block h-px w-8 bg-brass align-middle" />
-            Private Wing — § VII
+            Private Wing — § VIII
           </div>
 
           <h1
-            className="rise mt-6 font-display text-[56px] font-medium leading-[1.02] tracking-[-0.025em] text-ink md:text-[96px]"
+            className="rise mt-6 font-display text-[56px] font-medium leading-[1.02] tracking-[-0.025em] text-ink md:text-[88px]"
             style={{ animationDelay: "0.15s" }}
           >
-            Open <span className="italic text-ink-2">the file.</span>
+            Cut a <span className="italic text-ink-2">new key.</span>
           </h1>
 
           <p
             className="rise mt-6 max-w-md font-body text-[17px] leading-8 text-ink-2"
             style={{ animationDelay: "0.28s" }}
           >
-            Welcome back to chambers. Sign in to pick up where the day left
-            you — pending dates, the cause-list, your senior-desk notes.
+            We&rsquo;ll email a one-time code to the address you sign in with.
+            Enter it here and set a new password — nobody else needs to be
+            involved.
           </p>
 
-          <div
-            className="rise mt-12 max-w-lg"
-            style={{ animationDelay: "0.4s" }}
-          >
-            <LoginForm />
+          <div className="rise mt-12 max-w-lg" style={{ animationDelay: "0.4s" }}>
+            <ForgotPasswordForm />
           </div>
 
           <div
@@ -78,21 +76,13 @@ export default function LoginPage() {
             style={{ animationDelay: "0.7s" }}
           >
             <p className="font-body text-[14px] italic leading-7 text-ink-soft">
-              No chambers here yet?{" "}
+              Remembered it after all?{" "}
               <Link
-                href="/signup"
+                href="/login"
                 className="not-italic font-mono text-[11px] uppercase tracking-[0.18em] text-ink underline-offset-4 hover:underline"
               >
-                Sign up
-              </Link>{" "}
-              — seven days free, no card. Already in an office? Ask your
-              administrator to add you, or write to{" "}
-              <a
-                href="mailto:chambers@legalezi.com"
-                className="not-italic font-mono text-[11px] uppercase tracking-[0.18em] text-ink underline-offset-4 hover:underline"
-              >
-                chambers@legalezi.com
-              </a>
+                Back to sign in
+              </Link>
               .
             </p>
           </div>
@@ -104,7 +94,6 @@ export default function LoginPage() {
           style={{ animationDelay: "0.5s" }}
         >
           <div className="md:sticky md:top-32">
-            {/* Seal */}
             <div className="flex items-center justify-end">
               <div className="flex h-24 w-24 -rotate-6 items-center justify-center rounded-full border-2 border-vermillion/60 bg-paper shadow-sm">
                 <div className="text-center font-mono text-[9px] uppercase leading-tight tracking-[0.22em] text-vermillion">
@@ -116,33 +105,25 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Vol info */}
-            <div className="mt-14 font-mono text-[10px] uppercase tracking-[0.22em] text-brass-deep">
-              <div>Volume I</div>
-              <div className="mt-1">Number 01</div>
-              <div className="mt-4 h-px w-16 bg-brass" />
-            </div>
+            <ol className="mt-14 space-y-8">
+              {STEPS.map((s) => (
+                <li key={s.index}>
+                  <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-brass-deep">
+                    {s.index}
+                  </div>
+                  <div className="mt-2 font-display text-[22px] leading-tight tracking-[-0.01em] text-ink">
+                    {s.title}
+                  </div>
+                  <p className="mt-2 font-body text-[14px] leading-7 text-ink-soft">
+                    {s.body}
+                  </p>
+                </li>
+              ))}
+            </ol>
 
-            {/* Epigraph */}
-            <blockquote className="mt-10">
-              <p className="font-display text-[28px] leading-[1.22] tracking-[-0.01em] text-ink md:text-[32px]">
-                <span className="italic">&ldquo;Every file</span>
-                <br />
-                <span className="italic">remembers what</span>
-                <br />
-                <span className="italic">we forget.&rdquo;</span>
-              </p>
-              <footer className="mt-6 font-mono text-[10px] uppercase tracking-[0.22em] text-ink-soft">
-                <span className="text-brass-deep">¶</span> Anon. circular,
-                <br />
-                City Civil &middot; 1979
-              </footer>
-            </blockquote>
-
-            {/* Colophon */}
             <div className="mt-16 border-t border-rule/40 pt-6 font-mono text-[10px] uppercase tracking-[0.22em] text-ink-soft">
-              <div>Chambers · Bengaluru</div>
-              <div className="mt-1">Members Only · MMXXVI</div>
+              <div>Codes expire in 10 minutes</div>
+              <div className="mt-1">Never share one with anyone</div>
             </div>
           </div>
         </aside>
@@ -150,3 +131,21 @@ export default function LoginPage() {
     </section>
   );
 }
+
+const STEPS = [
+  {
+    index: "01",
+    title: "Your office email",
+    body: "The same address you sign in with. If it's on record, a six-digit code is on its way.",
+  },
+  {
+    index: "02",
+    title: "The code",
+    body: "Six digits, good for ten minutes. Check the spam folder if it isn't in the inbox.",
+  },
+  {
+    index: "03",
+    title: "A new password",
+    body: "At least eight characters. You'll be signed in the moment it's set.",
+  },
+];

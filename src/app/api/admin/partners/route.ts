@@ -96,6 +96,10 @@ export async function GET(request: Request) {
     status: p.subscription.status,
     startDate: p.subscription.startDate.toISOString(),
     endDate: p.subscription.endDate.toISOString(),
+    signupSource: p.signupSource ?? "admin",
+    emailVerifiedAt: p.emailVerifiedAt
+      ? p.emailVerifiedAt.toISOString()
+      : null,
     createdAt: p.createdAt.toISOString(),
   }));
 

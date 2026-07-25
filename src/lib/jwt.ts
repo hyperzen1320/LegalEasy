@@ -44,3 +44,37 @@ export async function verifyMobileJWT(
     lastName: String(payload.lastName ?? ""),
   };
 }
+
+// ─── Password-reset tickets ───
+//
+// Handed out only once an emailed OTP has been verified, and spent by the
+// final "set my new password" call. Signing it means the client can't
+// invent one, and the 10-minute expiry means a ticket left sitting in a
+// closed tab is worthless. Audience-tagged so a reset ticket can never be
+// mistaken for a mobile session token.
+
+const RESET_AUDIENCE = "legalezi:password-reset";
+
+export async function signPasswordResetTicket(email: string): Promise<string> {
+  return new SignJWT({ email: email.toLowerCase() })
+    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+    .setAudience(RESET_AUDIENCE)
+    .setIssuedAt()
+    .setExpirationTime("10m")
+    .sign(getJwtSecret());
+}
+
+/** Returns the email the ticket was cut for, or null if it isn't valid. */
+export async function verifyPasswordResetTicket(
+  token: string
+): Promise<string | null> {
+  try {
+    const { payload } = await jwtVerify(token, getJwtSecret(), {
+      audience: RESET_AUDIENCE,
+    });
+    const email = typeof payload.email === "string" ? payload.email : "";
+    return email ? email.toLowerCase() : null;
+  } catch {
+    return null;
+  }
+}

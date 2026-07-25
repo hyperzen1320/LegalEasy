@@ -48,6 +48,16 @@ export interface IPartner {
   // chambers has no map at all and therefore keeps everything.
   // See lib/features.ts.
   features?: Map<string, boolean>;
+  // How this chambers got here. "admin" = created by a global admin in the
+  // console (the only route that existed before self-serve sign-up);
+  // "self" = someone signed themselves up on the marketing site and
+  // verified their email. Existing rows default to "admin", which is what
+  // they are.
+  signupSource: "admin" | "self";
+  // Set when the primary email proved itself with a one-time code. Only
+  // self-serve sign-ups go through that, so it stays null for chambers a
+  // global admin created by hand — those are vouched for by the admin.
+  emailVerifiedAt: Date | null;
   isDeleted: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -110,6 +120,13 @@ const PartnerSchema = new Schema<IPartner>(
       of: Boolean,
       default: undefined,
     },
+    signupSource: {
+      type: String,
+      enum: ["admin", "self"],
+      default: "admin",
+      required: true,
+    },
+    emailVerifiedAt: { type: Date, default: null },
     isDeleted: { type: Boolean, default: false },
   },
   { timestamps: true }

@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/db";
 import { User } from "@/models/User";
+import { getSeatStatus, type SeatStatus } from "@/lib/seats";
 import UsersClient, { type UserRow } from "./UsersClient";
 import { guardFeature } from "@/lib/feature-guard";
 
@@ -17,9 +18,21 @@ export default async function UsersPage() {
   const isAdmin = session?.user?.userType === "partner_admin";
 
   let users: UserRow[] = [];
+  // Unlimited until we know better — a page render without a tenant has no
+  // plan to cap against, and the API is the real gate either way.
+  let seats: SeatStatus = {
+    used: 0,
+    limit: 0,
+    unlimited: true,
+    remaining: null,
+    atCap: false,
+    planKey: "",
+    planLabel: "",
+  };
 
   if (partnerId) {
     await connectDB();
+    seats = await getSeatStatus(partnerId);
     const docs = await User.find({ partnerId, isDeleted: false })
       .sort({ userType: 1, firstName: 1, lastName: 1 })
       .lean();
@@ -51,6 +64,7 @@ export default async function UsersPage() {
           initialUsers={users}
           currentUserId={currentUserId}
           isAdmin={isAdmin}
+          initialSeats={seats}
         />
       </div>
     </div>
