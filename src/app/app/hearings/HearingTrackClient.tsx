@@ -20,6 +20,15 @@ export type { HearingRow, Bucket };
 
 type Counts = { today: number; tomorrow: number; pending: number; all: number };
 
+// The three fields an inline hearing update can change on the record. The
+// card keeps the last saved copy so what it shows — and what the WhatsApp
+// notice quotes — matches the case file the instant Update succeeds, rather
+// than waiting for the list to be refetched on Done.
+type SavedPatch = Pick<
+  HearingRow,
+  "status" | "nextHearingDate" | "lastHearingDate"
+>;
+
 export default function HearingTrackClient({
   bucket,
   items,
@@ -520,9 +529,24 @@ function ScheduledRow({
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
+  // What the inline editor last wrote to the record. Held here (not in the
+  // editor) so the CARD renders and messages the just-saved hearing too —
+  // the WhatsApp button has to quote what's on record the moment Update is
+  // pressed, not after the list refetches. The list only refetches on Done,
+  // so a matter that has just left this bucket doesn't vanish mid-flow.
+  const [savedPatch, setSavedPatch] = useState<SavedPatch | null>(null);
+  const view = savedPatch ? { ...c, ...savedPatch } : c;
+  // Finishing with this matter — drop the local copy and refetch so the row
+  // re-buckets. Reached from Done inside the editor and from Close on the
+  // header, which mean the same thing once a save has landed.
+  function finish() {
+    setEditing(false);
+    setSavedPatch(null);
+    router.refresh();
+  }
   const courtLine = [c.courtName, c.courtPlace].filter(Boolean).join(", ");
-  const telLink = buildTelLink(c);
-  const waLink = rowWaLink(c, noticeTemplate, officeName);
+  const telLink = buildTelLink(view);
+  const waLink = rowWaLink(view, noticeTemplate, officeName);
 
   return (
     <div
@@ -550,8 +574,10 @@ function ScheduledRow({
               >
                 {c.caseNo}
               </span>
-              {showDate ? <NextDateChip iso={c.nextHearingDate} /> : null}
-              {c.status ? (
+              {showDate || savedPatch ? (
+                <NextDateChip iso={view.nextHearingDate} />
+              ) : null}
+              {view.status ? (
                 <span
                   className="rounded-md px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em]"
                   style={{
@@ -560,7 +586,7 @@ function ScheduledRow({
                     color: "var(--color-app-aqua)",
                   }}
                 >
-                  {c.status}
+                  {view.status}
                 </span>
               ) : null}
             </div>
@@ -630,7 +656,7 @@ function ScheduledRow({
           />
           <button
             type="button"
-            onClick={() => setEditing((v) => !v)}
+            onClick={() => (editing && savedPatch ? finish() : setEditing((v) => !v))}
             className="inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-[12px] font-semibold transition-all hover:-translate-y-0.5"
             style={{
               fontFamily: "var(--font-manrope), sans-serif",
@@ -646,7 +672,7 @@ function ScheduledRow({
             }}
           >
             <CalendarIcon />
-            {editing ? "Close" : "Update"}
+            {editing ? (savedPatch ? "Done" : "Close") : "Update"}
           </button>
         </div>
       </div>
@@ -654,12 +680,12 @@ function ScheduledRow({
       {editing ? (
         <InlineHearingUpdate
           row={c}
+          savedPatch={savedPatch}
           officeName={officeName}
           noticeTemplate={noticeTemplate}
-          onClose={() => {
-            setEditing(false);
-            router.refresh();
-          }}
+          onSaved={setSavedPatch}
+          onDone={finish}
+          onCancel={() => setEditing(false)}
         />
       ) : null}
     </div>
@@ -681,8 +707,17 @@ function PendingCard({
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
-  const telLink = buildTelLink(c);
-  const waLink = rowWaLink(c, noticeTemplate, officeName);
+  // See ScheduledRow — the saved hearing lives on the card so Call/WhatsApp
+  // quote it immediately, and the card survives until Done.
+  const [savedPatch, setSavedPatch] = useState<SavedPatch | null>(null);
+  const view = savedPatch ? { ...c, ...savedPatch } : c;
+  function finish() {
+    setEditing(false);
+    setSavedPatch(null);
+    router.refresh();
+  }
+  const telLink = buildTelLink(view);
+  const waLink = rowWaLink(view, noticeTemplate, officeName);
 
   // Two flavours of pending — the previous date passed without being
   // replaced (overdue) or the matter was never given a next date
@@ -717,7 +752,7 @@ function PendingCard({
             >
               {c.caseNo}
             </Link>
-            {c.status ? (
+            {view.status ? (
               <span
                 className="ml-3 rounded-md px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em]"
                 style={{
@@ -727,7 +762,7 @@ function PendingCard({
                   verticalAlign: "middle",
                 }}
               >
-                {c.status}
+                {view.status}
               </span>
             ) : null}
             <div
@@ -766,7 +801,7 @@ function PendingCard({
                 </>
               ) : null}
             </div>
-            {!isOverdue && c.lastHearingDate ? (
+            {(savedPatch || !isOverdue) && view.lastHearingDate ? (
               <div
                 className="mt-1 text-[12px]"
                 style={{
@@ -776,15 +811,53 @@ function PendingCard({
               >
                 Last date:{" "}
                 <span style={{ color: "var(--color-app-ink)", fontWeight: 600 }}>
-                  {c.lastHearingDate.slice(0, 10)}
+                  {view.lastHearingDate.slice(0, 10)}
                 </span>
               </div>
             ) : null}
           </div>
 
-          {/* Badge column */}
+          {/* Badge column — once the matter has been re-dated in this session
+              the overdue/undated badges no longer describe it, so the card
+              states the new posting instead until Done refetches the list. */}
           <div className="flex shrink-0 flex-col items-end gap-1.5">
-            {isOverdue ? (
+            {savedPatch ? (
+              <>
+                <span
+                  className="rounded-md px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                  style={{
+                    fontFamily: "var(--font-dm-mono), monospace",
+                    backgroundColor: "var(--color-app-aqua-soft)",
+                    color: "var(--color-app-aqua)",
+                  }}
+                >
+                  Updated
+                </span>
+                <span
+                  className="text-[11px]"
+                  style={{
+                    fontFamily: "var(--font-dm-mono), monospace",
+                    color: "var(--color-app-fg-muted)",
+                  }}
+                >
+                  {view.nextHearingDate ? (
+                    <>
+                      Now{" "}
+                      <span
+                        style={{
+                          color: "var(--color-app-ink)",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {formatDateShort(view.nextHearingDate)}
+                      </span>
+                    </>
+                  ) : (
+                    "Still undated"
+                  )}
+                </span>
+              </>
+            ) : isOverdue ? (
               <>
                 <span
                   className="rounded-md px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
@@ -830,7 +903,7 @@ function PendingCard({
         <div className="mt-5 flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => setEditing((v) => !v)}
+            onClick={() => (editing && savedPatch ? finish() : setEditing((v) => !v))}
             className="inline-flex items-center gap-1.5 rounded-md px-5 py-2.5 text-[13px] font-semibold transition-all hover:-translate-y-0.5"
             style={{
               fontFamily: "var(--font-manrope), sans-serif",
@@ -846,7 +919,7 @@ function PendingCard({
             }}
           >
             <CalendarIcon />
-            {editing ? "Close" : "Update hearing"}
+            {editing ? (savedPatch ? "Done" : "Close") : "Update hearing"}
           </button>
           <ContactPillButton
             href={telLink}
@@ -867,12 +940,12 @@ function PendingCard({
       {editing ? (
         <InlineHearingUpdate
           row={c}
+          savedPatch={savedPatch}
           officeName={officeName}
           noticeTemplate={noticeTemplate}
-          onClose={() => {
-            setEditing(false);
-            router.refresh();
-          }}
+          onSaved={setSavedPatch}
+          onDone={finish}
+          onCancel={() => setEditing(false)}
         />
       ) : null}
     </div>
@@ -882,36 +955,57 @@ function PendingCard({
 /* ─── Inline hearing update ─── */
 
 // The compact editor that drops into a card. It PATCHes the case exactly
-// like the full Update-Hearing form on the case page, then surfaces Call /
-// WhatsApp for the just-saved date right here. Closing the editor refreshes
-// the list so the row re-buckets (a freshly-dated matter leaves Pending).
+// like the full Update-Hearing form on the case page and hands the saved
+// record back to the card via `onSaved`, so the card's own Call / WhatsApp
+// buttons quote the new date AND status straight away. The list is only
+// refetched on Done — that's what lets a freshly-dated matter stay put
+// long enough to message the client before it leaves this bucket.
 function InlineHearingUpdate({
   row,
+  savedPatch,
   officeName,
   noticeTemplate,
-  onClose,
+  onSaved,
+  onDone,
+  onCancel,
 }: {
   row: HearingRow;
+  savedPatch: SavedPatch | null;
   officeName: string;
   noticeTemplate: string;
-  onClose: () => void;
+  onSaved: (patch: SavedPatch) => void;
+  onDone: () => void;
+  onCancel: () => void;
 }) {
+  const origDate = row.nextHearingDate ? row.nextHearingDate.slice(0, 10) : "";
   const [nextDate, setNextDate] = useState(
-    row.nextHearingDate ? row.nextHearingDate.slice(0, 10) : ""
+    savedPatch?.nextHearingDate
+      ? savedPatch.nextHearingDate.slice(0, 10)
+      : savedPatch
+        ? ""
+        : origDate
   );
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(savedPatch?.status ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
-  const [savedDate, setSavedDate] = useState("");
+  // What the last successful save put on record. Re-editing compares
+  // against this rather than the row we mounted with, so the Update button
+  // doesn't stay lit on a value that has already been written.
+  const [baseline, setBaseline] = useState<{ date: string; status: string }>({
+    date: savedPatch?.nextHearingDate
+      ? savedPatch.nextHearingDate.slice(0, 10)
+      : savedPatch
+        ? ""
+        : origDate,
+    status: savedPatch?.status ?? row.status ?? "",
+  });
 
-  const origDate = row.nextHearingDate ? row.nextHearingDate.slice(0, 10) : "";
   // Status starts blank so the advocate consciously sets it. A blank status on
   // save keeps whatever's on record (never silently wiped); a typed status only
   // counts as a change when it differs from what's stored.
   const statusChanged =
-    status.trim().length > 0 && status.trim() !== (row.status || "");
-  const dirty = nextDate !== origDate || statusChanged;
+    status.trim().length > 0 && status.trim() !== baseline.status;
+  const dirty = nextDate !== baseline.date || statusChanged;
 
   async function save() {
     setError(null);
@@ -934,8 +1028,32 @@ function InlineHearingUpdate({
         setSaving(false);
         return;
       }
-      setSavedDate(nextDate);
-      setSaved(true);
+      // Take the saved record from the server's response rather than
+      // re-deriving it here: the PATCH also archives the old next-date into
+      // lastHearingDate, and the notice has to quote the same three fields
+      // the case file now holds.
+      const saved = (data?.case ?? null) as {
+        status?: string;
+        nextHearingDate?: string | null;
+        lastHearingDate?: string | null;
+      } | null;
+      const savedNext =
+        saved && "nextHearingDate" in saved
+          ? saved.nextHearingDate ?? null
+          : parseDateInputLocal(nextDate)?.toISOString() ?? null;
+      const patch: SavedPatch = {
+        status: saved?.status ?? (status.trim() || row.status),
+        nextHearingDate: savedNext,
+        lastHearingDate:
+          saved && "lastHearingDate" in saved
+            ? saved.lastHearingDate ?? null
+            : row.nextHearingDate || row.lastHearingDate,
+      };
+      setBaseline({
+        date: savedNext ? savedNext.slice(0, 10) : "",
+        status: patch.status,
+      });
+      onSaved(patch);
       setSaving(false);
     } catch {
       setError("Network error.");
@@ -943,23 +1061,13 @@ function InlineHearingUpdate({
     }
   }
 
-  // Notify links built from the SAVED date so the message quotes what's on
-  // record, not a half-typed edit.
-  const savedIso = saved
-    ? parseDateInputLocal(savedDate)?.toISOString() ?? null
-    : null;
-  // For the notice: the hearing just held was on the date we updated *from*
-  // (the previous date), and the new posting is what we saved. Undated rows
-  // fall back to the matter's archived last hearing date.
-  const notifyRow: HearingRow = {
-    ...row,
-    lastHearingDate: row.nextHearingDate || row.lastHearingDate,
-    nextHearingDate: savedIso,
-  };
+  // Notify links come off the same patched row the card renders, so the
+  // WhatsApp note and the card can never disagree about what was saved.
+  const notifyRow: HearingRow = savedPatch ? { ...row, ...savedPatch } : row;
   const telLink = buildTelLink(notifyRow);
   const waLink = rowWaLink(notifyRow, noticeTemplate, officeName);
   const hasContact = Boolean(telLink || waLink);
-  const showNotify = saved && !dirty;
+  const showNotify = Boolean(savedPatch) && !dirty;
 
   return (
     <div
@@ -986,10 +1094,7 @@ function InlineHearingUpdate({
           <input
             type="date"
             value={nextDate}
-            onChange={(e) => {
-              setNextDate(e.target.value);
-              setSaved(false);
-            }}
+            onChange={(e) => setNextDate(e.target.value)}
             className="mt-2 block w-full rounded-md border px-3 py-2 text-[13px] outline-none transition-colors"
             style={{
               fontFamily: "var(--font-manrope), sans-serif",
@@ -1004,10 +1109,7 @@ function InlineHearingUpdate({
             id={`pending-status-${row.id}`}
             label="Status / Stage"
             value={status}
-            onChange={(v) => {
-              setStatus(v);
-              setSaved(false);
-            }}
+            onChange={setStatus}
             placeholder="Select or type — blank keeps current"
           />
         </div>
@@ -1030,7 +1132,7 @@ function InlineHearingUpdate({
             boxShadow: dirty ? "0 8px 20px -10px rgba(197,133,58,0.6)" : "none",
           }}
         >
-          {saving ? "Saving…" : saved && !dirty ? "Saved" : "Update"}
+          {saving ? "Saving…" : savedPatch && !dirty ? "Saved ✓" : "Update"}
         </button>
       </div>
       <p
@@ -1062,19 +1164,21 @@ function InlineHearingUpdate({
         </div>
       ) : null}
 
-      <div className="mt-4">
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-[12px] font-semibold uppercase tracking-[0.16em]"
-          style={{
-            fontFamily: "var(--font-dm-mono), monospace",
-            color: "var(--color-app-fg-muted)",
-          }}
-        >
-          {saved ? "Done" : "Cancel"}
-        </button>
-      </div>
+      {savedPatch ? null : (
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="text-[12px] font-semibold uppercase tracking-[0.16em]"
+            style={{
+              fontFamily: "var(--font-dm-mono), monospace",
+              color: "var(--color-app-fg-muted)",
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
 
       {showNotify ? (
         <div
@@ -1141,6 +1245,42 @@ function InlineHearingUpdate({
               No phone or WhatsApp on file for this client.
             </p>
           )}
+        </div>
+      ) : null}
+
+      {/* Done is the step that lets the list move on. Until it's pressed the
+          matter stays on screen with its new date so the advocate can send
+          the notice; pressing it refetches, and a re-dated matter leaves
+          this bucket. */}
+      {savedPatch ? (
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={onDone}
+            className="inline-flex items-center gap-2 rounded-md px-6 py-2.5 text-[12px] font-semibold uppercase tracking-[0.16em] transition-all hover:-translate-y-0.5"
+            style={{
+              fontFamily: "var(--font-dm-mono), monospace",
+              backgroundColor: "var(--color-app-ink)",
+              color: "var(--color-app-ivory)",
+              boxShadow: "0 8px 20px -10px rgba(10,17,36,0.45)",
+            }}
+          >
+            Done
+            <span aria-hidden style={{ color: "var(--color-app-copper)" }}>
+              →
+            </span>
+          </button>
+          <span
+            className="text-[11px]"
+            style={{
+              fontFamily: "var(--font-manrope), sans-serif",
+              color: "var(--color-app-fg-muted)",
+            }}
+          >
+            {dirty
+              ? "You have unsaved edits — press Update again to save them."
+              : "Saved. Press Done when you've finished with this matter."}
+          </span>
         </div>
       ) : null}
     </div>
