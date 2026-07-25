@@ -42,6 +42,16 @@ export interface IPartner {
   // in My Profile; merge tokens like {{caseNo}} / {{nextHearingDate}} are
   // substituted per matter when the notice is built. Empty = use the default.
   noticeTemplate: string;
+  // How this chambers got here. "admin" = created by a global admin in the
+  // console (the only route that existed before self-serve sign-up);
+  // "self" = someone signed themselves up on the marketing site and
+  // verified their email. Existing rows default to "admin", which is what
+  // they are.
+  signupSource: "admin" | "self";
+  // Set when the primary email proved itself with a one-time code. Only
+  // self-serve sign-ups go through that, so it stays null for chambers a
+  // global admin created by hand — those are vouched for by the admin.
+  emailVerifiedAt: Date | null;
   isDeleted: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -99,6 +109,13 @@ const PartnerSchema = new Schema<IPartner>(
       },
     },
     noticeTemplate: { type: String, default: "" },
+    signupSource: {
+      type: String,
+      enum: ["admin", "self"],
+      default: "admin",
+      required: true,
+    },
+    emailVerifiedAt: { type: Date, default: null },
     isDeleted: { type: Boolean, default: false },
   },
   { timestamps: true }

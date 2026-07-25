@@ -83,10 +83,10 @@ export default function ProductHeader() {
             Sign in
           </Link>
           <Link
-            href="/product#access"
+            href="/signup"
             className="group inline-flex items-center gap-2 border border-ink bg-ink px-4 py-2.5 font-mono text-[11px] uppercase tracking-[0.18em] text-paper transition-colors hover:bg-ink-2"
           >
-            Request Access
+            Sign Up
             <span className="text-brass transition-transform duration-200 group-hover:translate-x-1">
               →
             </span>

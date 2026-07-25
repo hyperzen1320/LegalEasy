@@ -126,10 +126,10 @@ function Hero() {
             style={{ animationDelay: "0.45s" }}
           >
             <Link
-              href="#access"
+              href="/signup"
               className="group inline-flex items-center justify-center gap-3 border border-ink bg-ink px-7 py-4 font-mono text-[12px] uppercase tracking-[0.18em] text-paper transition-colors hover:bg-ink-2"
             >
-              Request Early Access
+              Start 7 Days Free
               <span className="text-brass transition-transform duration-200 group-hover:translate-x-1">
                 →
               </span>
@@ -779,10 +779,10 @@ function Closing() {
           </h2>
           <div className="mt-12 flex flex-col items-center justify-center gap-5 sm:flex-row">
             <Link
-              href="#"
+              href="/signup"
               className="group inline-flex items-center justify-center gap-3 border border-ink bg-ink px-8 py-4 font-mono text-[12px] uppercase tracking-[0.18em] text-paper transition-colors hover:bg-ink-2"
             >
-              Request Early Access
+              Start 7 Days Free
               <span className="text-brass transition-transform duration-200 group-hover:translate-x-1">
                 →
               </span>

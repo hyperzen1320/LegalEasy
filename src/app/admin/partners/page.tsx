@@ -22,8 +22,12 @@ export default async function PartnersListPage() {
     status: p.subscription.status,
     startDate: p.subscription.startDate,
     endDate: p.subscription.endDate,
+    signupSource: p.signupSource ?? "admin",
+    emailVerified: Boolean(p.emailVerifiedAt),
     createdAt: p.createdAt,
   }));
+
+  const selfSignups = partners.filter((p) => p.signupSource === "self").length;
 
   return (
     <div className="mx-auto max-w-[1280px]">
@@ -46,7 +50,17 @@ export default async function PartnersListPage() {
                 <span className="font-medium text-admin-fg">
                   {partners.length}
                 </span>{" "}
-                total.
+                total
+                {selfSignups > 0 && (
+                  <>
+                    {", "}
+                    <span className="font-medium text-admin-fg">
+                      {selfSignups}
+                    </span>{" "}
+                    from self sign-up
+                  </>
+                )}
+                .
               </>
             )}
           </p>
@@ -93,6 +107,8 @@ type PartnerCardProps = {
     status: string;
     startDate: Date | string;
     endDate: Date | string;
+    signupSource: string;
+    emailVerified: boolean;
     createdAt: Date | string;
   };
   delay?: number;
@@ -134,10 +150,28 @@ function PartnerCard({ partner: p, delay = 0 }: PartnerCardProps) {
           {p.name}
         </h3>
         <div
-          className="mt-1.5 text-[11px] text-admin-fg-soft"
+          className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-admin-fg-soft"
           style={{ fontFamily: "var(--font-plex-mono), monospace" }}
         >
-          /{p.slug}
+          <span>/{p.slug}</span>
+          {/* How the chambers arrived. Only self sign-ups are called out —
+              admin-created is the historical default and needs no label. */}
+          {p.signupSource === "self" && (
+            <span
+              className="rounded px-1.5 py-0.5 text-[9px] uppercase tracking-[0.14em]"
+              style={{
+                backgroundColor: "var(--color-admin-accent-soft)",
+                color: "var(--color-admin-accent)",
+              }}
+              title={
+                p.emailVerified
+                  ? "Signed up on the site and verified their email"
+                  : "Signed up on the site"
+              }
+            >
+              {p.emailVerified ? "Self · verified" : "Self sign-up"}
+            </span>
+          )}
         </div>
       </div>
 

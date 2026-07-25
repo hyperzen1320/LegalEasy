@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import LoginForm from "./LoginForm";
 
 export const metadata: Metadata = {
@@ -77,8 +78,15 @@ export default function LoginPage() {
             style={{ animationDelay: "0.7s" }}
           >
             <p className="font-body text-[14px] italic leading-7 text-ink-soft">
-              Need access? Speak to your office&rsquo;s administrator. New
-              chambers are added by invitation —{" "}
+              No chambers here yet?{" "}
+              <Link
+                href="/signup"
+                className="not-italic font-mono text-[11px] uppercase tracking-[0.18em] text-ink underline-offset-4 hover:underline"
+              >
+                Sign up
+              </Link>{" "}
+              — seven days free, no card. Already in an office? Ask your
+              administrator to add you, or write to{" "}
               <a
                 href="mailto:chambers@legalezi.com"
                 className="not-italic font-mono text-[11px] uppercase tracking-[0.18em] text-ink underline-offset-4 hover:underline"
