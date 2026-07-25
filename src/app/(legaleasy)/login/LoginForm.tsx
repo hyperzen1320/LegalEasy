@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
@@ -85,12 +86,12 @@ export default function LoginForm() {
               {showPw ? "Hide" : "Show"}
             </button>
             <span className="text-rule">·</span>
-            <a
+            <Link
               href="/forgot-password"
               className="font-mono text-[10px] uppercase tracking-[0.18em] text-brass-deep transition-colors hover:text-ink"
             >
               Forgot?
-            </a>
+            </Link>
           </div>
         }
       />
