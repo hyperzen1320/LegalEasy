@@ -45,6 +45,9 @@ export type ChatMessageDTO = {
   editedAt: string | null;
   createdAt: string;
   isMine: boolean;
+  // "sent" | "delivered" | "read" on your own messages, null on everyone
+  // else's. Drives the WhatsApp-style ticks.
+  receipt: "sent" | "delivered" | "read" | null;
 };
 
 type Cadence = "active" | "background";
@@ -277,6 +280,8 @@ export function useChatRoom(
         editedAt: null,
         createdAt: new Date().toISOString(),
         isMine: true,
+        // Not on the server yet, so not even one tick.
+        receipt: null,
       };
       setMessages((prev) => [...prev, optimistic]);
       setSending(true);

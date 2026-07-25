@@ -6,6 +6,11 @@ import { corsHeaders } from "@/lib/cors";
 import { ChatRoom } from "@/models/ChatRoom";
 import { ChatMessage } from "@/models/ChatMessage";
 import { userCanReadRoom, previewFromBody } from "@/lib/chat-rooms";
+import {
+  buildReceiptResolver,
+  touchSeen,
+  type Receipt,
+} from "@/lib/chat-receipts";
 
 // GET  /api/app/chat/rooms/[id]/messages?before=<msgId>&limit=50
 // POST /api/app/chat/rooms/[id]/messages   { body: string }
@@ -45,6 +50,9 @@ type MessageDTO = {
   editedAt: string | null;
   createdAt: string;
   isMine: boolean;
+  // Delivery/read state — only ever set on your OWN messages. Somebody
+  // else's tick is nobody's business but theirs.
+  receipt: Receipt | null;
 };
 
 // Normalise the attachment refs the composer sends (it has already uploaded
@@ -142,6 +150,16 @@ export async function GET(
     .lean();
   docs.reverse();
 
+  // Asking for this room's messages IS the honest signal that the room is
+  // open, so it's what marks messages delivered for everyone else. Fire and
+  // forget — the write is throttled server-side and a failed tick must
+  // never cost the caller their messages.
+  void touchSeen(partnerId, userId, room._id);
+
+  // One marker query for the whole page; each message is then a couple of
+  // comparisons rather than a round-trip.
+  const receipts = await buildReceiptResolver({ room, userId });
+
   const messages: MessageDTO[] = docs.map((m) => ({
     id: String(m._id),
     roomId: String(m.roomId),
@@ -162,6 +180,10 @@ export async function GET(
     editedAt: m.editedAt ? m.editedAt.toISOString() : null,
     createdAt: m.createdAt.toISOString(),
     isMine: m.senderId ? String(m.senderId) === guard.ctx.user.id : false,
+    receipt:
+      m.senderId && String(m.senderId) === guard.ctx.user.id && !m.isDeleted
+        ? receipts.receiptFor(m._id, m.createdAt)
+        : null,
   }));
 
   return NextResponse.json(
@@ -300,6 +322,7 @@ export async function POST(
         editedAt: null,
         createdAt: msg.createdAt.toISOString(),
         isMine: true,
+        receipt: "sent" as const,
       },
     },
     {

@@ -55,6 +55,17 @@ export async function GET(
   const filename = entry.filename || "attachment";
   const asAttachment = new URL(request.url).searchParams.get("download") === "1";
 
+  // Saving a shared file to disk is office-admin only, matching the case
+  // briefcase. Everyone in chambers can still VIEW it — images render in
+  // the lightbox and PDFs open inline — but pulling the raw file out of
+  // the office is a decision that belongs to the admin.
+  if (asAttachment && guard.ctx.user.role !== "admin") {
+    return NextResponse.json(
+      { error: "Only the office admin can download shared files." },
+      { status: 403, headers }
+    );
+  }
+
   const nodeStream = bucket.openDownloadStream(fileId);
   const webStream = Readable.toWeb(
     nodeStream
