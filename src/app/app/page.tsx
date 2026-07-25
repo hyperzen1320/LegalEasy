@@ -7,11 +7,16 @@ import { Board } from "@/models/Board";
 import { Task } from "@/models/Task";
 import Logo from "@/components/Logo";
 import SeniorDeskTile from "./SeniorDeskTile";
+import { currentFeatures } from "@/lib/feature-guard";
+import { isFeatureEnabled, type FeatureMap } from "@/lib/features";
 import { fullName } from "@/lib/display-name";
 import { User } from "@/models/User";
 
 export default async function PartnerDashboard() {
   const session = await auth();
+  // The dashboard is the one page that can't be switched off, so it has to
+  // hide the tiles and stat cards that lead into modules which HAVE been.
+  const features = await currentFeatures();
   let displayName = fullName(
     session?.user?.firstName,
     session?.user?.lastName,
@@ -136,11 +141,17 @@ export default async function PartnerDashboard() {
           stats={stats}
         />
 
-        <StatsRow stats={stats} />
+        <StatsRow stats={stats} features={features} />
 
-        <DeskTiles boardCount={boardCount} cardCount={cardCount} />
+        <DeskTiles
+          boardCount={boardCount}
+          cardCount={cardCount}
+          features={features}
+        />
 
-        <TodaysBoard cases={todaysBoard} />
+        {isFeatureEnabled(features, "hearings") ? (
+          <TodaysBoard cases={todaysBoard} />
+        ) : null}
       </div>
     </div>
   );
@@ -257,6 +268,7 @@ function CountInline({ n }: { n: number }) {
 
 function StatsRow({
   stats,
+  features,
 }: {
   stats: {
     todayHearings: number;
@@ -264,9 +276,19 @@ function StatsRow({
     pendingDates: number;
     caseVault: number;
   };
+  features: FeatureMap;
 }) {
+  // Three of these four cards are doorways into Hearing Track and the
+  // fourth into Case Vault — a card that leads somewhere the chambers
+  // can't go would just be a dead end.
+  const showHearings = isFeatureEnabled(features, "hearings");
+  const showCases = isFeatureEnabled(features, "cases");
+  if (!showHearings && !showCases) return null;
+
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {showHearings ? (
+        <>
       <StatCard
         label="Today Hearings"
         value={stats.todayHearings}
@@ -291,14 +313,18 @@ function StatsRow({
         icon={<IconAlert />}
         delay={0.15}
       />
-      <StatCard
-        label="Case Vault"
-        value={stats.caseVault}
-        variant="paper"
-        href="/app/cases"
-        icon={<IconBriefcase />}
-        delay={0.2}
-      />
+        </>
+      ) : null}
+      {showCases ? (
+        <StatCard
+          label="Case Vault"
+          value={stats.caseVault}
+          variant="paper"
+          href="/app/cases"
+          icon={<IconBriefcase />}
+          delay={0.2}
+        />
+      ) : null}
     </div>
   );
 }
@@ -407,9 +433,11 @@ function StatCard({
 function DeskTiles({
   boardCount,
   cardCount,
+  features,
 }: {
   boardCount: number;
   cardCount: number;
+  features: FeatureMap;
 }) {
   const workflowSubtitle =
     boardCount === 0
@@ -418,15 +446,25 @@ function DeskTiles({
           cardCount === 1 ? "" : "s"
         } in motion`;
 
+  const showWorkflow = isFeatureEnabled(features, "workflow");
+  const showDesk = isFeatureEnabled(features, "seniorDesk");
+  if (!showWorkflow && !showDesk) return null;
+
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      <PhaseCard
-        title="Work Flow"
-        subtitle={workflowSubtitle}
-        icon={<IconBoards />}
-        href="/app/workflow"
-      />
-      <SeniorDeskTile />
+    <div
+      className={`grid gap-4 ${
+        showWorkflow && showDesk ? "md:grid-cols-2" : ""
+      }`}
+    >
+      {showWorkflow ? (
+        <PhaseCard
+          title="Work Flow"
+          subtitle={workflowSubtitle}
+          icon={<IconBoards />}
+          href="/app/workflow"
+        />
+      ) : null}
+      {showDesk ? <SeniorDeskTile /> : null}
     </div>
   );
 }

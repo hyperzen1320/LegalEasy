@@ -7,6 +7,11 @@ import { signOut } from "next-auth/react";
 import Logo from "@/components/Logo";
 import { useChatUnread } from "@/lib/use-chat-unread";
 import { fullName, initials } from "@/lib/display-name";
+import {
+  isFeatureEnabled,
+  type FeatureKey,
+  type FeatureMap,
+} from "@/lib/features";
 
 type NavItem = {
   name: string;
@@ -20,6 +25,9 @@ type NavItem = {
   // viewers in the rail; the pages and APIs enforce the same gate, so
   // hiding here is just the first (cosmetic) of the three layers.
   adminOnly?: boolean;
+  // The module switch this entry belongs to. Absent = always available
+  // (Dashboard and My Profile are not modules and can't be switched off).
+  feature?: FeatureKey;
 };
 
 // Disposed Cases sits low in the rail (just above My Profile) because
@@ -28,31 +36,60 @@ type NavItem = {
 // top of the workspace section.
 const NAV: NavItem[] = [
   { name: "Dashboard", href: "/app", icon: IconDashboard },
-  { name: "Case Vault", href: "/app/cases", icon: IconCases },
-  { name: "Client Crew", href: "/app/clients", icon: IconClients },
-  { name: "Hearing Track", href: "/app/hearings", icon: IconHearings },
-  { name: "Court Hub", href: "/app/courts", icon: IconCourts },
-  { name: "Work Flow", href: "/app/workflow", icon: IconBoards },
+  { name: "Case Vault", href: "/app/cases", icon: IconCases, feature: "cases" },
+  {
+    name: "Client Crew",
+    href: "/app/clients",
+    icon: IconClients,
+    feature: "clients",
+  },
+  {
+    name: "Hearing Track",
+    href: "/app/hearings",
+    icon: IconHearings,
+    feature: "hearings",
+  },
+  { name: "Court Hub", href: "/app/courts", icon: IconCourts, feature: "courts" },
+  {
+    name: "Work Flow",
+    href: "/app/workflow",
+    icon: IconBoards,
+    feature: "workflow",
+  },
   {
     name: "Senior Desk",
     href: "/app/senior-desk",
     icon: IconSeniorDesk,
     liveCountKey: "chatUnread",
+    feature: "seniorDesk",
   },
-  { name: "Activity", href: "/app/activity", icon: IconActivity, adminOnly: true },
-  { name: "AI Assistant", href: "/app/ai", icon: IconAI },
+  {
+    name: "Activity",
+    href: "/app/activity",
+    icon: IconActivity,
+    adminOnly: true,
+    feature: "activity",
+  },
+  { name: "AI Assistant", href: "/app/ai", icon: IconAI, feature: "ai" },
   {
     name: "Disposed Cases",
     href: "/app/disposed-cases",
     icon: IconDisposed,
+    feature: "disposed",
   },
   { name: "My Profile", href: "/app/profile", icon: IconProfile },
-  { name: "Users / Advocates", href: "/app/users", icon: IconUsers },
+  {
+    name: "Users / Advocates",
+    href: "/app/users",
+    icon: IconUsers,
+    feature: "users",
+  },
   {
     name: "Attendance",
     href: "/app/attendance",
     icon: IconAttendance,
     adminOnly: true,
+    feature: "attendance",
   },
 ];
 
@@ -60,12 +97,14 @@ export default function Sidebar({
   partnerName,
   user,
   isAdmin,
+  features,
   drawerOpen = false,
   onClose,
 }: {
   partnerName: string;
   user: { firstName: string; lastName: string; email: string };
   isAdmin: boolean;
+  features: FeatureMap;
   // Below lg the sidebar is an off-canvas drawer driven by AppShell.
   drawerOpen?: boolean;
   onClose?: () => void;
@@ -75,8 +114,13 @@ export default function Sidebar({
   const [loggingOut, setLoggingOut] = useState(false);
 
   // Drop admin-only entries (Activity, Attendance) for everyone who
-  // isn't the office admin. The page redirect + API 403 back this up.
-  const nav = NAV.filter((item) => !item.adminOnly || isAdmin);
+  // isn't the office admin, and anything the global admin has switched
+  // off for this chambers. The page redirect + API 403 back both up.
+  const nav = NAV.filter(
+    (item) =>
+      (!item.adminOnly || isAdmin) &&
+      (!item.feature || isFeatureEnabled(features, item.feature))
+  );
 
   return (
     <aside

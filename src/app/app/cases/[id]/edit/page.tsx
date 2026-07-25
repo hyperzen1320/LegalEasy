@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { connectDB } from "@/lib/db";
 import { Case } from "@/models/Case";
 import EditCaseForm, { type CaseInitialValues } from "./EditCaseForm";
+import { guardFeature } from "@/lib/feature-guard";
 
 // Server shell for the case edit page. Loads the case once, hands all
 // fields to the client form pre-filled. Disposed matters are still
@@ -24,6 +25,7 @@ export default async function EditCasePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await guardFeature("cases");
   const { id } = await params;
   if (!mongoose.isValidObjectId(id)) notFound();
 

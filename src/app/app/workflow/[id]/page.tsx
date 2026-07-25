@@ -9,6 +9,7 @@ import { User } from "@/models/User";
 import { BOARD_COLOR_STYLES } from "@/lib/board-defaults";
 import { summarizeChecklists } from "@/lib/workflow-helpers";
 import BoardCanvas from "./BoardCanvas";
+import { guardFeature } from "@/lib/feature-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ export default async function BoardCanvasPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await guardFeature("workflow");
   const { id } = await params;
   if (!mongoose.isValidObjectId(id)) notFound();
 

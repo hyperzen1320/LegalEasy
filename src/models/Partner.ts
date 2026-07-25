@@ -42,6 +42,12 @@ export interface IPartner {
   // in My Profile; merge tokens like {{caseNo}} / {{nextHearingDate}} are
   // substituted per matter when the notice is built. Empty = use the default.
   noticeTemplate: string;
+  // Which modules this chambers can reach, set by the global admin. Only
+  // switched-OFF entries need storing: a key that isn't here is enabled.
+  // That's what lets this ship without a migration — every existing
+  // chambers has no map at all and therefore keeps everything.
+  // See lib/features.ts.
+  features?: Map<string, boolean>;
   isDeleted: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -99,6 +105,11 @@ const PartnerSchema = new Schema<IPartner>(
       },
     },
     noticeTemplate: { type: String, default: "" },
+    features: {
+      type: Map,
+      of: Boolean,
+      default: undefined,
+    },
     isDeleted: { type: Boolean, default: false },
   },
   { timestamps: true }

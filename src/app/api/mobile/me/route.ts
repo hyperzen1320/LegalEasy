@@ -4,6 +4,7 @@ import { User } from "@/models/User";
 import { Partner } from "@/models/Partner";
 import { verifyMobileJWT } from "@/lib/jwt";
 import { corsHeaders } from "@/lib/cors";
+import { fullFeatureMap, readFeatures } from "@/lib/features";
 
 export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders() });
@@ -74,6 +75,10 @@ export async function GET(request: Request) {
         endDate: p.subscription.endDate.toISOString(),
         startDate: p.subscription.startDate.toISOString(),
       },
+      // Every key with an explicit boolean, so the app can hide tabs and
+      // menu entries for modules the global admin switched off. The APIs
+      // enforce the same map, so this is a display concern only.
+      features: fullFeatureMap(readFeatures(p.features)),
     };
   }
 

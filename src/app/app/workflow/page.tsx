@@ -4,10 +4,12 @@ import { connectDB } from "@/lib/db";
 import { Board } from "@/models/Board";
 import { BOARD_DEFAULTS } from "@/lib/board-defaults";
 import BoardsClient, { type BoardRow } from "./BoardsClient";
+import { guardFeature } from "@/lib/feature-guard";
 
 export const dynamic = "force-dynamic";
 
 export default async function WorkflowPage() {
+  await guardFeature("workflow");
   const session = await auth();
   const partnerId = session?.user?.partnerId
     ? new mongoose.Types.ObjectId(session.user.partnerId)

@@ -471,7 +471,7 @@ function prettyField(f: string): string {
     state: "State",
     plan: "Plan",
     status: "Status",
-    features: "Features",
+    features: "Modules",
   };
   return map[f] ?? f;
 }
@@ -505,6 +505,7 @@ function actionColor(action: string): {
   if (
     action === "partner_updated" ||
     action === "partner_plan_changed" ||
+    action === "partner_features_changed" ||
     action === "partner_trial_extended" ||
     action === "partner_unsuspended"
   ) {

@@ -4,10 +4,12 @@ import { connectDB } from "@/lib/db";
 import { Court } from "@/models/Court";
 import { Case } from "@/models/Case";
 import CourtHubClient, { type CourtRow } from "./CourtHubClient";
+import { guardFeature } from "@/lib/feature-guard";
 
 export const dynamic = "force-dynamic";
 
 export default async function CourtsPage() {
+  await guardFeature("courts");
   const session = await auth();
   const partnerId = session?.user?.partnerId
     ? new mongoose.Types.ObjectId(session.user.partnerId)

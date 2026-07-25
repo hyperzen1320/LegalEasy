@@ -14,6 +14,7 @@ const FILTERS: Record<string, Record<string, unknown>> = {
       $in: [
         "partner_updated",
         "partner_plan_changed",
+        "partner_features_changed",
         "partner_trial_extended",
         "partner_unsuspended",
       ],

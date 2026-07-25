@@ -1,7 +1,9 @@
 import Link from "next/link";
 import AddCaseForm from "./AddCaseForm";
+import { guardFeature } from "@/lib/feature-guard";
 
-export default function NewCasePage() {
+export default async function NewCasePage() {
+  await guardFeature("cases");
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
       <div className="mx-auto max-w-[860px]">

@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/db";
 import { Partner } from "@/models/Partner";
 import { loadHearingsBucket, type Bucket } from "@/lib/hearings-bucket";
 import HearingTrackClient from "./HearingTrackClient";
+import { guardFeature } from "@/lib/feature-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,7 @@ export default async function HearingTrackPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  await guardFeature("hearings");
   const sp = await searchParams;
   const tabParam = typeof sp.tab === "string" ? sp.tab : undefined;
   const bucket: Bucket =

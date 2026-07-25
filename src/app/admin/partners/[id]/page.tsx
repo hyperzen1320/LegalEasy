@@ -6,6 +6,8 @@ import { User } from "@/models/User";
 import EditPartnerForm from "./EditPartnerForm";
 import PasswordResetForm from "./PasswordResetForm";
 import DangerZone from "./DangerZone";
+import ModulesForm from "./ModulesForm";
+import { fullFeatureMap, readFeatures } from "@/lib/features";
 
 export default async function PartnerDetailPage({
   params,
@@ -42,6 +44,7 @@ export default async function PartnerDetailPage({
       seatLimit: partnerDoc.subscription.seatLimit,
       matterLimit: partnerDoc.subscription.matterLimit,
     },
+    features: fullFeatureMap(readFeatures(partnerDoc.features)),
     createdAt: partnerDoc.createdAt.toISOString(),
     updatedAt: partnerDoc.updatedAt.toISOString(),
     isDeleted: partnerDoc.isDeleted,
@@ -94,6 +97,11 @@ export default async function PartnerDetailPage({
 
       <div className="mt-10 space-y-6">
         <EditPartnerForm partner={partner} />
+        <ModulesForm
+          partnerId={partner.id}
+          partnerName={partner.name}
+          initialFeatures={partner.features}
+        />
         <PasswordResetForm
           partnerId={partner.id}
           partnerName={partner.name}

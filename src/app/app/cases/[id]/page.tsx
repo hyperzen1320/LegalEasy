@@ -13,6 +13,7 @@ import ReopenCaseButton from "./ReopenCaseButton";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
 import CnrLink from "@/app/app/components/CnrLink";
 import WhatsAppIcon from "@/app/app/components/WhatsAppIcon";
+import { guardFeature } from "@/lib/feature-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +56,7 @@ export default async function CaseDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await guardFeature("cases");
   const { id } = await params;
   if (!mongoose.isValidObjectId(id)) notFound();
 

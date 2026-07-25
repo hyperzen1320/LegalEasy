@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { connectDB } from "@/lib/db";
 import { User } from "@/models/User";
 import SeniorDeskClient, { type SeniorDeskMember } from "./SeniorDeskClient";
+import { guardFeature } from "@/lib/feature-guard";
 
 // Senior Desk — server shell. Loads the office roster (used by the New
 // Private Chat picker and for resolving names in the live feed) and the
@@ -15,6 +16,7 @@ import SeniorDeskClient, { type SeniorDeskMember } from "./SeniorDeskClient";
 export const dynamic = "force-dynamic";
 
 export default async function SeniorDeskPage() {
+  await guardFeature("seniorDesk");
   const session = await auth();
   const userId = session?.user?.id ?? "";
   const partnerId = session?.user?.partnerId

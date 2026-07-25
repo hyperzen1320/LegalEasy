@@ -6,6 +6,13 @@ import { connectDB } from "@/lib/db";
 import { Partner } from "@/models/Partner";
 import { User } from "@/models/User";
 import { corsHeaders } from "@/lib/cors";
+import {
+  featureForApiPath,
+  isFeatureEnabled,
+  readFeatures,
+  FEATURE_BY_KEY,
+  type FeatureMap,
+} from "@/lib/features";
 
 export type PartnerRole =
   | "admin"
@@ -25,6 +32,8 @@ export type PartnerContext = {
     partnerId: string;
   };
   isMobile: boolean;
+  /** Modules the global admin has left switched on for this chambers. */
+  features: FeatureMap;
 };
 
 /**
@@ -132,6 +141,24 @@ export async function requirePartner(
     };
   }
 
+  // Module switches. Enforcing here rather than route-by-route means every
+  // partner-side endpoint is covered — including ones written after this —
+  // and there's exactly one path→module table to keep honest.
+  const features = readFeatures(partner.features);
+  const requiredFeature = featureForApiPath(new URL(request.url).pathname);
+  if (requiredFeature && !isFeatureEnabled(features, requiredFeature)) {
+    return {
+      error: NextResponse.json(
+        {
+          error: FEATURE_BY_KEY[requiredFeature].offMessage,
+          code: "feature_disabled",
+          feature: requiredFeature,
+        },
+        { status: 403, headers: isMobile ? corsHeaders() : undefined }
+      ),
+    };
+  }
+
   // Look up the within-office role (admin/advocate/junior/clerk/viewer).
   // Partner admin always carries the admin role; staff default to junior.
   let role: PartnerRole = userType === "partner_admin" ? "admin" : "junior";
@@ -179,6 +206,7 @@ export async function requirePartner(
         partnerId,
       },
       isMobile,
+      features,
     },
   };
 }
