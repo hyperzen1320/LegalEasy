@@ -42,6 +42,10 @@ export default async function PartnerDetailPage({
       seatLimit: partnerDoc.subscription.seatLimit,
       matterLimit: partnerDoc.subscription.matterLimit,
     },
+    signupSource: partnerDoc.signupSource ?? "admin",
+    emailVerifiedAt: partnerDoc.emailVerifiedAt
+      ? partnerDoc.emailVerifiedAt.toISOString()
+      : null,
     createdAt: partnerDoc.createdAt.toISOString(),
     updatedAt: partnerDoc.updatedAt.toISOString(),
     isDeleted: partnerDoc.isDeleted,
@@ -66,6 +70,16 @@ export default async function PartnerDetailPage({
               style={{ fontFamily: "var(--font-plex-mono), monospace" }}
             >
               Chambers · /{partner.slug}
+              {partner.signupSource === "self" && (
+                <>
+                  <span className="mx-2 opacity-40">·</span>
+                  <span className="text-admin-fg-muted">
+                    {partner.emailVerifiedAt
+                      ? "Self sign-up · email verified"
+                      : "Self sign-up"}
+                  </span>
+                </>
+              )}
             </div>
             <h2 className="mt-2 text-[34px] font-semibold tracking-tight text-admin-fg">
               {partner.name}
