@@ -5,7 +5,12 @@ import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
 import { ChatRoom } from "@/models/ChatRoom";
 import { ChatMessage } from "@/models/ChatMessage";
-import { userCanReadRoom, previewFromBody } from "@/lib/chat-rooms";
+import {
+  userCanReadRoom,
+  previewFromBody,
+  recipientsOf,
+} from "@/lib/chat-rooms";
+import { sendPush } from "@/lib/push";
 import {
   buildReceiptResolver,
   touchSeen,
@@ -300,6 +305,22 @@ export async function POST(
       },
     }
   );
+
+  // Announce it to everyone else's phone. Not awaited: the message is
+  // already saved, and a slow push service must not hold the sender's
+  // keyboard. Failures inside sendPush are swallowed by design.
+  void (async () => {
+    const to = await recipientsOf(room, partnerId, userId);
+    await sendPush(String(partnerId), to, {
+      // Group rooms are the office desk; a private thread is the person.
+      title:
+        room.type === "group"
+          ? `${senderName} · ${room.title || "Senior Desk"}`
+          : senderName,
+      body: preview,
+      data: { kind: "chat", roomId: String(room._id) },
+    });
+  })();
 
   return NextResponse.json(
     {
