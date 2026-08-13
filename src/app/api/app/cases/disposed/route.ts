@@ -49,7 +49,14 @@ export async function GET(request: Request) {
     disposedAt: c.disposedAt
       ? c.disposedAt.toISOString()
       : null,
+    // The rest of the disposal record. The archive used to send only the
+    // note, so the C.A. status and whether the client has the certified
+    // copy — the two things an office actually chases after a disposal —
+    // were invisible everywhere except the case page.
+    disposalDate: c.disposalDate ? c.disposalDate.toISOString() : null,
     disposalRemarks: c.disposalRemarks || "",
+    caStatus: c.caStatus || "",
+    receivedByClient: Boolean(c.receivedByClient),
     lastHearingDate: c.lastHearingDate
       ? c.lastHearingDate.toISOString()
       : null,

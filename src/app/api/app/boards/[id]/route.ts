@@ -1,23 +1,14 @@
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { connectDB } from "@/lib/db";
-import { Board } from "@/models/Board";
+import { Board, type BoardColor } from "@/models/Board";
 import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
+import { BOARD_COLORS } from "@/lib/board-defaults";
 
 export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders() });
 }
-
-const VALID_COLORS = [
-  "forest",
-  "copper",
-  "sea",
-  "terracotta",
-  "ochre",
-  "plum",
-  "ink",
-] as const;
 
 async function loadOne(id: string, partnerId: string) {
   if (!mongoose.isValidObjectId(id)) return null;
@@ -64,8 +55,8 @@ export async function PATCH(
   }
   if (typeof body.color === "string") {
     const c = body.color.trim().toLowerCase();
-    if (VALID_COLORS.includes(c as (typeof VALID_COLORS)[number])) {
-      doc.color = c as (typeof VALID_COLORS)[number];
+    if (BOARD_COLORS.includes(c as BoardColor)) {
+      doc.color = c as BoardColor;
     }
   }
 

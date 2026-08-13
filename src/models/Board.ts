@@ -1,4 +1,9 @@
 import mongoose, { Schema, Types, type Model } from "mongoose";
+// The one list of valid colours. It lives beside the swatch styles (which
+// client components import) rather than here, because a client bundle must
+// never pull mongoose in just to render a picker. The import back the other
+// way is type-only, so there is no runtime cycle.
+import { BOARD_COLORS } from "@/lib/board-defaults";
 
 export type BoardColor =
   | "forest"
@@ -7,7 +12,13 @@ export type BoardColor =
   | "terracotta"
   | "ochre"
   | "plum"
-  | "ink";
+  | "ink"
+  // Three added for the offices that ran out of distinguishable tiles:
+  // a cool grey, a muted olive and a violet — the hues the original
+  // seven never covered.
+  | "slate"
+  | "olive"
+  | "indigo";
 
 export interface IBoard {
   _id: Types.ObjectId;
@@ -39,7 +50,7 @@ const BoardSchema = new Schema<IBoard>(
     description: { type: String, default: "", trim: true },
     color: {
       type: String,
-      enum: ["forest", "copper", "sea", "terracotta", "ochre", "plum", "ink"],
+      enum: BOARD_COLORS,
       default: "copper",
       required: true,
     },

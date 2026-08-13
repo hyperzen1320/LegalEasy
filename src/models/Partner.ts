@@ -35,7 +35,8 @@ export interface IPartner {
   };
   settings: {
     // Activity log retention. null = keep forever; otherwise the number of
-    // days after which entries are auto-pruned (90 or 365 typically).
+    // days after which entries are auto-pruned (90, 180 or 365 — see
+    // VALID_RETENTION in api/app/settings/route.ts).
     activityRetentionDays: number | null;
   };
   // The office's pre-filled WhatsApp hearing-notice template. Admin-editable

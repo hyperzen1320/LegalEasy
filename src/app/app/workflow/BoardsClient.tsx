@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { BOARD_COLOR_STYLES } from "@/lib/board-defaults";
+import { BOARD_COLOR_STYLES, BOARD_COLORS } from "@/lib/board-defaults";
 import type { BoardColor } from "@/models/Board";
 import RequestDeleteDialog from "@/app/app/workflow/[id]/RequestDeleteDialog";
 
@@ -17,16 +17,6 @@ export type BoardRow = {
   updatedAt: string;
   createdAt: string;
 };
-
-const COLOR_OPTIONS: BoardColor[] = [
-  "forest",
-  "copper",
-  "sea",
-  "terracotta",
-  "ochre",
-  "plum",
-  "ink",
-];
 
 export default function BoardsClient({
   initialBoards,
@@ -798,7 +788,7 @@ function CreateBoardForm({
           Colour
         </label>
         <div className="mt-2 flex flex-wrap gap-2">
-          {COLOR_OPTIONS.map((c) => {
+          {BOARD_COLORS.map((c) => {
             const styles = BOARD_COLOR_STYLES[c];
             const active = color === c;
             return (

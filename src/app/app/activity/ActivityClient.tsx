@@ -671,14 +671,18 @@ function RetentionPill({ current }: { current: number | null }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const label =
-    current === null ? "Keep forever" : current === 90 ? "Auto-delete after 90 days" : current === 365 ? "Auto-delete after 1 year" : `Auto-delete after ${current} days`;
-
   const options: { v: number | null; label: string; sub: string }[] = [
     { v: null, label: "Keep forever", sub: "No auto-delete." },
     { v: 90, label: "Auto-delete after 90 days", sub: "Quarterly cleanup." },
-    { v: 365, label: "Auto-delete after 1 year", sub: "Yearly cleanup." },
+    { v: 180, label: "Auto-delete after 180 days", sub: "Half-yearly cleanup." },
+    { v: 365, label: "Auto-delete after 365 days", sub: "Yearly cleanup." },
   ];
+
+  // Read the label off the option list so a new choice never needs a second
+  // edit here to display correctly.
+  const label =
+    options.find((o) => o.v === current)?.label ??
+    `Auto-delete after ${current} days`;
 
   async function update(v: number | null) {
     setBusy(true);
