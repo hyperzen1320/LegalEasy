@@ -44,6 +44,10 @@ const SEARCH_FIELDS = [
 
 export type CaseSearchField = (typeof SEARCH_FIELDS)[number];
 
+// Everything a matter gets remembered by. The opposite party, the
+// opposing counsel and who we appear for were searchable columns the
+// search never actually looked at — so typing the other side's name
+// found nothing and the matter read as missing.
 export const DEFAULT_SEARCH_SCOPE: CaseSearchField[] = [
   "fileNo",
   "caseNo",
@@ -52,8 +56,12 @@ export const DEFAULT_SEARCH_SCOPE: CaseSearchField[] = [
   "clientName",
   "clientPhone",
   "clientWhatsapp",
+  "appearingFor",
+  "oppositeParty",
+  "oppositeAdvocate",
   "courtName",
   "courtNumber",
+  "courtHall",
   "courtPlace",
   "status",
 ];

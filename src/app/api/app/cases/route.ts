@@ -10,6 +10,7 @@ import {
   buildCaseFilter,
   readCaseFilterParams,
 } from "@/lib/case-filter";
+import { buildCaseSort, readCaseSort } from "@/lib/case-sort";
 import {
   normalizeCnr,
   findCnrConflict,
@@ -52,9 +53,15 @@ export async function GET(request: Request) {
   const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
   const skip = (page - 1) * limit;
 
+  // Ordering is a request parameter now, defaulting to newest-filed
+  // first. It used to be hard-coded to next-hearing-date, which put a
+  // matter listed months out at the far end of a few hundred rows — so a
+  // case added minutes ago was the hardest one in the vault to find.
+  const sort = readCaseSort(url.searchParams.get("sort"));
+
   const [docs, total] = await Promise.all([
     Case.find(filter)
-      .sort({ nextHearingDate: 1, updatedAt: -1 })
+      .sort(buildCaseSort(sort))
       .skip(skip)
       .limit(limit)
       .lean(),
@@ -136,6 +143,7 @@ export async function GET(request: Request) {
       total,
       page,
       limit,
+      sort,
       hasMore: skip + cases.length < total,
     },
     { headers: guard.ctx.isMobile ? corsHeaders() : undefined }

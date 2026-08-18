@@ -2,6 +2,7 @@ import Link from "next/link";
 import mongoose from "mongoose";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/db";
+import { istDayStart } from "@/lib/ist-day";
 import { Case } from "@/models/Case";
 import { Board } from "@/models/Board";
 import { Task } from "@/models/Task";
@@ -26,13 +27,13 @@ export default async function PartnerDashboard() {
     ? new mongoose.Types.ObjectId(session.user.partnerId)
     : null;
 
-  // Date boundaries — today / tomorrow / day-after
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
-  const startOfTomorrow = new Date(startOfToday);
-  startOfTomorrow.setDate(startOfToday.getDate() + 1);
-  const startOfDayAfter = new Date(startOfToday);
-  startOfDayAfter.setDate(startOfToday.getDate() + 2);
+  // Day boundaries in IST, not in whatever timezone the server happens
+  // to run in — the same helper the Hearing Track uses, so the tile and
+  // the diary can't disagree about which matters are listed today.
+  const now = new Date();
+  const startOfToday = istDayStart(now, 0);
+  const startOfTomorrow = istDayStart(now, 1);
+  const startOfDayAfter = istDayStart(now, 2);
 
   let stats = {
     todayHearings: 0,
@@ -91,7 +92,7 @@ export default async function PartnerDashboard() {
           ...activeFilter,
           nextHearingDate: {
             $gte: startOfToday,
-            $lt: new Date(startOfToday.getTime() + 14 * 24 * 60 * 60 * 1000),
+            $lt: istDayStart(now, 14),
           },
         })
           .sort({ nextHearingDate: 1 })

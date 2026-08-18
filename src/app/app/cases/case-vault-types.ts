@@ -1,3 +1,11 @@
+import {
+  CASE_SORTS,
+  CASE_SORT_LABELS,
+  DEFAULT_CASE_SORT,
+  readCaseSort,
+  type CaseSort,
+} from "@/lib/case-sort";
+
 // Shared types for the Case Vault UI. Lives outside the components so
 // the table, toolbar, export menu, etc. can all type-check against the
 // same row shape.
@@ -110,6 +118,11 @@ export const DEFAULT_VISIBLE_COLUMNS: CaseColumnKey[] = COLUMNS
 export const LIMIT_OPTIONS = [25, 50, 100, 200, 500] as const;
 export const DEFAULT_LIMIT = 50;
 
+// How the vault is ordered. Mirrors CaseSort in lib/case-filter.ts — the
+// server owns the actual sort documents; this is just the picker.
+export const SORT_OPTIONS: { value: CaseSort; label: string }[] =
+  CASE_SORTS.map((value) => ({ value, label: CASE_SORT_LABELS[value] }));
+
 // The filter tuple that drives the case list. Search is always across
 // every searchable column server-side — no per-field scope toggle, since
 // "search everything" is what users actually want and the previous UI
@@ -124,6 +137,7 @@ export type CaseFilters = {
   // `limit` is the page size; `page` is the 1-based page index.
   limit: number;
   page: number;
+  sort: CaseSort;
 };
 
 export const EMPTY_FILTERS: CaseFilters = {
@@ -135,6 +149,7 @@ export const EMPTY_FILTERS: CaseFilters = {
   search: "",
   limit: DEFAULT_LIMIT,
   page: 1,
+  sort: DEFAULT_CASE_SORT,
 };
 
 export function filtersFromQuery(params: URLSearchParams): CaseFilters {
@@ -153,6 +168,7 @@ export function filtersFromQuery(params: URLSearchParams): CaseFilters {
     search: params.get("search") || "",
     limit,
     page,
+    sort: readCaseSort(params.get("sort")),
   };
 }
 
@@ -169,6 +185,9 @@ export function filtersToQuery(filters: CaseFilters): URLSearchParams {
   }
   if (filters.page && filters.page > 1) {
     params.set("page", String(filters.page));
+  }
+  if (filters.sort !== DEFAULT_CASE_SORT) {
+    params.set("sort", filters.sort);
   }
   return params;
 }
