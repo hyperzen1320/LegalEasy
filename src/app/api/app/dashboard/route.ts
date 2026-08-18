@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/db";
 import { Case } from "@/models/Case";
 import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
+import { istDayStart } from "@/lib/ist-day";
 
 export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders() });
@@ -15,14 +16,16 @@ export async function GET(request: Request) {
 
   const partnerId = new mongoose.Types.ObjectId(guard.ctx.user.partnerId);
 
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
-  const startOfTomorrow = new Date(startOfToday);
-  startOfTomorrow.setDate(startOfToday.getDate() + 1);
-  const startOfDayAfter = new Date(startOfToday);
-  startOfDayAfter.setDate(startOfToday.getDate() + 2);
-  const twoWeeksOut = new Date(startOfToday);
-  twoWeeksOut.setDate(startOfToday.getDate() + 14);
+  // Day boundaries in IST, not in whatever timezone the container
+  // happens to run in. The Hearing Track has always used istDayStart;
+  // the dashboard used the server's local midnight, so on a UTC host the
+  // two disagreed about which matters were "today" and the tile and the
+  // diary showed different numbers for the same moment.
+  const now = new Date();
+  const startOfToday = istDayStart(now, 0);
+  const startOfTomorrow = istDayStart(now, 1);
+  const startOfDayAfter = istDayStart(now, 2);
+  const twoWeeksOut = istDayStart(now, 14);
 
   await connectDB();
 

@@ -5,10 +5,12 @@ import type { CaseVaultBootstrap } from "./CaseVaultClient";
 import {
   EMPTY_FILTERS,
   LIMIT_OPTIONS,
+  SORT_OPTIONS,
   type CaseColumnKey,
   type CaseFilters,
   type CaseViewMode,
 } from "./case-vault-types";
+import type { CaseSort } from "@/lib/case-sort";
 import ColumnVisibilityMenu from "./ColumnVisibilityMenu";
 import ExportMenu from "./ExportMenu";
 
@@ -112,6 +114,13 @@ export default function CaseToolBar({
   function setLimit(value: number) {
     if (value === appliedFilters.limit) return;
     onApply({ ...appliedFilters, limit: value });
+  }
+
+  function setSort(value: CaseSort) {
+    if (value === appliedFilters.sort) return;
+    // Back to page one — page 4 of the old order is a different set of
+    // matters in the new one.
+    onApply({ ...appliedFilters, sort: value, page: 1 });
   }
 
   const hasStructuralFilters = Boolean(
@@ -281,10 +290,42 @@ export default function CaseToolBar({
             ) : null}
           </div>
 
+          {/* Order. Defaults to newest-filed first, so a matter added
+              minutes ago — here or on the phone — is the first row. */}
+          <div className="relative">
+            <select
+              value={appliedFilters.sort}
+              onChange={(e) => setSort(e.target.value as CaseSort)}
+              aria-label="Sort cases"
+              className="block appearance-none rounded-md border bg-transparent py-2.5 pl-3.5 pr-9 text-[12.5px] outline-none transition-all"
+              style={{
+                fontFamily: "var(--font-manrope), sans-serif",
+                borderColor: "var(--color-app-edge)",
+                backgroundColor: "var(--color-app-paper)",
+                color: "var(--color-app-ink)",
+                minWidth: 150,
+              }}
+            >
+              {SORT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <span
+              aria-hidden
+              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2"
+              style={{ color: "var(--color-app-fg-muted)" }}
+            >
+              <ChevronDown />
+            </span>
+          </div>
+
           <div className="relative">
             <select
               value={appliedFilters.limit}
               onChange={(e) => setLimit(Number(e.target.value))}
+              aria-label="Rows per page"
               className="block appearance-none rounded-md border bg-transparent py-2.5 pl-3.5 pr-9 text-[12.5px] outline-none transition-all"
               style={{
                 fontFamily: "var(--font-manrope), sans-serif",
