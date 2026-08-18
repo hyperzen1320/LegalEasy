@@ -5,6 +5,7 @@ import { DeleteRequest } from "@/models/DeleteRequest";
 import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
 import { logWorkflowActivity } from "@/lib/activity";
+import { sendPush } from "@/lib/push";
 
 export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders() });
@@ -77,6 +78,16 @@ export async function POST(
       reason: req.reason,
       reviewerNote: req.reviewerNote,
     },
+  });
+
+  // Same courtesy as an approval: the answer goes to the person who
+  // asked, with the reason if one was given.
+  void sendPush(guard.ctx.user.partnerId, [String(req.requesterUserId)], {
+    title: "Delete request declined",
+    body: req.reviewerNote
+      ? `${req.reviewedByName}: “${req.reviewerNote}”`
+      : `${req.reviewedByName} declined deleting ${req.targetName}`,
+    data: { kind: "delete_request", requestId: String(req._id) },
   });
 
   return NextResponse.json(

@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { ChatRoom, type IChatRoom } from "@/models/ChatRoom";
+import { User } from "@/models/User";
 
 // Helpers around the ChatRoom collection. Two responsibilities:
 //
@@ -119,6 +120,35 @@ export function userCanReadRoom(
   if (String(room.partnerId) !== String(partnerId)) return false;
   if (room.type === "group") return true;
   return room.members.some((m) => String(m) === String(userId));
+}
+
+/**
+ * Everyone who should hear about a new message in this room, minus its
+ * author. The membership rule is the same one `userCanReadRoom` encodes:
+ * a private room carries its two members, and a group room's membership
+ * is implicit — every active advocate in the office — so the roster has
+ * to be read for it.
+ *
+ * Used by the push sender. Kept here so "who is in this room" has one
+ * answer rather than one per caller.
+ */
+export async function recipientsOf(
+  room: Pick<IChatRoom, "type" | "members">,
+  partnerId: mongoose.Types.ObjectId | string,
+  senderId: mongoose.Types.ObjectId | string
+): Promise<string[]> {
+  const sender = String(senderId);
+  if (room.type === "private") {
+    return room.members.map(String).filter((id) => id !== sender);
+  }
+  const users = await User.find({
+    partnerId: new mongoose.Types.ObjectId(String(partnerId)),
+    active: true,
+    isDeleted: false,
+  })
+    .select("_id")
+    .lean();
+  return users.map((u) => String(u._id)).filter((id) => id !== sender);
 }
 
 /**

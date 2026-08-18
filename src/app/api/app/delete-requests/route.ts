@@ -14,6 +14,7 @@ import { PromptTemplate } from "@/models/PromptTemplate";
 import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
 import { logWorkflowActivity } from "@/lib/activity";
+import { notifyAdmins } from "@/lib/push";
 
 export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders() });
@@ -250,6 +251,15 @@ export async function POST(request: Request) {
       reason,
       targetType,
     },
+  });
+
+  // Tell the admins' phones. A request nobody sees is a request that
+  // waits — the point of the queue is that it gets looked at. Not
+  // awaited; the request is filed either way.
+  void notifyAdmins(partnerId, {
+    title: "Delete request",
+    body: `${requesterName} wants to delete ${snapshot.name}`,
+    data: { kind: "delete_request", requestId: String(doc._id) },
   });
 
   return NextResponse.json(

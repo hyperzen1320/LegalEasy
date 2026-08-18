@@ -6,6 +6,7 @@ import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
 import { performSoftDelete } from "@/lib/delete-target";
 import { logWorkflowActivity } from "@/lib/activity";
+import { sendPush } from "@/lib/push";
 
 export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders() });
@@ -110,6 +111,14 @@ export async function POST(
       reason: req.reason,
       reviewerNote: req.reviewerNote,
     },
+  });
+
+  // The person who asked has been waiting on an answer — tell their
+  // phone rather than making them re-open the bell to find out.
+  void sendPush(guard.ctx.user.partnerId, [String(req.requesterUserId)], {
+    title: "Delete request approved",
+    body: `${req.reviewedByName} approved deleting ${result.targetName || req.targetName}`,
+    data: { kind: "delete_request", requestId: String(req._id) },
   });
 
   return NextResponse.json(
