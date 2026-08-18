@@ -10,7 +10,7 @@ export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders() });
 }
 
-const VALID_RETENTION = [null, 90, 365] as const;
+const VALID_RETENTION = [null, 90, 180, 365] as const;
 
 export async function GET(request: Request) {
   const guard = await requirePartner(request);
@@ -103,7 +103,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json(
         {
           error:
-            "Invalid retention value. Allowed: null (forever), 90, or 365.",
+            "Invalid retention value. Allowed: null (forever), 90, 180, or 365.",
         },
         {
           status: 400,

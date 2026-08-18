@@ -1,25 +1,15 @@
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { connectDB } from "@/lib/db";
-import { Board } from "@/models/Board";
+import { Board, type BoardColor } from "@/models/Board";
 import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
-import { BOARD_DEFAULTS } from "@/lib/board-defaults";
+import { BOARD_COLORS, BOARD_DEFAULTS } from "@/lib/board-defaults";
 import { logWorkflowActivity } from "@/lib/activity";
 
 export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders() });
 }
-
-const VALID_COLORS = [
-  "forest",
-  "copper",
-  "sea",
-  "terracotta",
-  "ochre",
-  "plum",
-  "ink",
-] as const;
 
 async function ensureSeeded(partnerId: mongoose.Types.ObjectId) {
   const count = await Board.countDocuments({ partnerId, isDeleted: false });
@@ -105,10 +95,8 @@ export async function POST(request: Request) {
   const colorIn =
     typeof body.color === "string" ? body.color.trim().toLowerCase() : "";
   const color = (
-    VALID_COLORS.includes(colorIn as (typeof VALID_COLORS)[number])
-      ? colorIn
-      : "copper"
-  ) as (typeof VALID_COLORS)[number];
+    BOARD_COLORS.includes(colorIn as BoardColor) ? colorIn : "copper"
+  ) as BoardColor;
 
   await connectDB();
   const partnerId = new mongoose.Types.ObjectId(guard.ctx.user.partnerId);
