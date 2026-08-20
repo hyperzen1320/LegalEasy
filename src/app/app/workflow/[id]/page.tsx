@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { notFound } from "next/navigation";
+import { canvasSlot } from "@/lib/board-layout";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/db";
 import { Board } from "@/models/Board";
@@ -55,14 +56,12 @@ export default async function BoardCanvasPage({
 
   // ─── Auto-layout on first open ──────────────────────────────────────────
   // Lists created before the canvas existed have position {0,0}. Spread
-  // them into a tidy grid then mark the board so we don't redo it.
-  const PADDING_X = 360;
-  const PADDING_Y = 460;
-  const PER_ROW = 4;
+  // them into a tidy grid then mark the board so we don't redo it. The
+  // grid itself lives in lib/board-layout so anything that adds a list to
+  // an already-laid-out board can place it on the same lattice.
   if (!board.layoutInitialized) {
     for (let i = 0; i < lists.length; i++) {
-      const x = (i % PER_ROW) * PADDING_X + 60;
-      const y = Math.floor(i / PER_ROW) * PADDING_Y + 80;
+      const { x, y } = canvasSlot(i);
       lists[i].position = { x, y };
       lists[i].width = lists[i].width || 320;
       await BoardList.updateOne(

@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/db";
 import { Board } from "@/models/Board";
-import { BOARD_DEFAULTS } from "@/lib/board-defaults";
+import { ensureBoardsSeeded } from "@/lib/board-seed";
 import BoardsClient, { type BoardRow } from "./BoardsClient";
 import { guardFeature } from "@/lib/feature-guard";
 
@@ -20,23 +20,10 @@ export default async function WorkflowPage() {
   if (partnerId) {
     await connectDB();
 
-    // Lazy-seed defaults the first time this partner visits.
-    const count = await Board.countDocuments({
-      partnerId,
-      isDeleted: false,
-    });
-    if (count === 0) {
-      await Board.insertMany(
-        BOARD_DEFAULTS.map((b, idx) => ({
-          partnerId,
-          title: b.title,
-          description: b.description,
-          color: b.color,
-          sortOrder: idx,
-          isSeeded: true,
-        }))
-      );
-    }
+    // Lazy-seed defaults the first time this partner visits, and keep
+    // the Works by Person roster in step. Same helper the app's
+    // /api/app/boards uses, so the two can't seed different sets.
+    await ensureBoardsSeeded(partnerId);
 
     const docs = await Board.find({ partnerId, isDeleted: false })
       .sort({ updatedAt: -1, sortOrder: 1 })

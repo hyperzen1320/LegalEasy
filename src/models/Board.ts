@@ -28,6 +28,11 @@ export interface IBoard {
   color: BoardColor;
   sortOrder: number;
   isSeeded: boolean;
+  // Marks a board the app has behaviour for — today only
+  // "works-by-person", whose columns track the office roster. Held here
+  // rather than matched on the title so renaming the board doesn't break
+  // the link. null on every board an office made itself.
+  seedKey: string | null;
   // Last canvas pan/zoom — persisted so the user picks up where they left off
   viewport: { x: number; y: number; zoom: number };
   // Whether the canvas has been touched at least once. Used to gate the
@@ -56,6 +61,7 @@ const BoardSchema = new Schema<IBoard>(
     },
     sortOrder: { type: Number, default: 0 },
     isSeeded: { type: Boolean, default: false },
+    seedKey: { type: String, default: null },
     viewport: {
       x: { type: Number, default: 0 },
       y: { type: Number, default: 0 },
@@ -69,6 +75,8 @@ const BoardSchema = new Schema<IBoard>(
 );
 
 BoardSchema.index({ partnerId: 1, isDeleted: 1, sortOrder: 1, updatedAt: -1 });
+// "the office's Works by Person board" — one lookup, once per sync.
+BoardSchema.index({ partnerId: 1, seedKey: 1 });
 
 export const Board: Model<IBoard> =
   (mongoose.models.Board as Model<IBoard>) ||

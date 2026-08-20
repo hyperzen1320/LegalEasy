@@ -1,50 +1,66 @@
 import type { BoardColor } from "@/models/Board";
 
-// Default boards seeded for every advocate's office on first visit to
-// Work Flow. Names match the requirements doc; colours are picked to play
-// nicely against the Midnight Counsel theme.
+// Default boards seeded for every advocate's office the first time it
+// opens Work Flow. These are the boards a working chambers actually keeps
+// — the set Nambiraj built by hand and asked us to ship for everyone —
+// not a generic Trello starter pack.
+//
+// `seedKey` marks a board the app has behaviour for. Only Works by Person
+// carries one today: its columns are the office's own staff, kept in step
+// by lib/works-by-person.ts. A board is found by its key rather than its
+// title so renaming it doesn't break the link, and so a board that merely
+// happens to be called the same thing isn't hijacked.
+
+export type BoardSeedKey = "works-by-person";
 
 export type BoardDefault = {
   title: string;
   description: string;
   color: BoardColor;
+  seedKey?: BoardSeedKey;
 };
 
 export const BOARD_DEFAULTS: BoardDefault[] = [
   {
-    title: "New Suits & Petitions",
-    description: "Fresh matters from intake to first listing.",
-    color: "forest",
-  },
-  {
-    title: "Notices",
-    description: "Outbound and reply notices with deadlines.",
-    color: "copper",
-  },
-  {
-    title: "I.A.s / Petitions",
-    description: "Interlocutory applications and miscellaneous petitions.",
-    color: "sea",
-  },
-  {
-    title: "C. A.s",
-    description: "Criminal appeals and connected matters.",
-    color: "terracotta",
-  },
-  {
-    title: "BATTAs",
-    description: "Witness summons, batta payments and procedure.",
+    title: "Legal Opinions",
+    description: "Opinions drafted for clients and counsel.",
     color: "ochre",
   },
   {
-    title: "Follow-ups",
-    description: "Pending replies, payments and client check-ins.",
+    title: "Works by Person",
+    description: "Works List of Individuals",
+    color: "terracotta",
+    seedKey: "works-by-person",
+  },
+  {
+    title: "Evidence",
+    description: "The Details of PWs and DWs",
+    color: "forest",
+  },
+  {
+    title: "Paper Publication",
+    description: "Substitute Service",
+    color: "ink",
+  },
+  {
+    title: "I.A.s",
+    description: "Both Side Interlocutory Applications",
+    color: "sea",
+  },
+  {
+    title: "For Preparation (Office)",
+    description: "The Cases Newly Prepare in Office",
     color: "plum",
   },
   {
-    title: "Instructions",
-    description: "Senior instructions and office handovers.",
-    color: "ink",
+    title: "BATTAs",
+    description: "Payment for Serve the Summons",
+    color: "copper",
+  },
+  {
+    title: "C. A.s",
+    description: "Disposed Cases Order Copies and Certified Copies",
+    color: "terracotta",
   },
 ];
 

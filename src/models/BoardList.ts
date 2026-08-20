@@ -17,6 +17,11 @@ export interface IBoardList {
   width: number;
   // Optional per-list colour override of the board accent
   color: string | null;
+  // Set when this column stands for a person — the Works by Person board
+  // keeps one per member of the office. It is what makes the roster sync
+  // idempotent: a column the office deleted on purpose is not grown back,
+  // because the id it carried is still on record.
+  seedUserId: Types.ObjectId | null;
   createdBy: Types.ObjectId | null;
   createdAt: Date;
   updatedAt: Date;
@@ -45,6 +50,7 @@ const BoardListSchema = new Schema<IBoardList>(
     },
     width: { type: Number, default: 320 },
     color: { type: String, default: null },
+    seedUserId: { type: Schema.Types.ObjectId, ref: "User", default: null },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
     isDeleted: { type: Boolean, default: false },
   },
@@ -57,6 +63,9 @@ BoardListSchema.index({
   isDeleted: 1,
   sortOrder: 1,
 });
+// Roster sync asks "does this person already have a column here?" — and
+// deliberately ignores isDeleted, so a removed column stays removed.
+BoardListSchema.index({ boardId: 1, seedUserId: 1 });
 
 export const BoardList: Model<IBoardList> =
   (mongoose.models.BoardList as Model<IBoardList>) ||

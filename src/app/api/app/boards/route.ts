@@ -4,27 +4,12 @@ import { connectDB } from "@/lib/db";
 import { Board, type BoardColor } from "@/models/Board";
 import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
-import { BOARD_COLORS, BOARD_DEFAULTS } from "@/lib/board-defaults";
+import { BOARD_COLORS } from "@/lib/board-defaults";
+import { ensureBoardsSeeded } from "@/lib/board-seed";
 import { logWorkflowActivity } from "@/lib/activity";
 
 export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders() });
-}
-
-async function ensureSeeded(partnerId: mongoose.Types.ObjectId) {
-  const count = await Board.countDocuments({ partnerId, isDeleted: false });
-  if (count > 0) return;
-
-  await Board.insertMany(
-    BOARD_DEFAULTS.map((b, idx) => ({
-      partnerId,
-      title: b.title,
-      description: b.description,
-      color: b.color,
-      sortOrder: idx,
-      isSeeded: true,
-    }))
-  );
 }
 
 export async function GET(request: Request) {
@@ -34,7 +19,7 @@ export async function GET(request: Request) {
   await connectDB();
   const partnerId = new mongoose.Types.ObjectId(guard.ctx.user.partnerId);
 
-  await ensureSeeded(partnerId);
+  await ensureBoardsSeeded(partnerId);
 
   const url = new URL(request.url);
   const sort = url.searchParams.get("sort") || "recent";

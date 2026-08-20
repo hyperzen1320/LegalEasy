@@ -7,6 +7,7 @@ import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
 import { logWorkflowActivity } from "@/lib/activity";
 import { getSeatStatus, seatLimitMessage } from "@/lib/seats";
+import { syncWorksByPersonListsSafe } from "@/lib/works-by-person";
 
 export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders() });
@@ -188,6 +189,10 @@ export async function POST(request: Request) {
       message: `invited **${newName}** as ${doc.role}`,
       metadata: { email: doc.email, role: doc.role },
     });
+
+    // A new colleague gets their column on Works by Person. Wrapped so it
+    // can never be the reason creating their login fails.
+    await syncWorksByPersonListsSafe(guard.ctx.user.partnerId);
 
     return NextResponse.json(
       { ok: true, user: serialize(doc) },
