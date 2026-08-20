@@ -12,6 +12,49 @@ export async function OPTIONS() {
   return new Response(null, { headers: corsHeaders() });
 }
 
+// GET /api/app/boards/[id]/lists
+//
+// Just the columns — id, title, order. The app needs this to offer the
+// destination when a card is moved to ANOTHER board, and pulling /full
+// for that would drag every task, edge and member along with it.
+export async function GET(
+  request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  const { id } = await context.params;
+  const guard = await requirePartner(request);
+  if ("error" in guard) return guard.error;
+
+  await connectDB();
+  const board = await loadBoard(id, guard.ctx.user.partnerId);
+  if (!board) {
+    return NextResponse.json(
+      { error: "Board not found" },
+      { status: 404, headers: guard.ctx.isMobile ? corsHeaders() : undefined }
+    );
+  }
+
+  const docs = await BoardList.find({
+    partnerId: board.partnerId,
+    boardId: board._id,
+    isDeleted: false,
+  })
+    .sort({ sortOrder: 1, createdAt: 1 })
+    .select("_id title sortOrder")
+    .lean();
+
+  return NextResponse.json(
+    {
+      lists: docs.map((l) => ({
+        id: String(l._id),
+        title: l.title,
+        sortOrder: l.sortOrder,
+      })),
+    },
+    { headers: guard.ctx.isMobile ? corsHeaders() : undefined }
+  );
+}
+
 export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> }

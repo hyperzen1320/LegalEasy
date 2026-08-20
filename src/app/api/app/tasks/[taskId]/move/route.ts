@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { connectDB } from "@/lib/db";
 import { Task } from "@/models/Task";
 import { BoardList } from "@/models/BoardList";
+import { Board } from "@/models/Board";
 import { requirePartner } from "@/lib/partner-auth";
 import { corsHeaders } from "@/lib/cors";
 import { canPerform, workflowDeny } from "@/lib/workflow-rbac";
@@ -16,8 +17,14 @@ export async function OPTIONS() {
 // POST /api/app/tasks/[taskId]/move
 // Body: { toListId: string, toIndex: number }
 //
+// The destination list may live on a different board of the same
+// chambers — that is how a card is handed from one board to another. The
+// task's boardId follows its list, so nothing downstream has to reconcile
+// the two.
+//
 // Side-effects: shifts sortOrders in the destination list, logs a
-// `task.moved` activity entry that records the source and destination list.
+// `task.moved` activity entry that records the source and destination
+// list (and board, when it changed).
 export async function POST(
   request: Request,
   context: { params: Promise<{ taskId: string }> }
@@ -64,15 +71,18 @@ export async function POST(
     );
   }
 
+  // The destination may be a list on ANOTHER board — that's how a card
+  // gets handed from, say, "For Preparation" to "Evidence". The only hard
+  // boundary is the tenant: partnerId still has to match, so a card can
+  // never cross into another chambers' board.
   const dest = await BoardList.findOne({
     _id: new mongoose.Types.ObjectId(toListId),
     partnerId: task.partnerId,
-    boardId: task.boardId,
     isDeleted: false,
   });
   if (!dest) {
     return NextResponse.json(
-      { error: "Target list not found on this board" },
+      { error: "Target list not found" },
       { status: 404, headers: guard.ctx.isMobile ? corsHeaders() : undefined }
     );
   }
@@ -81,12 +91,20 @@ export async function POST(
   // cross-list moves; intra-list reorders stay out of the audit feed
   // because they're noise (every drag would fire one).
   const fromListIdBefore = task.listId;
+  const fromBoardIdBefore = task.boardId;
   const isCrossListMove =
     String(fromListIdBefore) !== String(dest._id);
+  const isCrossBoardMove =
+    String(fromBoardIdBefore) !== String(dest.boardId);
   const fromList = isCrossListMove
     ? await BoardList.findOne({ _id: fromListIdBefore })
         .select("title")
         .lean()
+    : null;
+  // Only needed for the audit line, and only when the board actually
+  // changed — one extra read on a rare action.
+  const toBoard = isCrossBoardMove
+    ? await Board.findOne({ _id: dest.boardId }).select("title").lean()
     : null;
 
   // Pull all destination tasks (excluding the one being moved) ordered;
@@ -106,6 +124,7 @@ export async function POST(
   orderedIds.splice(insertAt, 0, task._id);
 
   task.listId = dest._id;
+  task.boardId = dest.boardId;
   task.sortOrder = insertAt;
   await task.save();
 
@@ -125,25 +144,46 @@ export async function POST(
   // Intra-list reorders are noise and stay out of the feed.
   if (isCrossListMove) {
     const fromTitle = fromList?.title ?? "another list";
+    // Where the card went is only a mystery on the board that LOST it —
+    // on the destination it is sitting there in plain sight. So a
+    // cross-board move is filed against the source board's feed, and the
+    // destination is named in the line. The card's own history is queried
+    // by targetId, so it carries the move either way, and the office feed
+    // still gets exactly one entry.
+    const destLabel = toBoard
+      ? `${toBoard.title} · ${dest.title}`
+      : dest.title;
     await logWorkflowActivity(guard.ctx, {
       action: "task.moved",
       targetType: "task",
       targetId: String(task._id),
       targetName: task.title,
-      boardId: String(task.boardId),
-      message: `moved **${task.title}** from **${fromTitle}** → **${dest.title}**`,
+      boardId: String(isCrossBoardMove ? fromBoardIdBefore : task.boardId),
+      message: `moved **${task.title}** from **${fromTitle}** → **${destLabel}**`,
       metadata: {
         fromListId: String(fromListIdBefore),
         fromListTitle: fromTitle,
         toListId: String(dest._id),
         toListTitle: dest.title,
         toIndex: insertAt,
+        ...(isCrossBoardMove
+          ? {
+              fromBoardId: String(fromBoardIdBefore),
+              toBoardId: String(dest.boardId),
+              toBoardTitle: toBoard?.title ?? "",
+            }
+          : {}),
       },
     });
   }
 
   return NextResponse.json(
-    { ok: true, listId: String(task.listId), sortOrder: task.sortOrder },
+    {
+      ok: true,
+      listId: String(task.listId),
+      boardId: String(task.boardId),
+      sortOrder: task.sortOrder,
+    },
     { headers: guard.ctx.isMobile ? corsHeaders() : undefined }
   );
 }
